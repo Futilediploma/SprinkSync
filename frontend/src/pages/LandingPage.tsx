@@ -51,7 +51,7 @@ export default function LandingPage() {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <Building2 className="h-8 w-8 text-construction-600" />
-              <span className="ml-2 text-xl font-bold text-gray-900">PMai</span>
+              <span className="ml-2 text-xl font-bold text-gray-900">SprinkSync</span>
             </div>
             <div className="flex items-center space-x-4">
               <Link
@@ -152,7 +152,7 @@ export default function LandingPage() {
             <span className="block">Start your free trial today.</span>
           </h2>
           <p className="mt-4 text-lg leading-6 text-construction-100">
-            Join thousands of construction professionals who trust PMai for their project management.
+            Join thousands of construction professionals who trust SprinkSync for their project management.
           </p>
           <Link
             to="/signup"

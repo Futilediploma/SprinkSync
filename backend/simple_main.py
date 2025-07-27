@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
-    title="Construction Management Platform",
+    title="SprinkSync Construction Management Platform",
     description="Modern construction management platform with comprehensive project tracking",
     version="1.0.0"
 )
@@ -18,7 +18,7 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
-    return {"message": "Construction Management Platform API"}
+    return {"message": "SprinkSync Construction Management Platform API"}
 
 @app.get("/api/health")
 async def health_check():

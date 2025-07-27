@@ -1,4 +1,4 @@
-# 🏗️ PMai - Construction Management Platform
+# 🏗️ SprinkSync - Construction Management Platform
 
 > A modern, full-stack construction management platform built for efficiency and scale
 
@@ -19,8 +19,8 @@
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/pmai-construction-platform.git
-   cd pmai-construction-platform
+   git clone https://github.com/yourusername/sprinksync-construction-platform.git
+   cd sprinksync-construction-platform
    ```
 
 2. **Backend Setup**
@@ -104,7 +104,7 @@
 ## 📁 Project Structure
 
 ```
-PMai/
+SprinkSync/
 ├── backend/
 │   ├── app/
 │   │   ├── core/          # Configuration and database
@@ -175,7 +175,7 @@ PMai/
 ## 🌟 Demo
 
 ### Live Demo Credentials
-- **Email**: `demo@pmai.com`
+- **Email**: `demo@sprinksync.com`
 - **Password**: `demo123`
 
 ### Screenshots

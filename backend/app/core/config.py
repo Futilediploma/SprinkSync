@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     
     # API
     API_V1_STR: str = "/api/v1"
-    PROJECT_NAME: str = "Construction Management Platform"
+    PROJECT_NAME: str = "SprinkSync Construction Management Platform"
     
     # Security
     SECRET_KEY: str = "your-secret-key-here-change-in-production"

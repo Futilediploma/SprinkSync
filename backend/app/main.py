@@ -4,7 +4,7 @@ from routes import projects, schedule, financials, documents, field, inspections
 from core.config import settings
 
 app = FastAPI(
-    title="Construction Management Platform",
+    title="SprinkSync Construction Management Platform",
     description="Modern construction management platform with comprehensive project tracking",
     version="1.0.0"
 )
@@ -29,8 +29,8 @@ app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 
 @app.get("/")
 async def root():
-    return {"message": "Construction Management Platform API", "version": "1.0.0"}
+    return {"message": "SprinkSync Construction Management Platform API", "version": "1.0.0"}
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "message": "Construction Management Platform is running"}
+    return {"status": "healthy", "message": "SprinkSync Construction Management Platform is running"}
