@@ -8,62 +8,8 @@ const Schedule = () => {
     queryFn: () => constructionApi.getTasks(),
   })
 
-  const mockTasks = [
-    {
-      id: 1,
-      name: 'Foundation Excavation',
-      description: 'Excavate foundation for main building structure',
-      status: 'completed',
-      priority: 'high',
-      start_date: '2024-01-15',
-      end_date: '2024-01-25',
-      duration_days: 10,
-      assigned_to: 'Excavation Crew A',
-      progress: 100,
-      project_id: 1
-    },
-    {
-      id: 2,
-      name: 'Foundation Pour',
-      description: 'Pour concrete foundation and footings',
-      status: 'in_progress',
-      priority: 'high',
-      start_date: '2024-01-26',
-      end_date: '2024-02-05',
-      duration_days: 10,
-      assigned_to: 'Concrete Crew B',
-      progress: 75,
-      project_id: 1
-    },
-    {
-      id: 3,
-      name: 'Steel Frame Erection',
-      description: 'Erect structural steel framework',
-      status: 'scheduled',
-      priority: 'high',
-      start_date: '2024-02-06',
-      end_date: '2024-03-15',
-      duration_days: 38,
-      assigned_to: 'Steel Crew C',
-      progress: 0,
-      project_id: 1
-    },
-    {
-      id: 4,
-      name: 'Electrical Rough-in',
-      description: 'Install electrical conduit and rough wiring',
-      status: 'scheduled',
-      priority: 'medium',
-      start_date: '2024-03-01',
-      end_date: '2024-03-20',
-      duration_days: 20,
-      assigned_to: 'Electrical Team D',
-      progress: 0,
-      project_id: 1
-    }
-  ]
-
-  const tasks = tasksData?.data || mockTasks
+  // Empty state - no mock data
+  const tasks = tasksData?.data || []
 
   const getStatusColor = (status: string) => {
     switch (status) {
