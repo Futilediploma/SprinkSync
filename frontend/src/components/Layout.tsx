@@ -14,6 +14,7 @@ import {
   X
 } from 'lucide-react'
 import { useState } from 'react'
+import ProjectSelector from './ProjectSelector'
 
 interface LayoutProps {
   children: ReactNode
@@ -54,9 +55,9 @@ const Layout = ({ children }: LayoutProps) => {
         <div className="flex h-16 items-center justify-between px-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 construction-gradient rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">CM</span>
+              <span className="text-white font-bold text-lg">S</span>
             </div>
-            <span className="text-xl font-bold text-gray-900">ConstructPro</span>
+            <span className="text-xl font-bold text-gray-900">SprinkSync</span>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
@@ -64,6 +65,11 @@ const Layout = ({ children }: LayoutProps) => {
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* Project Selector */}
+        <div className="px-4 py-4 border-b border-gray-200">
+          <ProjectSelector />
         </div>
 
         {/* Navigation */}

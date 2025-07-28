@@ -1,22 +1,28 @@
 import { Building2, Calendar, DollarSign, Users, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { constructionApi } from '../services/api'
+import { useProject } from '../contexts/ProjectContext'
 
 export default function Dashboard() {
-  // Fetch dashboard data from API
+  const { currentProject, isProjectSelected } = useProject()
+
+  // Fetch dashboard data from API - project-scoped when project is selected
   const { data: statsData, isLoading: statsLoading } = useQuery({
-    queryKey: ['dashboard-stats'],
+    queryKey: ['dashboard-stats', currentProject?.id],
     queryFn: () => constructionApi.getDashboardStats(),
+    enabled: isProjectSelected,
   })
 
   const { data: alertsData, isLoading: alertsLoading } = useQuery({
-    queryKey: ['dashboard-alerts'], 
+    queryKey: ['dashboard-alerts', currentProject?.id], 
     queryFn: () => constructionApi.getDashboardAlerts(),
+    enabled: isProjectSelected,
   })
 
   const { data: projectsData, isLoading: projectsLoading } = useQuery({
-    queryKey: ['projects'],
+    queryKey: ['projects', currentProject?.id],
     queryFn: () => constructionApi.getProjects(),
+    enabled: isProjectSelected,
   })
 
   // Use API data or fallback to loading state
@@ -31,32 +37,50 @@ export default function Dashboard() {
     'Completion Rate': TrendingUp,
   }
 
+  // Show project selection prompt if no project is selected
+  if (!isProjectSelected) {
+    return (
+      <div className="page-container">
+        <div className="empty-state">
+          <div className="empty-state-icon">
+            <Building2 className="w-12 h-12 text-gray-400" />
+          </div>
+          <h3 className="empty-state-title">Select a Project</h3>
+          <p className="empty-state-description">
+            Choose a project from the sidebar to view its dashboard and analytics.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   if (statsLoading || alertsLoading || projectsLoading) {
     return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-2">Loading dashboard data...</p>
+      <div className="page-container">
+        <div className="page-header">
+          <h1 className="page-title">Dashboard - {currentProject?.name}</h1>
         </div>
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-white overflow-hidden shadow rounded-lg animate-pulse">
-              <div className="p-5">
+        <div className="animate-pulse">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="stat-card">
                 <div className="h-16 bg-gray-200 rounded"></div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="page-container">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600 mt-2">Welcome back! Here's what's happening with your projects.</p>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Dashboard - {currentProject?.name}</h1>
+          <p className="page-subtitle">Project overview and key metrics for {currentProject?.name}</p>
+        </div>
       </div>
 
       {/* Stats Grid */}

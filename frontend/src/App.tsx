@@ -1,10 +1,12 @@
 import { Routes, Route } from 'react-router-dom'
+import { ProjectProvider } from './contexts/ProjectContext'
 import Layout from './components/Layout'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import Dashboard from './pages/Dashboard'
 import Projects from './pages/Projects'
+import ProjectDetail from './pages/ProjectDetail'
 import Schedule from './pages/Schedule'
 import Financials from './pages/Financials'
 import Documents from './pages/Documents'
@@ -15,6 +17,7 @@ import Reports from './pages/Reports'
 
 function App() {
   return (
+    <ProjectProvider>
     <Routes>
       {/* Public routes */}
       <Route path="/" element={<LandingPage />} />
@@ -30,6 +33,11 @@ function App() {
       <Route path="/projects" element={
         <Layout>
           <Projects />
+        </Layout>
+      } />
+      <Route path="/projects/:id" element={
+        <Layout>
+          <ProjectDetail />
         </Layout>
       } />
       <Route path="/schedule" element={
@@ -68,6 +76,7 @@ function App() {
         </Layout>
       } />
     </Routes>
+    </ProjectProvider>
   )
 }
 
