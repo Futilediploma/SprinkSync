@@ -30,7 +30,7 @@
    venv\Scripts\activate  # Windows
    # source venv/bin/activate  # macOS/Linux
    pip install -r requirements.txt
-   python simple_main.py
+   uvicorn main:app --reload --host 0.0.0.0 --port 8000
    ```
 
 3. **Frontend Setup**

@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_BASE_URL = 'http://localhost:8000'
+const API_BASE_URL = 'http://127.0.0.1:8000'
 
 // Create axios instance
 const api = axios.create({
@@ -39,9 +39,9 @@ export const constructionApi = {
   getDashboardAlerts: () => api.get('/api/dashboard/alerts'),
   
   // Projects
-  getProjects: () => api.get('/api/projects'),
+  getProjects: () => api.get('/api/projects/'),
   getProject: (id: number) => api.get(`/api/projects/${id}`),
-  createProject: (data: any) => api.post('/api/projects', data),
+  createProject: (data: any) => api.post('/api/projects/', data),
   updateProject: (id: number, data: any) => api.put(`/api/projects/${id}`, data),
   deleteProject: (id: number) => api.delete(`/api/projects/${id}`),
 

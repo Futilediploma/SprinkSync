@@ -1,8 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from app.utils.roles import require_roles, ADMIN, PROJECT_MANAGER, FIELD_CREDENTIAL
 
 router = APIRouter()
 
-@router.get("/")
+@router.get("/", dependencies=[Depends(require_roles([ADMIN, PROJECT_MANAGER, FIELD_CREDENTIAL]))])
 def get_field_overview():
     """Get field management overview"""
     return {
@@ -19,7 +20,7 @@ def get_field_overview():
         }
     }
 
-@router.get("/labor")
+@router.get("/labor", dependencies=[Depends(require_roles([ADMIN, PROJECT_MANAGER, FIELD_CREDENTIAL]))])
 def get_labor_tracking():
     """Get labor tracking information"""
     return {

@@ -1,32 +1,111 @@
-from pydantic import BaseModel, ConfigDict
+from datetime import datetime, date
 from typing import Optional, List
-from datetime import datetime
+from pydantic import BaseModel, ConfigDict
 
 # Project Schemas
 class ProjectBase(BaseModel):
+    # Basic Info
     name: str
     description: Optional[str] = None
-    status: str = "active"
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
-    budget: Optional[float] = None
+    status: Optional[str] = "Planning"
+    
+    # Job Details
+    job_number: Optional[str] = None
+    job_type: Optional[str] = None
+    job_category: Optional[str] = None
+    job_priority: Optional[str] = "Medium"
+    
+    # Location & Address
     address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip_code: Optional[str] = None
+    county: Optional[str] = None
+    
+    # Client Information
+    client_name: Optional[str] = None
+    client_contact: Optional[str] = None
+    client_phone: Optional[str] = None
+    client_email: Optional[str] = None
+    billing_address: Optional[str] = None
+    
+    # Schedule
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    estimated_duration: Optional[int] = None
+    critical_milestones: Optional[str] = None
+    
+    # Financial
+    contract_amount: Optional[float] = None
+    budget: Optional[float] = None
+    estimated_cost: Optional[float] = None
+    profit_margin: Optional[float] = None
+    payment_terms: Optional[str] = None
+    
+    # Personnel
     project_manager: Optional[str] = None
+    site_supervisor: Optional[str] = None
+    foreman: Optional[str] = None
+    safety_officer: Optional[str] = None
+    
+    # Permits & Documentation
+    permits_required: Optional[str] = None
+    permit_status: Optional[str] = None
+    insurance_requirements: Optional[str] = None
+    special_requirements: Optional[str] = None
+    
+    # Safety
+    safety_plan_required: Optional[bool] = False
+    hazard_analysis: Optional[str] = None
+    ppe_requirements: Optional[str] = None
 
 class ProjectCreate(ProjectBase):
-    pass
+    name: str  # Required field
 
 class ProjectUpdate(BaseModel):
+    # Make all fields optional for updates
     name: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
-    budget: Optional[float] = None
+    job_number: Optional[str] = None
+    job_type: Optional[str] = None
+    job_category: Optional[str] = None
+    job_priority: Optional[str] = None
     address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip_code: Optional[str] = None
+    county: Optional[str] = None
+    client_name: Optional[str] = None
+    client_contact: Optional[str] = None
+    client_phone: Optional[str] = None
+    client_email: Optional[str] = None
+    billing_address: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    estimated_duration: Optional[int] = None
+    critical_milestones: Optional[str] = None
+    contract_amount: Optional[float] = None
+    budget: Optional[float] = None
+    estimated_cost: Optional[float] = None
+    profit_margin: Optional[float] = None
+    payment_terms: Optional[str] = None
     project_manager: Optional[str] = None
+    site_supervisor: Optional[str] = None
+    foreman: Optional[str] = None
+    safety_officer: Optional[str] = None
+    permits_required: Optional[str] = None
+    permit_status: Optional[str] = None
+    insurance_requirements: Optional[str] = None
+    special_requirements: Optional[str] = None
+    safety_plan_required: Optional[bool] = None
+    hazard_analysis: Optional[str] = None
+    ppe_requirements: Optional[str] = None
 
 class Project(ProjectBase):
+    id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
     
     id: int

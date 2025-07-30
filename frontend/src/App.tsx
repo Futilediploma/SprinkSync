@@ -1,9 +1,13 @@
 import { Routes, Route } from 'react-router-dom'
 import { ProjectProvider } from './contexts/ProjectContext'
+import { AuthProvider } from './contexts/AuthContext'
 import Layout from './components/Layout'
-import LandingPage from './pages/LandingPage'
+import ProtectedRoute from './components/ProtectedRoute'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
+import CompanyRegistrationPage from './pages/CompanyRegistrationPage'
+import AcceptInvitationPage from './pages/AcceptInvitationPage'
+import UserManagementPage from './pages/UserManagementPage'
 import Dashboard from './pages/Dashboard'
 import Projects from './pages/Projects'
 import ProjectDetail from './pages/ProjectDetail'
@@ -14,69 +18,102 @@ import Field from './pages/Field'
 import Inspections from './pages/Inspections'
 import Design from './pages/Design'
 import Reports from './pages/Reports'
+import Simplelanding from './pages/Simplelanding'
+
 
 function App() {
   return (
-    <ProjectProvider>
-    <Routes>
-      {/* Public routes */}
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignupPage />} />
-      
-      {/* Protected routes with Layout */}
-      <Route path="/dashboard" element={
-        <Layout>
-          <Dashboard />
-        </Layout>
-      } />
-      <Route path="/projects" element={
-        <Layout>
-          <Projects />
-        </Layout>
-      } />
-      <Route path="/projects/:id" element={
-        <Layout>
-          <ProjectDetail />
-        </Layout>
-      } />
-      <Route path="/schedule" element={
-        <Layout>
-          <Schedule />
-        </Layout>
-      } />
-      <Route path="/financials" element={
-        <Layout>
-          <Financials />
-        </Layout>
-      } />
-      <Route path="/documents" element={
-        <Layout>
-          <Documents />
-        </Layout>
-      } />
-      <Route path="/field" element={
-        <Layout>
-          <Field />
-        </Layout>
-      } />
-      <Route path="/inspections" element={
-        <Layout>
-          <Inspections />
-        </Layout>
-      } />
-      <Route path="/design" element={
-        <Layout>
-          <Design />
-        </Layout>
-      } />
-      <Route path="/reports" element={
-        <Layout>
-          <Reports />
-        </Layout>
-      } />
-    </Routes>
-    </ProjectProvider>
+    <AuthProvider>
+      <ProjectProvider>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<Simplelanding />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/register-company" element={<CompanyRegistrationPage />} />
+          <Route path="/accept-invitation/:token" element={<AcceptInvitationPage />} />
+          
+          {/* Protected routes with Layout */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <Layout>
+                <Dashboard />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/projects" element={
+            <ProtectedRoute>
+              <Layout>
+                <Projects />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/projects/:id" element={
+            <ProtectedRoute>
+              <Layout>
+                <ProjectDetail />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/users" element={
+            <ProtectedRoute>
+              <Layout>
+                <UserManagementPage />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/schedule" element={
+            <ProtectedRoute>
+              <Layout>
+                <Schedule />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/financials" element={
+            <ProtectedRoute>
+              <Layout>
+                <Financials />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/documents" element={
+            <ProtectedRoute>
+              <Layout>
+                <Documents />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/field" element={
+            <ProtectedRoute>
+              <Layout>
+                <Field />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/inspections" element={
+            <ProtectedRoute>
+              <Layout>
+                <Inspections />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/design" element={
+            <ProtectedRoute>
+              <Layout>
+                <Design />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/reports" element={
+            <ProtectedRoute>
+              <Layout>
+                <Reports />
+              </Layout>
+            </ProtectedRoute>
+          } />
+        </Routes>
+      </ProjectProvider>
+    </AuthProvider>
   )
 }
 

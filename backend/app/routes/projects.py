@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from app.utils.roles import require_roles, ADMIN, PROJECT_MANAGER
 from sqlalchemy.orm import Session
 from typing import List
 from app.core.database import get_db
@@ -13,7 +14,7 @@ def get_projects(skip: int = 0, limit: int = 100, db: Session = Depends(get_db))
     projects = db.query(ProjectModel).offset(skip).limit(limit).all()
     return projects
 
-@router.post("/", response_model=Project)
+@router.post("/", response_model=Project, dependencies=[Depends(require_roles([ADMIN, PROJECT_MANAGER]))])
 def create_project(project: ProjectCreate, db: Session = Depends(get_db)):
     """Create a new project"""
     db_project = ProjectModel(**project.model_dump())
@@ -30,7 +31,7 @@ def get_project(project_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Project not found")
     return project
 
-@router.put("/{project_id}", response_model=Project)
+@router.put("/{project_id}", response_model=Project, dependencies=[Depends(require_roles([ADMIN, PROJECT_MANAGER]))])
 def update_project(project_id: int, project_update: ProjectUpdate, db: Session = Depends(get_db)):
     """Update a project"""
     project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
@@ -45,7 +46,7 @@ def update_project(project_id: int, project_update: ProjectUpdate, db: Session =
     db.refresh(project)
     return project
 
-@router.delete("/{project_id}")
+@router.delete("/{project_id}", dependencies=[Depends(require_roles([ADMIN, PROJECT_MANAGER]))])
 def delete_project(project_id: int, db: Session = Depends(get_db)):
     """Delete a project"""
     project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()

@@ -4,7 +4,7 @@ import { constructionApi } from '../services/api'
 import { useProject } from '../contexts/ProjectContext'
 import { Building2, Plus, Calendar, DollarSign, MoreVertical, Edit } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import CreateProjectModal from '../components/CreateProjectModal'
+import CreateProjectModal from '../components/CreateProjectModalSimple'
 
 export default function Projects() {
   const { setCurrentProject } = useProject()
@@ -15,7 +15,7 @@ export default function Projects() {
     queryFn: () => constructionApi.getProjects(),
   })
 
-  const projects = projectsData?.data?.projects || []
+  const projects = projectsData?.data || []
 
   const getStatusColor = (status: string) => {
     switch (status) {

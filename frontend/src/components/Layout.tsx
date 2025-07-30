@@ -1,5 +1,5 @@
-import { ReactNode } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { ReactNode, useState, useEffect } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   FolderOpen,
@@ -11,10 +11,13 @@ import {
   Compass,
   BarChart3,
   Menu,
-  X
+  X,
+  LogOut,
+  ChevronDown,
+  UserCog
 } from 'lucide-react'
-import { useState } from 'react'
 import ProjectSelector from './ProjectSelector'
+import { authApi } from '../services/authApi'
 
 interface LayoutProps {
   children: ReactNode
@@ -22,19 +25,75 @@ interface LayoutProps {
 
 const Layout = ({ children }: LayoutProps) => {
   const location = useLocation()
+  const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)
 
-  const navigation = [
-    { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { name: 'Projects', href: '/projects', icon: FolderOpen },
-    { name: 'Schedule', href: '/schedule', icon: Calendar },
-    { name: 'Financials', href: '/financials', icon: DollarSign },
-    { name: 'Documents', href: '/documents', icon: FileText },
-    { name: 'Field', href: '/field', icon: Users },
-    { name: 'Inspections', href: '/inspections', icon: ClipboardCheck },
-    { name: 'Design', href: '/design', icon: Compass },
-    { name: 'Reports', href: '/reports', icon: BarChart3 },
-  ]
+  useEffect(() => {
+    // Load current user info on component mount
+    const loadUser = async () => {
+      try {
+        const user = await authApi.getCurrentUser()
+        setCurrentUser(user)
+      } catch (error) {
+        console.error('Failed to load user:', error)
+        // If token is invalid, redirect to login
+        navigate('/login')
+      }
+    }
+    
+    loadUser()
+  }, [navigate])
+
+  useEffect(() => {
+    // Close user menu when clicking outside
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuOpen && !(event.target as Element).closest('.user-menu')) {
+        setUserMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [userMenuOpen])
+
+  const handleLogout = async () => {
+    try {
+      await authApi.logout()
+      localStorage.removeItem('auth_token')
+      navigate('/login')
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Force logout even if API call fails
+      localStorage.removeItem('auth_token')
+      navigate('/login')
+    }
+  }
+
+  let navigation = []
+  if (currentUser?.role === 'design_credential') {
+    navigation = [
+      { name: 'Design', href: '/design', icon: Compass },
+      { name: 'Inspections', href: '/inspections', icon: ClipboardCheck },
+      { name: 'Documents', href: '/documents', icon: FileText },
+    ]
+  } else {
+    navigation = [
+      { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { name: 'Projects', href: '/projects', icon: FolderOpen },
+      { name: 'Schedule', href: '/schedule', icon: Calendar },
+      { name: 'Financials', href: '/financials', icon: DollarSign },
+      { name: 'Documents', href: '/documents', icon: FileText },
+      { name: 'Field', href: '/field', icon: Users },
+      { name: 'Inspections', href: '/inspections', icon: ClipboardCheck },
+      { name: 'Design', href: '/design', icon: Compass },
+      { name: 'Reports', href: '/reports', icon: BarChart3 },
+      ...(currentUser?.role === 'admin' || currentUser?.role === 'company_admin' 
+        ? [{ name: 'User Management', href: '/users', icon: UserCog }] 
+        : []),
+    ]
+  }
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -119,11 +178,62 @@ const Layout = ({ children }: LayoutProps) => {
           </div>
 
           <div className="flex items-center space-x-4">
-            <div className="text-sm text-gray-600">
-              Welcome, Project Manager
-            </div>
-            <div className="w-8 h-8 bg-construction-gradient rounded-full flex items-center justify-center">
-              <span className="text-white text-sm font-medium">PM</span>
+            <div className="relative user-menu">
+              <button
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-900 focus:outline-none"
+              >
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 bg-construction-gradient rounded-full flex items-center justify-center">
+                    <span className="text-white text-sm font-medium">
+                      {currentUser?.first_name?.[0]}{currentUser?.last_name?.[0]}
+                    </span>
+                  </div>
+                  <div className="hidden md:block text-left">
+                    <div className="font-medium">
+                      {currentUser?.first_name} {currentUser?.last_name}
+                    </div>
+                    <div className="text-xs text-gray-500 capitalize">
+                      {currentUser?.role?.replace('_', ' ')}
+                    </div>
+                  </div>
+                  <ChevronDown className="w-4 h-4" />
+                </div>
+              </button>
+
+              {/* User Dropdown Menu */}
+              {userMenuOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                  <div className="p-3 border-b border-gray-100">
+                    <div className="font-medium text-gray-900">
+                      {currentUser?.first_name} {currentUser?.last_name}
+                    </div>
+                    <div className="text-sm text-gray-500">{currentUser?.email}</div>
+                    <div className="text-xs text-gray-400 capitalize">
+                      {currentUser?.company_name} • {currentUser?.role?.replace('_', ' ')}
+                    </div>
+                  </div>
+                  
+                  {(currentUser?.role === 'admin' || currentUser?.role === 'company_admin') && (
+                    <Link
+                      to="/users"
+                      className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <UserCog className="w-4 h-4" />
+                      <span>User Management</span>
+                    </Link>
+                  )}
+                  
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </header>

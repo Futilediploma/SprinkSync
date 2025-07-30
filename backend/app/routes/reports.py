@@ -1,8 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from app.utils.roles import require_roles, ADMIN, PROJECT_MANAGER
 
 router = APIRouter()
 
-@router.get("/")
+@router.get("/", dependencies=[Depends(require_roles([ADMIN, PROJECT_MANAGER]))])
 def get_reports():
     """Get reports overview"""
     return {
@@ -16,7 +17,7 @@ def get_reports():
         ]
     }
 
-@router.get("/dashboard")
+@router.get("/dashboard", dependencies=[Depends(require_roles([ADMIN, PROJECT_MANAGER]))])
 def get_dashboard_data():
     """Get dashboard summary data"""
     return {

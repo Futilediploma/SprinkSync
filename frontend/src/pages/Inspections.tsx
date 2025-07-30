@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { constructionApi } from '../services/api'
 import { useProject } from '../contexts/ProjectContext'
-import { ClipboardCheck, Calendar, AlertTriangle, Plus, Filter } from 'lucide-react'
+import { ClipboardCheck, Calendar, Plus, Filter } from 'lucide-react'
 
 const Inspections = () => {
   const { currentProject, isProjectSelected } = useProject()

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from app.utils.roles import require_roles, ADMIN, PROJECT_MANAGER, DESIGN_CREDENTIAL
 from sqlalchemy.orm import Session
 from typing import List
 from app.core.database import get_db
@@ -16,7 +17,7 @@ def get_tasks(project_id: int = None, skip: int = 0, limit: int = 100, db: Sessi
     tasks = query.offset(skip).limit(limit).all()
     return tasks
 
-@router.post("/", response_model=Task)
+@router.post("/", response_model=Task, dependencies=[Depends(require_roles([ADMIN, PROJECT_MANAGER, DESIGN_CREDENTIAL]))])
 def create_task(task: TaskCreate, db: Session = Depends(get_db)):
     """Create a new task"""
     db_task = TaskModel(**task.model_dump())
@@ -33,7 +34,7 @@ def get_task(task_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Task not found")
     return task
 
-@router.put("/{task_id}", response_model=Task)
+@router.put("/{task_id}", response_model=Task, dependencies=[Depends(require_roles([ADMIN, PROJECT_MANAGER, DESIGN_CREDENTIAL]))])
 def update_task(task_id: int, task_update: TaskUpdate, db: Session = Depends(get_db)):
     """Update a task"""
     task = db.query(TaskModel).filter(TaskModel.id == task_id).first()
@@ -48,7 +49,7 @@ def update_task(task_id: int, task_update: TaskUpdate, db: Session = Depends(get
     db.refresh(task)
     return task
 
-@router.delete("/{task_id}")
+@router.delete("/{task_id}", dependencies=[Depends(require_roles([ADMIN, PROJECT_MANAGER, DESIGN_CREDENTIAL]))])
 def delete_task(task_id: int, db: Session = Depends(get_db)):
     """Delete a task"""
     task = db.query(TaskModel).filter(TaskModel.id == task_id).first()

@@ -121,6 +121,7 @@ frontend/.vite/
 backend/__pycache__/
 backend/*.pyc
 backend/venv/
+backend/.venv/
 backend/.pytest_cache/
 backend/.coverage
 backend/instance/
@@ -177,3 +178,11 @@ playwright-report/
 # Build artifacts
 *.tgz
 *.tar.gz
+
+# Backup and temporary files
+*-backup.*
+*-test.*
+*.backup
+*.bak
+*.tmp
+*.temp
