@@ -138,10 +138,6 @@ export default function Simplelanding() {
                 <span className="px-2 bg-white text-gray-500">Demo Credentials</span>
               </div>
             </div>
-            <div className="mt-4 text-sm text-gray-600 text-center">
-              <p>Email: <code className="bg-gray-100 px-1 rounded">demo@sprinksync.com</code></p>
-              <p>Password: <code className="bg-gray-100 px-1 rounded">demo123</code></p>
-            </div>
           </div>
         </form>
       </div>
