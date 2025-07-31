@@ -5,13 +5,16 @@ from app.models.construction import Base
 from app.models.auth import User, Company, UserInvitation, UserSession  # Import auth models
 from app.api.api_v1.endpoints import projects
 from app.routes.auth import router as auth_router
-from app.core.config import settings
+from config import get_settings  # Use new config system
 from app.middleware.security import SecurityHeadersMiddleware, RequestLoggingMiddleware
 import logging
 
+# Get settings
+settings = get_settings()
+
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, settings.LOG_LEVEL),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
@@ -30,9 +33,15 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 
 # CORS middleware with environment-based configuration
+try:
+    allowed_origins = settings.get_allowed_origins_list()
+    if not allowed_origins:
+        allowed_origins = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173"]
+except Exception:
+    allowed_origins = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

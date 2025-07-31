@@ -13,13 +13,45 @@ export default function SignupPage() {
     password: '',
     confirmPassword: ''
   })
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: Implement actual registration
-    console.log('Signup attempt:', formData)
-    // For now, redirect to dashboard
-    window.location.href = '/dashboard'
+    setError(null)
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
+    setLoading(true)
+    try {
+      // Adjust endpoint and payload as needed for your backend
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          email: formData.email,
+          company: formData.company,
+          password: formData.password,
+        }),
+      })
+      if (!response.ok) {
+        const data = await response.json()
+        setError(data.detail || 'Registration failed.')
+        setLoading(false)
+        return
+      }
+      // Registration successful
+      window.location.href = '/login'
+    } catch (err) {
+      setError('Network error. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,6 +81,9 @@ export default function SignupPage() {
             </Link>
           </p>
         </div>
+        {error && (
+          <div className="text-red-600 text-sm text-center mb-2">{error}</div>
+        )}
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -216,8 +251,9 @@ export default function SignupPage() {
             <button
               type="submit"
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-construction-gradient hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-construction-500"
+              disabled={loading}
             >
-              Create Account
+              {loading ? 'Creating Account...' : 'Create Account'}
             </button>
           </div>
         </form>

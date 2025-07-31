@@ -63,6 +63,13 @@ class AcceptInvitation(BaseModel):
     last_name: str
     password: str
 
+class UserSignup(BaseModel):
+    first_name: str
+    last_name: str
+    email: EmailStr
+    company: str
+    password: str
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str
@@ -93,6 +100,67 @@ async def get_company_admin(current_user: User = Depends(get_current_user)) -> U
             detail="Not enough permissions"
         )
     return current_user
+
+@router.post("/signup", response_model=TokenResponse)
+async def signup(user_data: UserSignup, db: Session = Depends(get_db)):
+    """Register a new user with a company"""
+    
+    # Validate password strength
+    is_valid, password_errors = AuthService.validate_password_strength(user_data.password)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Password validation failed: {'; '.join(password_errors)}"
+        )
+    
+    # Check if email already exists
+    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
+    
+    try:
+        # Create company and admin user
+        company, user = AuthService.create_company(
+            db=db,
+            name=user_data.company,
+            admin_email=user_data.email,
+            admin_first_name=user_data.first_name,
+            admin_last_name=user_data.last_name,
+            admin_password=user_data.password
+        )
+        
+        # Create access token
+        access_token = AuthService.create_access_token(
+            data={"sub": str(user.id), "email": user.email, "role": user.role}
+        )
+        
+        # Create session
+        AuthService.create_session(db, str(user.id), access_token)
+        
+        user_response = UserResponse(
+            id=str(user.id),
+            email=user.email,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            role=user.role,
+            company_id=str(user.company_id),
+            company_name=company.name
+        )
+        
+        return TokenResponse(
+            access_token=access_token,
+            token_type="bearer",
+            user=user_response
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error creating account: {str(e)}"
+        )
 
 @router.post("/login", response_model=TokenResponse)
 async def login(user_data: UserLoginSecure, db: Session = Depends(get_db)):
