@@ -101,6 +101,16 @@ async def get_company_admin(current_user: User = Depends(get_current_user)) -> U
         )
     return current_user
 
+@router.options("/login")
+async def login_options():
+    """Handle CORS preflight for login endpoint"""
+    return {"message": "OK"}
+
+@router.options("/signup")
+async def signup_options():
+    """Handle CORS preflight for signup endpoint"""
+    return {"message": "OK"}
+
 @router.post("/signup", response_model=TokenResponse)
 async def signup(user_data: UserSignup, db: Session = Depends(get_db)):
     """Register a new user with a company"""
