@@ -1,0 +1,30 @@
+# 🔧 Docker Permission Fix Commands
+# Copy and paste these commands in your SSH session to your server:
+
+# 1. Navigate to project directory
+cd ~/SprinkSync
+
+# 2. Force stop all containers with sudo (fixes permission issue)
+sudo docker compose down --remove-orphans
+
+# 3. Force kill any stuck containers
+sudo docker kill $(sudo docker ps -q) 2>/dev/null || true
+
+# 4. Remove stopped containers
+sudo docker container prune -f
+
+# 5. Pull latest changes from GitHub
+git pull origin main
+
+# 6. Rebuild and start containers with sudo
+sudo docker compose up -d --build
+
+# 7. Check container status
+docker ps
+
+# 8. Check logs if needed
+docker logs sprinksync-backend
+docker logs sprinksync-frontend
+
+# 9. Test the API endpoint
+curl https://sprinksync.com/api/health
