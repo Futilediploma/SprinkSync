@@ -63,6 +63,7 @@ const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 10
               label="Location (ft)"
               value={String(feet)}
               onChange={e => setFeet(Number(e.target.value))}
+              MenuProps={{ disablePortal: true }}
             >
               {[...Array(maxFeet + 1).keys()].map(f => (
                 <MenuItem key={f} value={String(f)}>{f}</MenuItem>
@@ -76,6 +77,7 @@ const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 10
               label="Location (in)"
               value={String(inches)}
               onChange={e => setInches(parseInt(e.target.value))}
+              MenuProps={{ disablePortal: true }}
             >
               {[...Array(12).keys()].map(i => (
                 <MenuItem key={i} value={String(i)}>{i}</MenuItem>
@@ -89,10 +91,15 @@ const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 10
               label="Fraction"
               value={fraction}
               onChange={e => setFraction(e.target.value)}
+              MenuProps={{ disablePortal: true }}
             >
               <MenuItem value="">-</MenuItem>
+              <MenuItem value="0">0</MenuItem>
+              <MenuItem value="1/8">1/8</MenuItem>
               <MenuItem value="1/4">1/4</MenuItem>
+              <MenuItem value="3/8">3/8</MenuItem>
               <MenuItem value="1/2">1/2</MenuItem>
+              <MenuItem value="5/8">5/8</MenuItem>  
               <MenuItem value="3/4">3/4</MenuItem>
             </Select>
           </FormControl>
@@ -103,6 +110,7 @@ const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 10
                 label="Outlet Size"
                 value={size}
                 onChange={e => setSize(e.target.value)}
+                MenuProps={{ disablePortal: true }}
                 >
                 <MenuItem value="1">1"</MenuItem>
                 <MenuItem value="1.25">1 1/4"</MenuItem>
@@ -128,6 +136,7 @@ const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 10
             value={type}
             onChange={e => setType(e.target.value as string)}
             required
+            MenuProps={{ disablePortal: true }}
           >
             <MenuItem value=""><em>Select outlet</em></MenuItem>
             {OUTLET_TYPES.map((ot) => (
@@ -143,6 +152,7 @@ const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 10
             value={direction}
             onChange={e => setDirection(e.target.value as string)}
             required
+            MenuProps={{ disablePortal: true }}
           >
             <MenuItem value=""><em>Select direction</em></MenuItem>
             {[1,2,3,4,5,6,7,8].map((d) => (

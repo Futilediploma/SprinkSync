@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useRef } from "react";
+import { exportPipeSketchPdf } from "./exportPdf";
 
 import type { WeldedOutlet } from "./WeldedOutletForm";
 
@@ -10,6 +11,8 @@ interface PipeSketchProps {
   fittingsEndPipeLabel1: string;
   fittingsEndPipeLabel2: string;
   outlets?: WeldedOutlet[];
+  showExportButton?: boolean;
+  hideSummaryText?: boolean;
 }
 
 // Utility to convert inches to feet-inches string (not used, but kept for future use)
@@ -18,10 +21,59 @@ interface PipeSketchProps {
 //   const inch = +(inches % 12).toFixed(2);
 //   return `${feet}'-${inch}${inch !== 1 ? '' : ''}`;
 // }
+// Helper to convert decimal inches to nearest fraction (1/16)
+// Map for common unicode fractions up to 1/16
+const unicodeFractions: Record<string, string> = {
+  '1/16': '\u215B', // ⅛ (no 1/16 unicode, fallback to ⅛)
+  '1/8': '\u215B', // ⅛
+  '3/16': '3/16',
+  '1/4': '\u00BC', // ¼
+  '5/16': '5/16',
+  '3/8': '\u215C', // ⅜
+  '7/16': '7/16',
+  '1/2': '\u00BD', // ½
+  '9/16': '9/16',
+  '5/8': '\u215D', // ⅝
+  '11/16': '11/16',
+  '3/4': '\u00BE', // ¾
+  '13/16': '13/16',
+  '7/8': '\u215E', // ⅞
+  '15/16': '15/16',
+};
+
+function toFraction(inch: number) {
+  const whole = Math.floor(inch);
+  const frac = inch - whole;
+  const denominator = 16;
+  let numerator = Math.round(frac * denominator);
+  // If the fractional part is less than 1/16, treat as whole inch
+  if (frac < 1/16) {
+    return `${whole}`;
+  }
+  if (numerator === denominator) {
+    return `${whole + 1}`;
+  }
+  if (numerator === 0) {
+    return `${whole}`;
+  }
+  // Reduce fraction
+  let gcd = (a: number, b: number): number => b ? gcd(b, a % b) : a;
+  const divisor = gcd(numerator, denominator);
+  const reducedNum = numerator / divisor;
+  const reducedDen = denominator / divisor;
+  const fracStr = `${reducedNum}/${reducedDen}`;
+  // Use unicode if available
+  const unicode = unicodeFractions[fracStr];
+  if (unicode) {
+    return whole === 0 ? `${eval(`'${unicode}'`)}` : `${whole}${eval(`'${unicode}'`)}`;
+  }
+  return whole === 0 ? `${fracStr}` : `${whole} ${fracStr}`;
+}
+
 function formatFeetInches(inches: number) {
   const feet = Math.floor(inches / 12);
   const inch = inches % 12;
-  return `${feet}' ${inch}"`;
+  return `${feet}' ${toFraction(inch)}"`;
 }
 
 const pipeColors: Record<string, string> = {
@@ -34,23 +86,55 @@ const pipeColors: Record<string, string> = {
   galvanized_steel: '#bdbdbd',
 };
 
-const PipeSketch: React.FC<PipeSketchProps> = ({ pipeType, pipetag, length, diameter, fittingsEndPipeLabel1, fittingsEndPipeLabel2, outlets = [] }) => {
+const PipeSketch: React.FC<PipeSketchProps> = ({ pipeType, pipetag, length, diameter, fittingsEndPipeLabel1, fittingsEndPipeLabel2, outlets = [], showExportButton = false, hideSummaryText = false }) => {
   // SVG dimensions
+  const svgRef = useRef<SVGSVGElement>(null);
   // Responsive width: use 100% of parent, but set a max width
   const width = 480;
-  const height = 220; // increased height for more space
+  const height = 275; // increased height for more space
   const margin = 30;
-  const pipeY = 100; // move pipe down
+  const pipeY = 125; // move pipe down
   const pipeHeight = 16;
   const pipeLength = width - 2 * margin;
   const fillColor = pipeColors[pipeType] || '#e5e7eb';
 
   // Optionally, you could use 'length' to scale the pipe or display a label
+  // Calculate segment values for multiple outlets
+  // Sort outlets by location
+  const sortedOutlets = [...outlets].sort((a, b) => Number(a.location) - Number(b.location));
+  // Build array of segment start/end positions (in inches)
+  const segmentPositions = [0, ...sortedOutlets.map(o => Number(o.location)), length];
+  // Calculate segment lengths
+  const segmentLengths = [];
+  for (let i = 0; i < segmentPositions.length - 1; i++) {
+    segmentLengths.push(segmentPositions[i+1] - segmentPositions[i]);
+  }
+  // Calculate x positions for each segment center
+  const segmentCenters: number[] = [];
+  for (let i = 0; i < segmentPositions.length - 1; i++) {
+    const x1 = margin + (segmentPositions[i] / length) * pipeLength;
+    const x2 = margin + (segmentPositions[i+1] / length) * pipeLength;
+    segmentCenters.push((x1 + x2) / 2);
+  }
+
   return (
     <div style={{ width: '100%', maxWidth: '480px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-  <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} style={{ marginBottom: 6, display: 'block' }}>
-        {/* Pipe */}
-  <rect x={margin} y={pipeY} width={pipeLength} height={pipeHeight} fill={fillColor} stroke="#222" strokeWidth={2} rx={4} />
+  <svg ref={svgRef} width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ marginBottom: 6, display: 'block' }}>
+        {/* Background gradient */}
+        <defs>
+          <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2={height} gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#e3f0ff" />
+            <stop offset="100%" stopColor="#f0f6ff" />
+          </linearGradient>
+          <radialGradient id="pipe3d" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#fff" stopOpacity="0.7" />
+            <stop offset="60%" stopColor={fillColor} stopOpacity="1" />
+            <stop offset="100%" stopColor="#888" stopOpacity="1" />
+          </radialGradient>
+        </defs>
+        <rect x="0" y="0" width={width} height={height} fill="url(#bgGrad)" />
+        {/* Pipe with 3D effect */}
+        <rect x={margin} y={pipeY} width={pipeLength} height={pipeHeight} fill="url(#pipe3d)" stroke="#222" strokeWidth={2} rx={8} />
         {/* Welded Outlets */}
               {outlets.map((outlet, idx) => {
                 // Map location (inches) to x position on pipe
@@ -65,7 +149,7 @@ const PipeSketch: React.FC<PipeSketchProps> = ({ pipeType, pipetag, length, diam
                     <g key={idx}>
                       <line x1={x} y1={pipeY + 20} x2={x} y2={pipeY - 4} stroke="#222" strokeWidth={6} />
                       <line x1={x - 7} y1={pipeY + 36} x2={x} y2={pipeY + 20} stroke="#222" strokeWidth={1.5} />
-                      <text x={x + 12} y={pipeY + pipeHeight - 34} textAnchor="middle" fontSize="13" fill="#333">
+                      <text x={x - 10} y={pipeY + pipeHeight + 34} textAnchor="middle" fontSize="13" fill="#333">
                           {outlet.size}"
                       </text>
                     </g>
@@ -75,8 +159,8 @@ const PipeSketch: React.FC<PipeSketchProps> = ({ pipeType, pipetag, length, diam
                   return (
                     <g key={idx}>
                       <line x1={x} y1={pipeY + 20} x2={x} y2={pipeY - 4} stroke="#222" strokeWidth={6} />
-                      <line x1={x + 7} y1={pipeY - 18} x2={x} y2={pipeY - 5} stroke="#222" strokeWidth={1.5} />
-                      <text x={x - 10} y={pipeY + pipeHeight + 32} textAnchor="middle" fontSize="13" fill="#333">
+                      <line x1={x + 7} y1={pipeY - 18} x2={x} y2={pipeY} stroke="#222" strokeWidth={1.5} />
+                      <text x={x + 14} y={pipeY - 22} textAnchor="middle" fontSize="13" fill="#333">
                           {outlet.size}"
                       </text>
                     </g>
@@ -87,16 +171,16 @@ const PipeSketch: React.FC<PipeSketchProps> = ({ pipeType, pipetag, length, diam
                     {isBottom ? (
                       <>
                       <line x1={x} y1={pipeY + 20} x2={x} y2={pipeY - 4} stroke="#222" strokeWidth={6} />
-                      <line x1={x} y1={pipeY + pipeHeight} x2={x} y2={pipeY + pipeHeight + 18} stroke="#222" strokeWidth={1.5} />
-                      <text x={x} y={pipeY + pipeHeight + 30} textAnchor="middle" fontSize="13" fill="#333">
+                      <line x1={x} y1={pipeY + pipeHeight} x2={x} y2={pipeY + pipeHeight + 35} stroke="#222" strokeWidth={1.5} />
+                      <text x={x + 2} y={pipeY + pipeHeight + 47} textAnchor="middle" fontSize="13" fill="#333">
                         {outlet.size}"
                       </text>
                       </>
                     ) : isTop ? (
                       <>
                       <line x1={x} y1={pipeY + 20} x2={x} y2={pipeY - 4} stroke="#222" strokeWidth={6} />
-                        <line x1={x} y1={pipeY - 20} x2={x} y2={pipeY - 0} stroke="#222" strokeWidth={1.5} />
-                        <text x={x} y={pipeY - 22} textAnchor="middle" fontSize="13" fill="#333">
+                        <line x1={x} y1={pipeY - 27} x2={x} y2={pipeY - 0} stroke="#222" strokeWidth={1.5} />
+                        <text x={x} y={pipeY - 30} textAnchor="middle" fontSize="13" fill="#333">
                           {outlet.size}"
                         </text>
                       </>
@@ -104,34 +188,92 @@ const PipeSketch: React.FC<PipeSketchProps> = ({ pipeType, pipetag, length, diam
                   </g>
                 );
               })}
-        {/* Arrowhead marker definition */}
-        <defs>
-          <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
-            <path d="M0,0 L8,3 L0,6 L2,3 Z" fill="#222" />
-          </marker>
-        </defs>
-        {/* Pipe tags */}
-        <text x={margin} y={pipeY - 50} textAnchor="start" fontSize="14" fill="#333">
-          Pipe ID: {pipetag}
-        </text>
-        {/* Show length as text */}
-        <text x={width / 2} y={pipeY + pipeHeight + 95} textAnchor="middle" fontSize="16" fill="#333">
-          LENGTH: {formatFeetInches(length)}
-        </text>
-        {/* Show diameter as text */}
-        <text x={width - 130} y={pipeY - 50} textAnchor="start" fontSize="16" fill="#333">
-          Diameter: {diameter} in
-        </text>
-        <text x={width / 2} y={pipeY - 50} textAnchor="middle" fontSize="16" fill="#333">
-         Pipe Type: {pipeType}
-        </text>
-        <text x={margin} y={pipeY + 60} textAnchor="start" fontSize="16" fill="#333">
-          {fittingsEndPipeLabel1}
-        </text>
-        <text x={width - margin} y={pipeY + 60} textAnchor="end" fontSize="16" fill="#333">
-          {fittingsEndPipeLabel2}
-        </text>
+        {/* DIMENSION LINE*/}
+        <line x2={margin} x1={pipeLength + margin} y2={pipeY - pipeHeight + 100} y1={pipeY - pipeHeight + 100} stroke ="#222" strokeWidth={3} />
+        <line x1={margin} y1={pipeY + 75} x2={margin} y2={pipeY + pipeHeight + 75} stroke="#222" strokeWidth={3} />
+        <line x1={pipeLength + margin} y1={pipeY + 75} x2={pipeLength + margin} y2={pipeY + pipeHeight + 75} stroke="#222" strokeWidth={3} />
+
+        {/* Segment Lengths for all segments */}
+        {/* Only show segment labels if there are outlets */}
+        {outlets.length > 0 && segmentLengths.map((segLen, idx) => (
+          <text
+            key={idx}
+            x={segmentCenters[idx]}
+            y={pipeY + pipeHeight + 100}
+            textAnchor="middle"
+            fontSize="16"
+            fill={idx === 0 ? "#1976d2" : idx === segmentLengths.length - 1 ? "#d32f2f" : "#333"}
+            fontWeight="bold"
+          >
+            {formatFeetInches(segLen)}
+          </text>
+        ))}
+        {/*OUTLET LOCATION ON DIMENSION LINE*/}
+        {outlets.map((outlet, idx) => {
+          const loc = Number(outlet.location);
+          const x = margin + Math.max(0, Math.min(loc / length, 1)) * pipeLength;
+          return (
+            <g key={idx}>
+              <line x1={x} y1={pipeY - pipeHeight + 90} x2={x} y2={pipeY + pipeHeight + 80} stroke="#222" strokeWidth={3} />
+            </g>
+          );
+        })}
+        {/* (Add rendering logic here if needed, or remove this block if not used) */}
+
+        {/* Pipe tags and summary text (conditionally hidden for export) */}
+        {!hideSummaryText && (
+          <>
+            <text x={margin} y={pipeY - 90} textAnchor="start" fontSize="14" fill="#333">
+              Pipe ID: {pipetag}
+            </text>
+            <text x={width / 2} y={pipeY + pipeHeight + 120} textAnchor="middle" fontSize="16" fill="#333">
+              LENGTH: {formatFeetInches(length)}
+            </text>
+            <text x={width - 130} y={pipeY - 90} textAnchor="start" fontSize="16" fill="#333">
+              Diameter: {diameter} in
+            </text>
+            <text x={width / 2} y={pipeY - 90} textAnchor="middle" fontSize="16" fill="#333">
+              Pipe Type: {pipeType}
+            </text>
+            <text x={margin} y={pipeY + pipeHeight + 120} textAnchor="start" fontSize="16" fill="#333">
+              {fittingsEndPipeLabel1}
+            </text>
+            <text x={width - margin} y={pipeY + pipeHeight + 120} textAnchor="end" fontSize="16" fill="#333">
+              {fittingsEndPipeLabel2}
+            </text>
+          </>
+        )}
       </svg>
+      {/* Export PDF Button (only if showExportButton is true) */}
+      {showExportButton && (
+        <button
+          style={{
+            marginTop: 16,
+            padding: '10px 24px',
+            background: '#1976d2',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 6,
+            fontWeight: 600,
+            fontSize: 16,
+            cursor: 'pointer',
+            boxShadow: '0 2px 8px #0001',
+          }}
+          onClick={async () => {
+            if (svgRef.current) {
+              await exportPipeSketchPdf(svgRef.current, {
+                pipeType,
+                pipetag,
+                length,
+                diameter,
+                outlets,
+              });
+            }
+          }}
+        >
+          Export PDF
+        </button>
+      )}
     </div>
   );
 };
