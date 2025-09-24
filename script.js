@@ -42,7 +42,7 @@ function tryFieldFab() {
     
     // Navigate to Field Fab after brief delay
     setTimeout(() => {
-        window.location.href = 'http://localhost:5173/';
+        window.location.href = '/fieldfab/';
     }, 500);
     
     // Restore button state as fallback
