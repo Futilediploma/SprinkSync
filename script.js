@@ -42,7 +42,11 @@ function tryFieldFab() {
     
     // Navigate to Field Fab after brief delay
     setTimeout(() => {
+<<<<<<< HEAD
         window.location.href = 'http://localhost:5173/';
+=======
+        window.location.href = '/fieldfab/';
+>>>>>>> 720097817c90c11f8eb0a86e420af40f3b03a16b
     }, 500);
     
     // Restore button state as fallback
@@ -51,4 +55,8 @@ function tryFieldFab() {
         button.disabled = false;
         button.style.opacity = '1';
     }, 2000);
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 720097817c90c11f8eb0a86e420af40f3b03a16b
