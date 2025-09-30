@@ -4,6 +4,13 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import PipeSketch from './PipeSketch';
 
+// Utility to format feet/inches for PDF
+function formatFeetInches(inches: number) {
+  const feet = Math.floor(inches / 12);
+  const inch = Math.round(inches % 12);
+  return `${feet}' ${inch}\"`;
+}
+
 // Export multiple pieces (3 per page) with job info header
 export async function exportMultiPiecePdf(project: any, pieces: any[]) {
   // Image render/crop settings
@@ -32,11 +39,11 @@ export async function exportMultiPiecePdf(project: any, pieces: any[]) {
           pipeType: pieces[i].pipeType,
           pipetag: pieces[i].pipeTag || '',
           diameter: pieces[i].diameter,
-          fittingsEndPipeLabel1: pieces[i].fittingsEnd1 || '',
-          fittingsEndPipeLabel2: pieces[i].fittingsEnd2 || '',
+          fittingsEndPipeLabel1: pieces[i].fittingsEnd1 || 'roll grooved',
+          fittingsEndPipeLabel2: pieces[i].fittingsEnd2 || 'threaded',
           outlets: pieces[i].outlets || [],
           showExportButton: false,
-          hideSummaryText: true,
+          hideSummaryText: true, // Hide summary text for PDF export
         })
       );
   // Wait for render (increase to 300ms for reliability)
@@ -104,8 +111,16 @@ export async function exportMultiPiecePdf(project: any, pieces: any[]) {
       pdf.text(`Pipe ID: ${piece.pipeTag || ''}`, 40, y);
       pdf.text(`Pipe Type: ${piece.pipeType || ''}`, 240, y);
       pdf.text(`Diameter: ${piece.diameter || ''} in`, 440, y);
-      pdf.setFontSize(13);
-      pdf.text(`Length: ${piece.feet || 0}' ${piece.inches || 0}''`, 40, y + 20);
+  pdf.setFontSize(13);
+  // Show length in feet/inches
+  const totalInches = Number(piece.feet || 0) * 12 + (parseFloat(piece.inches) || 0);
+  pdf.text(`Length: ${formatFeetInches(totalInches)}`, 40, y + 20);
+// Utility to format feet/inches for PDF
+function formatFeetInches(inches: number) {
+  const feet = Math.floor(inches / 12);
+  const inch = Math.round(inches % 12);
+  return `${feet}' ${inch}"`;
+}
 
       // Add the pipe sketch image, smaller and centered
       let imageY = y + 60;
@@ -179,10 +194,16 @@ export async function exportPipeSketchPdf(svgElement: SVGSVGElement, pipeData: a
   pdf.text(`Pipe ID: ${pipeData.pipetag || ''}`, 40, 65);
   pdf.text(`Pipe Type: ${pipeData.pipeType || ''}`, 40, 85);
   pdf.text(`Diameter: ${pipeData.diameter || ''} in`, 40, 105);
-  pdf.text(`Length: ${pipeData.length || ''} in`, 40, 125);
+  // Show length in feet/inches
+  const totalInches = Number(pipeData.length || 0);
+  pdf.text(`Length: ${formatFeetInches(totalInches)}`, 40, 125);
 
   // Add PNG image
   pdf.addImage(imgData, 'PNG', 40, 140, 400, 120);
+  // Add pipe end labels below the image, left and right
+  pdf.setFontSize(13);
+  pdf.text(pipeData.fittingsEndPipeLabel1 || 'roll grooved', 40, 270);
+  pdf.text(pipeData.fittingsEndPipeLabel2 || 'threaded', 440, 270, { align: 'right' });
 
   // Add outlets table (if any)
   if (pipeData.outlets && pipeData.outlets.length > 0) {

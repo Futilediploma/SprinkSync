@@ -118,8 +118,46 @@ const PipeSketch: React.FC<PipeSketchProps> = ({ pipeType, pipetag, length, diam
   }
 
   return (
-    <div style={{ width: '100%', maxWidth: '480px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-  <svg ref={svgRef} width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ marginBottom: 6, display: 'block' }}>
+    <div
+      style={{
+        width: '100%',
+        maxWidth: 600,
+        minWidth: 0,
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: '2vw 2vw 0 2vw',
+        margin: '0 auto',
+        touchAction: 'manipulation',
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 480,
+          minWidth: 0,
+          background: 'transparent',
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
+        <svg
+          ref={svgRef}
+          width="100%"
+          height="auto"
+          viewBox={`0 0 ${width} ${height}`}
+          style={{
+            display: 'block',
+            width: '100%',
+            height: 'auto',
+            minWidth: 320,
+            maxWidth: 480,
+            aspectRatio: `${width} / ${height}`,
+            margin: '0 auto 6px auto',
+            touchAction: 'none',
+          }}
+        >
         {/* Background gradient */}
         <defs>
           <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2={height} gradientUnits="userSpaceOnUse">
@@ -208,6 +246,16 @@ const PipeSketch: React.FC<PipeSketchProps> = ({ pipeType, pipetag, length, diam
             {formatFeetInches(segLen)}
           </text>
         ))}
+        {/* Always show bottom pipe end labels and LENGTH label */}
+        <text x={margin} y={pipeY + pipeHeight + 120} textAnchor="start" fontSize="16" fill="#1976d2">
+          {fittingsEndPipeLabel1}
+        </text>
+        <text x={width - margin} y={pipeY + pipeHeight + 120} textAnchor="end" fontSize="#d32f2f">
+          {fittingsEndPipeLabel2}
+        </text>
+        <text x={width / 2} y={pipeY + pipeHeight + 120} textAnchor="middle" fontSize="16" fill="#333">
+          LENGTH: {formatFeetInches(length)}
+        </text>
         {/*OUTLET LOCATION ON DIMENSION LINE*/}
         {outlets.map((outlet, idx) => {
           const loc = Number(outlet.location);
@@ -215,6 +263,16 @@ const PipeSketch: React.FC<PipeSketchProps> = ({ pipeType, pipetag, length, diam
           return (
             <g key={idx}>
               <line x1={x} y1={pipeY - pipeHeight + 90} x2={x} y2={pipeY + pipeHeight + 80} stroke="#222" strokeWidth={3} />
+              <text
+                x={x}
+                y={pipeY - pipeHeight + 80}
+                textAnchor="middle"
+                fontSize="14"
+                fill="#1976d2"
+                fontWeight="bold"
+              >
+                {formatFeetInches(loc)}
+              </text>
             </g>
           );
         })}
@@ -243,21 +301,27 @@ const PipeSketch: React.FC<PipeSketchProps> = ({ pipeType, pipetag, length, diam
             </text>
           </>
         )}
-      </svg>
+        </svg>
+      </div>
       {/* Export PDF Button (only if showExportButton is true) */}
       {showExportButton && (
         <button
           style={{
             marginTop: 16,
-            padding: '10px 24px',
+            padding: '12px 28px',
             background: '#1976d2',
             color: '#fff',
             border: 'none',
-            borderRadius: 6,
+            borderRadius: 8,
             fontWeight: 600,
-            fontSize: 16,
+            fontSize: 18,
             cursor: 'pointer',
             boxShadow: '0 2px 8px #0001',
+            width: '100%',
+            maxWidth: 320,
+            minWidth: 0,
+            letterSpacing: 0.5,
+            touchAction: 'manipulation',
           }}
           onClick={async () => {
             if (svgRef.current) {
