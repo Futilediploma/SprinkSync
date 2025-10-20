@@ -47,6 +47,25 @@ body {
   width: 100vw;
 }
 
+/* Force scrolling on all iOS devices */
+@supports (-webkit-touch-callout: none) {
+  body {
+    -webkit-overflow-scrolling: touch !important;
+    overflow-y: auto !important;
+  }
+  
+  #root {
+    -webkit-overflow-scrolling: touch !important;
+    overflow-y: auto !important;
+  }
+  
+  /* Fix modal positioning on iOS */
+  div[style*="position: fixed"] {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+}
+
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
