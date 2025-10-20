@@ -101,6 +101,40 @@
   }
 }
 
+/* Universal mobile modal fix - highest priority */
+@media (max-width: 480px) {
+  /* Override ANY modal container styles */
+  div[style*="position: fixed"][style*="100vh"] {
+    height: 100% !important;
+    min-height: 100% !important;
+    overflow: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    display: block !important;
+    padding: 10px !important;
+  }
+  
+  /* Ensure inner modal content is properly sized */
+  div[style*="borderRadius: 12"] {
+    width: calc(100% - 20px) !important;
+    max-width: none !important;
+    min-height: fit-content !important;
+    margin: 0 auto 20px auto !important;
+  }
+  
+  /* Force form elements to be visible */
+  form {
+    width: 100% !important;
+    min-height: fit-content !important;
+  }
+  
+  /* Ensure all input fields are accessible */
+  input, select, textarea {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin-bottom: 15px !important;
+  }
+}
+
 .logo {
   height: 6em;
   padding: 1.5em;
