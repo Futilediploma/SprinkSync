@@ -30,6 +30,9 @@ const PickerModal: React.FC<PickerModalProps> = ({ isOpen, onClose, onSubmit, pr
 	const [zipcode, setZipcode] = useState('');
 
 	const [errors, setErrors] = useState<{ [key: string]: string }>({});
+	
+	// Detect mobile device
+	const isMobile = typeof window !== 'undefined' && window.innerWidth <= 480;
 
 	function validate() {
 		const newErrors: { [key: string]: string } = {};

@@ -1,0 +1,134 @@
+/* EMERGENCY MOBILE CSS - OVERRIDES EVERYTHING */
+/* This file forces iPhone compatibility with maximum priority */
+
+/* Target ALL mobile devices aggressively */
+@media screen and (max-width: 480px), screen and (max-device-width: 480px) {
+  
+  /* FORCE body and html to allow scrolling */
+  html, body {
+    position: static !important;
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  
+  /* FORCE root container to be scrollable */
+  #root {
+    position: static !important;
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  
+  /* EMERGENCY MODAL OVERRIDE - targets any fixed positioned div */
+  div[style*="position: fixed"],
+  div[style*="position:fixed"] {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 10px !important;
+    box-sizing: border-box !important;
+    display: block !important;
+  }
+  
+  /* FORCE modal content to be properly sized */
+  div[style*="borderRadius: 12"],
+  div[style*="border-radius: 12"] {
+    position: relative !important;
+    width: calc(100% - 20px) !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: fit-content !important;
+    max-height: none !important;
+    margin: 10px auto 40px auto !important;
+    padding: 20px !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* FORCE form elements to be visible and accessible */
+  form {
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  
+  /* FORCE all input fields to be visible */
+  input[type="text"], 
+  input[type="email"], 
+  input[type="tel"], 
+  input[type="number"],
+  select, 
+  textarea {
+    width: 100% !important;
+    min-height: 44px !important;
+    margin-bottom: 15px !important;
+    padding: 10px !important;
+    box-sizing: border-box !important;
+    font-size: 16px !important; /* Prevents zoom on iPhone */
+  }
+  
+  /* FORCE labels to be visible */
+  label {
+    display: block !important;
+    margin-bottom: 5px !important;
+    width: 100% !important;
+  }
+  
+  /* FORCE buttons to be touch-friendly */
+  button {
+    min-height: 44px !important;
+    margin: 10px 0 !important;
+    padding: 12px 20px !important;
+    font-size: 16px !important;
+    touch-action: manipulation !important;
+  }
+  
+  /* Remove any height restrictions */
+  div[style*="maxHeight"],
+  div[style*="max-height"] {
+    max-height: none !important;
+  }
+  
+  div[style*="height: 100vh"],
+  div[style*="height:100vh"] {
+    height: 100% !important;
+  }
+}
+
+/* SUPER EMERGENCY - iPhone specific override */
+@media screen and (max-width: 375px) {
+  
+  /* Nuclear option - override ALL positioning */
+  * {
+    box-sizing: border-box !important;
+  }
+  
+  /* Force ANY modal-like container to be scrollable */
+  div[style*="zIndex: 1000"],
+  div[style*="z-index: 1000"],
+  div[style*="zIndex:1000"],
+  div[style*="z-index:1000"] {
+    overflow: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    height: 100% !important;
+  }
+  
+  /* Force content visibility */
+  div[style*="background: #fff"],
+  div[style*="background:#fff"],
+  div[style*="background: rgb(255, 255, 255)"] {
+    position: relative !important;
+    height: auto !important;
+    min-height: fit-content !important;
+    width: calc(100% - 20px) !important;
+    margin: 10px auto !important;
+  }
+}
