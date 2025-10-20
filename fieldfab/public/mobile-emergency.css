@@ -48,8 +48,9 @@
     height: auto !important;
     min-height: fit-content !important;
     max-height: none !important;
-    margin: 10px auto 40px auto !important;
+    margin: 10px auto 60px auto !important;
     padding: 20px !important;
+    padding-bottom: 80px !important;
     box-sizing: border-box !important;
   }
   
@@ -85,10 +86,41 @@
   /* FORCE buttons to be touch-friendly */
   button {
     min-height: 44px !important;
-    margin: 10px 0 !important;
+    margin: 15px 5px !important;
     padding: 12px 20px !important;
     font-size: 16px !important;
     touch-action: manipulation !important;
+  }
+  
+  /* FORCE button containers to have extra space */
+  div[style*="display: flex"][style*="justifyContent"],
+  div[style*="display: flex"][style*="justify-content"] {
+    margin-top: 30px !important;
+    margin-bottom: 30px !important;
+    padding-bottom: 20px !important;
+  }
+  
+  /* ENSURE form elements have bottom spacing */
+  form {
+    padding-bottom: 120px !important;
+    margin-bottom: 60px !important;
+  }
+  
+  /* ENSURE modal content has massive bottom spacing for iPhone */
+  div[style*="borderRadius: 12"] form,
+  div[style*="border-radius: 12"] form {
+    padding-bottom: 150px !important;
+    margin-bottom: 80px !important;
+  }
+  
+  /* FORCE button containers to be visible on iPhone */
+  div[style*="justifyContent: space-between"],
+  div[style*="justify-content: space-between"] {
+    position: relative !important;
+    bottom: auto !important;
+    margin-top: 40px !important;
+    margin-bottom: 40px !important;
+    padding: 20px 0 !important;
   }
   
   /* Remove any height restrictions */
@@ -129,6 +161,14 @@
     height: auto !important;
     min-height: fit-content !important;
     width: calc(100% - 20px) !important;
-    margin: 10px auto !important;
+    margin: 10px auto 120px auto !important;
+    padding-bottom: 120px !important;
+  }
+  
+  /* ULTIMATE bottom spacing for all buttons */
+  button[style*="marginRight"],
+  button[style*="margin-right"],
+  button {
+    margin-bottom: 30px !important;
   }
 }

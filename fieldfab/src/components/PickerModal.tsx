@@ -30,9 +30,6 @@ const PickerModal: React.FC<PickerModalProps> = ({ isOpen, onClose, onSubmit, pr
 	const [zipcode, setZipcode] = useState('');
 
 	const [errors, setErrors] = useState<{ [key: string]: string }>({});
-	
-	// Detect mobile device
-	const isMobile = typeof window !== 'undefined' && window.innerWidth <= 480;
 
 	function validate() {
 		const newErrors: { [key: string]: string } = {};
@@ -69,13 +66,14 @@ const PickerModal: React.FC<PickerModalProps> = ({ isOpen, onClose, onSubmit, pr
 				background: '#fff',
 				borderRadius: 12,
 				padding: '20px',
+				paddingBottom: '60px',
 				width: '100%',
 				maxWidth: '360px',
 				margin: '0 auto',
 				minHeight: 'fit-content',
 				boxShadow: '0 4px 32px #0003',
 				position: 'relative',
-				marginBottom: '40px',
+				marginBottom: '60px',
 			}}>
                         
             <img
