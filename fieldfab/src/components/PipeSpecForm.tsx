@@ -97,10 +97,10 @@ function PipeSpecForm({ onCreatePiece, onCancel, initialValues }: PipeSpecFormPr
   const diameter = Math.max(typeof diameterRaw === "number" ? diameterRaw : parseFraction(String(diameterRaw ?? "0")), 1); // at least 1 inch
   const sketchContainerRef = useRef<HTMLDivElement>(null);
   return (
-    <Box maxWidth={420} width="100%" mx="auto" sx={{ backgroundColor: '#fff', p: 0, borderRadius: 3, boxShadow: 'none' }}>
+    <Box maxWidth="100%" width="100%" mx="auto" sx={{ backgroundColor: '#fff', p: 1, borderRadius: 3, boxShadow: 'none' }}>
       <div style={{ textAlign: 'center', marginBottom: 12 }}>
-        <h2 style={{ fontWeight: 800, fontSize: 28, margin: '12px 0 0 0', color: '#1a2233', letterSpacing: 1 }}>Pipe Specification</h2>
-        <div style={{ fontWeight: 500, fontSize: 15, color: '#222', marginBottom: 8 }}>Please Fill Out Form.</div>
+        <h2 style={{ fontWeight: 800, fontSize: '1.5rem', margin: '8px 0', color: '#1a2233', letterSpacing: 1 }}>Pipe Specification</h2>
+        <div style={{ fontWeight: 500, fontSize: '0.875rem', color: '#222', marginBottom: 8 }}>Please Fill Out Form.</div>
       </div>
       <form onSubmit={e => { e.preventDefault(); }}>
         <div style={{ marginBottom: 12 }}>

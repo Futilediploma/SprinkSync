@@ -55,8 +55,8 @@ const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 10
       <Typography variant="body2" mb={1} color="text.secondary">
   Location: {feet}' {formatInches(inches, fraction)}"
       </Typography>
-        <Stack direction="row" spacing={2} mb={2}>
-          <FormControl sx={{ minWidth: 70, flexGrow: 1 }} required>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mb={2}>
+          <FormControl sx={{ minWidth: { xs: '100%', sm: 70 }, flexGrow: 1 }} required>
             <InputLabel id="location-feet-label">Location (ft)</InputLabel>
             <Select
               labelId="location-feet-label"
@@ -70,7 +70,7 @@ const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 10
               ))}
             </Select>
           </FormControl>
-          <FormControl sx={{ minWidth: 70, flexGrow: 1 }} required>
+          <FormControl sx={{ minWidth: { xs: '100%', sm: 70 }, flexGrow: 1 }} required>
             <InputLabel id="location-inches-label">Location (in)</InputLabel>
             <Select
               labelId="location-inches-label"
@@ -84,7 +84,7 @@ const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 10
               ))}
             </Select>
           </FormControl>
-          <FormControl sx={{ minWidth: 70, flexGrow: 1 }} required>
+          <FormControl sx={{ minWidth: { xs: '100%', sm: 70 }, flexGrow: 1 }} required>
             <InputLabel id="location-fraction-label">Fraction</InputLabel>
             <Select
               labelId="location-fraction-label"
@@ -103,7 +103,7 @@ const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 10
               <MenuItem value="3/4">3/4</MenuItem>
             </Select>
           </FormControl>
-          <FormControl sx={{ minWidth: 70, flexGrow: 1 }} required>
+          <FormControl sx={{ minWidth: { xs: '100%', sm: 70 }, flexGrow: 1 }} required>
             <InputLabel id="outlet-size-label">Outlet Size</InputLabel>
             <Select
               labelId="outlet-size-label"
@@ -127,8 +127,8 @@ const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 10
             </Select>
           </FormControl>
       </Stack>
-      <Stack direction="row" spacing={2} mb={2}>
-        <FormControl sx={{ minWidth: 120 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mb={2}>
+        <FormControl sx={{ minWidth: { xs: '100%', sm: 120 } }}>
           <InputLabel id="outletType-label">Outlet Type</InputLabel>
           <Select
             labelId="outletType-label"
@@ -144,7 +144,7 @@ const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 10
             ))}
           </Select>
         </FormControl>
-        <FormControl sx={{ minWidth: 120 }}>
+        <FormControl sx={{ minWidth: { xs: '100%', sm: 120 } }}>
           <InputLabel id="direction-label">Direction</InputLabel>
           <Select
             labelId="direction-label"

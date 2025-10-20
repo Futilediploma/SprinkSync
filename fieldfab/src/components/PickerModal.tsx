@@ -63,8 +63,11 @@ const PickerModal: React.FC<PickerModalProps> = ({ isOpen, onClose, onSubmit, pr
 			<div style={{
 				background: '#fff',
 				borderRadius: 12,
-				padding: 32,
-				minWidth: 320,
+				padding: '16px',
+				width: '90vw',
+				maxWidth: '400px',
+				maxHeight: '90vh',
+				overflow: 'auto',
 				boxShadow: '0 4px 32px #0003',
 				display: 'flex',
 				flexDirection: 'column',
@@ -77,7 +80,7 @@ const PickerModal: React.FC<PickerModalProps> = ({ isOpen, onClose, onSubmit, pr
                 alt="FieldFab logo"
                 style={{ height: 80, width: 80, borderRadius: 10, marginBottom: 1, boxShadow: '0 2px 12px #0001' }}
             />  
-			<h1 style={{ fontWeight: 800, fontSize: 32, margin: 0, color: '#1a2233', letterSpacing: 1 }}>FieldFab</h1>
+			<h1 style={{ fontWeight: 800, fontSize: '1.75rem', margin: 0, color: '#1a2233', letterSpacing: 1 }}>FieldFab</h1>
 			<div style={{ marginBottom: 8, marginTop: 4, textAlign: 'center' }}>
 				<div style={{ fontWeight: 500, fontSize: 15, color: '#222' }}>Please Fill Out Form.</div>
 				<button
@@ -130,7 +133,7 @@ const PickerModal: React.FC<PickerModalProps> = ({ isOpen, onClose, onSubmit, pr
 					</button>
 				</div>
 			)}
-			<h2 style={{ marginTop: 0, marginBottom: 24, fontWeight: 700, fontSize: 24 }}>Project Info</h2>
+			<h2 style={{ marginTop: 0, marginBottom: 16, fontWeight: 700, fontSize: '1.25rem' }}>Project Info</h2>
 				<button
 					style={{
 						position: 'absolute',
@@ -153,7 +156,7 @@ const PickerModal: React.FC<PickerModalProps> = ({ isOpen, onClose, onSubmit, pr
 				>
 					×
 				</button>
-				<h2 style={{ marginTop: 0, marginBottom: 0, fontWeight: 700, fontSize: 24 }}>Project Info</h2>
+				<h2 style={{ marginTop: 0, marginBottom: 0, fontWeight: 700, fontSize: '1.25rem' }}>Project Info</h2>
 												<form
 													onSubmit={e => {
 														e.preventDefault();

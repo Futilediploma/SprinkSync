@@ -141,20 +141,23 @@ function App() {
           alignItems: 'center',
           justifyContent: 'flex-start',
           padding: 0,
+          width: '100%',
+          boxSizing: 'border-box',
         }}
       >
         <div
           style={{
-            marginTop: 40,
-            marginBottom: 32,
+            marginTop: 20,
+            marginBottom: 20,
             background: 'rgba(255,255,255,0.85)',
             borderRadius: 20,
             boxShadow: '0 4px 32px 0 #0002',
-            padding: '32px 40px 24px 40px',
+            padding: '20px 16px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            maxWidth: 420,
+            maxWidth: '95vw',
+            width: '100%',
           }}
         >
           <img
@@ -178,7 +181,7 @@ function App() {
           )}
         </div>
 
-        <div style={{ width: '100%', maxWidth: 480, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24 }}>
+        <div style={{ width: '100%', maxWidth: '95vw', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24, padding: '0 8px' }}>
           <PipeSketch
             length={pieces.length > 0 ? (Number(pieces[pieces.length-1].feet) * 12 + (parseFloat(pieces[pieces.length-1].inches) || 0)) : 0}
             pipeType={pieces.length > 0 ? pieces[pieces.length-1].pipeType : ''}
@@ -196,15 +199,16 @@ function App() {
               background: '#1976d2',
               color: '#fff',
               border: 'none',
-              borderRadius: 6,
-              padding: '6px 18px',
+              borderRadius: 8,
+              padding: '12px 24px',
               fontWeight: 600,
-              fontSize: 15,
+              fontSize: '1rem',
               cursor: 'pointer',
               boxShadow: '0 1px 4px #0001',
               transition: 'background 0.2s',
               margin: '0 auto',
               display: 'block',
+              minHeight: '44px',
             }}
             onClick={() => setShowPieceForm(true)}
           >
@@ -227,9 +231,11 @@ function App() {
               <div style={{
                 background: '#fff',
                 borderRadius: 12,
-                padding: 32,
-                minWidth: 340,
-                maxWidth: 520,
+                padding: '16px',
+                minWidth: '90vw',
+                maxWidth: '95vw',
+                maxHeight: '90vh',
+                overflow: 'auto',
                 boxShadow: '0 4px 32px #0003',
                 display: 'flex',
                 flexDirection: 'column',
@@ -270,15 +276,16 @@ function App() {
               background: '#1976d2',
               color: '#fff',
               border: 'none',
-              borderRadius: 6,
-              padding: '6px 18px',
+              borderRadius: 8,
+              padding: '12px 24px',
               fontWeight: 600,
-              fontSize: 15,
+              fontSize: '1rem',
               cursor: 'pointer',
               boxShadow: '0 1px 4px #0001',
               transition: 'background 0.2s',
               margin: '20px auto',
               display: 'block',
+              minHeight: '44px',
             }}
             onClick={() => setShowOutletForm(true)}
           >
@@ -302,9 +309,11 @@ function App() {
               <div style={{
                 background: '#fff',
                 borderRadius: 12,
-                padding: 32,
-                minWidth: 320,
-                maxWidth: 420,
+                padding: '16px',
+                minWidth: '90vw',
+                maxWidth: '95vw',
+                maxHeight: '90vh',
+                overflow: 'auto',
                 boxShadow: '0 4px 32px #0003',
                 display: 'flex',
                 flexDirection: 'column',
@@ -350,12 +359,12 @@ function App() {
         </div>
 
         {/* List of created pieces (always show, even if empty) */}
-  <div style={{ maxWidth: 480, 
-                margin: '100px auto', 
+  <div style={{ maxWidth: '95vw', 
+                margin: '20px auto', 
                 background: '#fff', 
                 borderRadius: 8, 
                 boxShadow: '0 2px 8px #0001', 
-                padding: 8, color: '#222', 
+                padding: '12px', color: '#222', 
                 minHeight: 60 }}>
           <h3 style={{ color: '#222' }}>Created Pieces</h3>
           {pieces.length === 0 ? (
@@ -363,7 +372,7 @@ function App() {
           ) : (
             <ul style={{ paddingLeft: 16 }}>
               {pieces.map((piece, idx) => (
-                <li key={idx} style={{ marginBottom: 8, fontSize: 15, color: '#222', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <li key={idx} style={{ marginBottom: 8, fontSize: '0.875rem', color: '#222', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   {piece.pipeTag ? <b>{piece.pipeTag}</b> : `Piece #${idx + 1}`}: {piece.feet}' {piece.inches}'' {piece.diameter}in {piece.pipeType}
                   <button
                     style={{
@@ -371,11 +380,13 @@ function App() {
                       background: '#ffa726',
                       color: '#fff',
                       border: 'none',
-                      borderRadius: 4,
-                      padding: '2px 10px',
+                      borderRadius: 6,
+                      padding: '8px 12px',
                       fontWeight: 600,
-                      fontSize: 13,
+                      fontSize: '0.75rem',
                       cursor: 'pointer',
+                      minHeight: '32px',
+                      touchAction: 'manipulation',
                     }}
                     title="Edit piece"
                     onClick={() => {
@@ -391,11 +402,13 @@ function App() {
                       background: '#d32f2f',
                       color: '#fff',
                       border: 'none',
-                      borderRadius: 4,
-                      padding: '2px 10px',
+                      borderRadius: 6,
+                      padding: '8px 12px',
                       fontWeight: 600,
-                      fontSize: 13,
+                      fontSize: '0.75rem',
                       cursor: 'pointer',
+                      minHeight: '32px',
+                      touchAction: 'manipulation',
                     }}
                     title="Delete piece"
                     onClick={() => {
@@ -413,19 +426,22 @@ function App() {
             </ul>
           )}
           {/* Export PDF and Create New Piece button group - now directly below Created Pieces */}
-          <div style={{ width: '100%', margin: '10px 0 0 0', display: 'flex', justifyContent: 'center', gap: 8 }}>
+          <div style={{ width: '100%', margin: '10px 0 0 0', display: 'flex', flexDirection: window.innerWidth < 480 ? 'column' : 'row', justifyContent: 'center', gap: 12 }}>
             <button
               style={{
                 background: '#1976d2',
                 color: '#fff',
                 border: 'none',
-                borderRadius: 6,
-                padding: '10px 28px',
+                borderRadius: 8,
+                padding: '12px 28px',
                 fontWeight: 700,
-                fontSize: 17,
+                fontSize: '1rem',
                 cursor: pieces.length === 0 ? 'not-allowed' : 'pointer',
                 boxShadow: '0 1px 4px #0001',
                 transition: 'background 0.2s',
+                minHeight: '44px',
+                flex: window.innerWidth < 480 ? 'none' : '1',
+                maxWidth: window.innerWidth < 480 ? 'none' : '200px',
               }}
               onClick={handleExportAllPdf}
               disabled={pieces.length === 0}
@@ -437,13 +453,16 @@ function App() {
                 background: '#1976d2',
                 color: '#fff',
                 border: 'none',
-                borderRadius: 6,
-                padding: '10px 28px',
+                borderRadius: 8,
+                padding: '12px 28px',
                 fontWeight: 700,
-                fontSize: 17,
+                fontSize: '1rem',
                 cursor: 'pointer',
                 boxShadow: '0 1px 4px #0001',
                 transition: 'background 0.2s',
+                minHeight: '44px',
+                flex: window.innerWidth < 480 ? 'none' : '1',
+                maxWidth: window.innerWidth < 480 ? 'none' : '200px',
               }}
               onClick={() => setShowPieceForm(true)}
             >
