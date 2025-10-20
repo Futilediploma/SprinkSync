@@ -46,22 +46,26 @@ const PickerModal: React.FC<PickerModalProps> = ({ isOpen, onClose, onSubmit, pr
 
 	if (!isOpen) return null;
 
-	return (
-		<div style={{
-			position: 'fixed',
-			top: 0,
-			left: 0,
-			right: 0,
-			bottom: 0,
-			width: '100%',
-			height: '100%',
-			background: 'rgba(0,0,0,0.4)',
-			zIndex: 1000,
-			padding: '20px',
-			boxSizing: 'border-box',
-			overflow: 'auto',
-			WebkitOverflowScrolling: 'touch',
-		} as React.CSSProperties}>
+		return (
+			<div style={{
+				position: 'fixed',
+				top: 0,
+				left: 0,
+				right: 0,
+				bottom: 0,
+				width: '100%',
+				height: '100%',
+				background: 'rgba(0,0,0,0.4)',
+				zIndex: 1000,
+				padding: '20px',
+				paddingBottom: '120px',
+				boxSizing: 'border-box',
+				overflow: 'auto',
+				WebkitOverflowScrolling: 'touch',
+				display: 'flex',
+				alignItems: 'flex-start',
+				justifyContent: 'center',
+			} as React.CSSProperties}>
 			<div style={{
 				background: '#fff',
 				borderRadius: 12,
@@ -282,9 +286,56 @@ const PickerModal: React.FC<PickerModalProps> = ({ isOpen, onClose, onSubmit, pr
 																{errors.zipcode && <div style={{ color: 'red', fontSize: 13 }}>{errors.zipcode}</div>}
 															</div>
 
-					<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-						<button type="button" onClick={onClose} style={{ padding: '8px 18px', borderRadius: 6, border: 'none', background: '#eee', fontWeight: 600 }}>Cancel</button>
-						<button type="submit" style={{ padding: '8px 18px', borderRadius: 6, border: 'none', background: '#1976d2', color: '#fff', fontWeight: 600 }}>Save</button>
+					<div style={{ 
+						display: 'flex', 
+						justifyContent: 'flex-end', 
+						gap: 12,
+						marginTop: '30px',
+						paddingTop: '20px',
+						paddingBottom: '40px',
+						borderTop: '1px solid #eee',
+						position: 'sticky',
+						bottom: '0',
+						background: 'white',
+						marginLeft: '-20px',
+						marginRight: '-20px',
+						paddingLeft: '20px',
+						paddingRight: '20px',
+						zIndex: 10
+					}}>
+						<button 
+							type="button" 
+							onClick={onClose} 
+							style={{ 
+								padding: '12px 24px', 
+								borderRadius: 6, 
+								border: 'none', 
+								background: '#6c757d', 
+								color: 'white',
+								fontWeight: 600,
+								fontSize: '16px',
+								minHeight: '48px',
+								cursor: 'pointer'
+							}}
+						>
+							Cancel
+						</button>
+						<button 
+							type="submit" 
+							style={{ 
+								padding: '12px 24px', 
+								borderRadius: 6, 
+								border: 'none', 
+								background: '#1976d2', 
+								color: '#fff', 
+								fontWeight: 600,
+								fontSize: '16px',
+								minHeight: '48px',
+								cursor: 'pointer'
+							}}
+						>
+							Save
+						</button>
 					</div>
 				</form>
 			</div>
