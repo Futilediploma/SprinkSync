@@ -225,22 +225,29 @@ function App() {
               backdropFilter: 'blur(6px)',
               zIndex: 1000,
               display: 'flex',
-              alignItems: 'center',
+              alignItems: 'flex-start',
               justifyContent: 'center',
-            }}>
+              padding: '10px',
+              boxSizing: 'border-box',
+              overflowY: 'auto',
+              WebkitOverflowScrolling: 'touch',
+            } as React.CSSProperties}>
               <div style={{
                 background: '#fff',
                 borderRadius: 12,
                 padding: '16px',
-                minWidth: '90vw',
+                width: '100%',
                 maxWidth: '95vw',
-                maxHeight: '90vh',
-                overflow: 'auto',
+                minHeight: 'auto',
+                maxHeight: 'none',
                 boxShadow: '0 4px 32px #0003',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 position: 'relative',
+                margin: 'auto',
+                marginTop: '20px',
+                marginBottom: '40px',
               }}>
                 <button
                   onClick={() => { setShowPieceForm(false); setEditPieceIndex(null); }}
@@ -302,23 +309,29 @@ function App() {
               backdropFilter: 'blur(6px)',
               zIndex: 2000,
               display: 'flex',
-              alignItems: 'center',
+              alignItems: 'flex-start',
               justifyContent: 'center',
-              marginTop: 80, // compensate for parent padding
-            }}>
+              padding: '10px',
+              boxSizing: 'border-box',
+              overflowY: 'auto',
+              WebkitOverflowScrolling: 'touch',
+            } as React.CSSProperties}>
               <div style={{
                 background: '#fff',
                 borderRadius: 12,
                 padding: '16px',
-                minWidth: '90vw',
+                width: '100%',
                 maxWidth: '95vw',
-                maxHeight: '90vh',
-                overflow: 'auto',
+                minHeight: 'auto',
+                maxHeight: 'none',
                 boxShadow: '0 4px 32px #0003',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 position: 'relative',
+                margin: 'auto',
+                marginTop: '20px',
+                marginBottom: '40px',
               }}>
                 <button
                   onClick={() => setShowOutletForm(false)}

@@ -57,22 +57,29 @@ const PickerModal: React.FC<PickerModalProps> = ({ isOpen, onClose, onSubmit, pr
 			backdropFilter: 'blur(6px)',
 			zIndex: 1000,
 			display: 'flex',
-			alignItems: 'center',
+			alignItems: 'flex-start',
 			justifyContent: 'center',
-		}}>
+			padding: '10px',
+			boxSizing: 'border-box',
+			overflowY: 'auto',
+			WebkitOverflowScrolling: 'touch',
+		} as React.CSSProperties}>
 			<div style={{
 				background: '#fff',
 				borderRadius: 12,
 				padding: '16px',
-				width: '90vw',
+				width: '100%',
 				maxWidth: '400px',
-				maxHeight: '90vh',
-				overflow: 'auto',
+				minHeight: 'auto',
+				maxHeight: 'none',
 				boxShadow: '0 4px 32px #0003',
 				display: 'flex',
 				flexDirection: 'column',
 				alignItems: 'center',
 				position: 'relative',
+				margin: 'auto',
+				marginTop: '20px',
+				marginBottom: '40px',
 			}}>
                         
             <img

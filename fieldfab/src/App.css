@@ -9,6 +9,8 @@
 @media (max-width: 768px) {
   #root {
     padding: 0.25rem;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
   }
   
   /* Ensure forms don't overflow */
@@ -22,11 +24,50 @@
     padding: 0.5rem 1rem;
     font-size: 0.875rem;
   }
+  
+  /* Fix modal scrolling on small screens */
+  .modal-container {
+    height: 100vh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 @media (max-width: 480px) {
   #root {
     padding: 0.125rem;
+    min-height: 100vh;
+    height: auto;
+  }
+  
+  /* Specific fixes for iPhone 12 mini and similar small screens */
+  body {
+    position: static !important;
+    height: auto !important;
+  }
+  
+  /* Ensure modals can scroll properly */
+  [role="dialog"], .modal {
+    max-height: none !important;
+    height: auto !important;
+  }
+}
+
+/* iPhone specific fixes */
+@media only screen 
+  and (device-width: 375px) 
+  and (device-height: 812px) 
+  and (-webkit-device-pixel-ratio: 3) {
+  
+  /* iPhone 12 mini specific */
+  body {
+    position: static;
+    height: auto;
+  }
+  
+  #root {
+    min-height: 100vh;
+    height: auto;
   }
 }
 
