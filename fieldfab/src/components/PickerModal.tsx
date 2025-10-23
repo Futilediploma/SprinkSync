@@ -44,10 +44,18 @@ const PickerModal: React.FC<PickerModalProps> = ({ isOpen, onClose, onSubmit, pr
 		return Object.keys(newErrors).length === 0;
 	}
 
-	if (!isOpen) return null;
+	const [isMobile, setIsMobile] = React.useState(window.innerWidth <= 480);
 
-	// Check if mobile
-	const isMobile = window.innerWidth <= 480;
+	React.useEffect(() => {
+		const handleResize = () => {
+			setIsMobile(window.innerWidth <= 480);
+		};
+		
+		window.addEventListener('resize', handleResize);
+		return () => window.removeEventListener('resize', handleResize);
+	}, []);
+
+	if (!isOpen) return null;
 
 		return (
 			<div style={{
