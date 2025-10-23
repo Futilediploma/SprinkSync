@@ -46,6 +46,9 @@ const PickerModal: React.FC<PickerModalProps> = ({ isOpen, onClose, onSubmit, pr
 
 	if (!isOpen) return null;
 
+	// Check if mobile
+	const isMobile = window.innerWidth <= 480;
+
 		return (
 			<div style={{
 				position: 'fixed',
@@ -57,8 +60,8 @@ const PickerModal: React.FC<PickerModalProps> = ({ isOpen, onClose, onSubmit, pr
 				height: '100%',
 				background: 'rgba(0,0,0,0.4)',
 				zIndex: 1000,
-				padding: '20px',
-				paddingBottom: '120px',
+				padding: isMobile ? '10px' : '20px',
+				paddingBottom: isMobile ? '60px' : '120px',
 				boxSizing: 'border-box',
 				overflow: 'auto',
 				WebkitOverflowScrolling: 'touch',
@@ -68,37 +71,37 @@ const PickerModal: React.FC<PickerModalProps> = ({ isOpen, onClose, onSubmit, pr
 			} as React.CSSProperties}>
 			<div style={{
 				background: '#fff',
-				borderRadius: 12,
-				padding: '20px',
-				paddingBottom: '60px',
+				borderRadius: isMobile ? 8 : 12,
+				padding: isMobile ? '12px' : '20px',
+				paddingBottom: isMobile ? '40px' : '60px',
 				width: '100%',
-				maxWidth: '360px',
+				maxWidth: isMobile ? '100%' : '360px',
 				margin: '0 auto',
 				minHeight: 'fit-content',
 				boxShadow: '0 4px 32px #0003',
 				position: 'relative',
-				marginBottom: '60px',
+				marginBottom: isMobile ? '40px' : '60px',
 			}}>
                         
             <img
                 src={fieldfabLogo}
                 alt="FieldFab logo"
-                style={{ height: 80, width: 80, borderRadius: 10, marginBottom: 1, boxShadow: '0 2px 12px #0001' }}
+                style={{ height: isMobile ? 50 : 80, width: isMobile ? 50 : 80, borderRadius: 8, marginBottom: 1, boxShadow: '0 2px 12px #0001' }}
             />  
-			<h1 style={{ fontWeight: 800, fontSize: '1.75rem', margin: 0, color: '#1a2233', letterSpacing: 1 }}>FieldFab</h1>
-			<div style={{ marginBottom: 8, marginTop: 4, textAlign: 'center' }}>
-				<div style={{ fontWeight: 500, fontSize: 15, color: '#222' }}>Please Fill Out Form.</div>
+			<h1 style={{ fontWeight: 800, fontSize: isMobile ? '1.25rem' : '1.75rem', margin: 0, color: '#1a2233', letterSpacing: 1 }}>FieldFab</h1>
+			<div style={{ marginBottom: isMobile ? 6 : 8, marginTop: 4, textAlign: 'center' }}>
+				<div style={{ fontWeight: 500, fontSize: isMobile ? 13 : 15, color: '#222' }}>Please Fill Out Form.</div>
 				<button
 					type="button"
 					style={{
-						marginTop: 8,
+						marginTop: 6,
 						background: '#1976d2',
 						color: '#fff',
 						border: 'none',
 						borderRadius: 6,
-						padding: '6px 18px',
+						padding: isMobile ? '5px 14px' : '6px 18px',
 						fontWeight: 600,
-						fontSize: 15,
+						fontSize: isMobile ? 13 : 15,
 						cursor: 'pointer',
 						boxShadow: '0 1px 4px #0001',
 						transition: 'background 0.2s',
@@ -138,19 +141,19 @@ const PickerModal: React.FC<PickerModalProps> = ({ isOpen, onClose, onSubmit, pr
 					</button>
 				</div>
 			)}
-			<h2 style={{ marginTop: 0, marginBottom: 16, fontWeight: 700, fontSize: '1.25rem' }}>Project Info</h2>
+			<h2 style={{ marginTop: 0, marginBottom: isMobile ? 10 : 16, fontWeight: 700, fontSize: isMobile ? '1rem' : '1.25rem' }}>Project Info</h2>
 				<button
 					style={{
 						position: 'absolute',
-						top: 16,
-						right: 16,
+						top: isMobile ? 10 : 16,
+						right: isMobile ? 10 : 16,
 						background: 'transparent',
 						color: '#222',
 						border: 'none',
 						borderRadius: '50%',
-						width: 32,
-						height: 32,
-						fontSize: 24,
+						width: isMobile ? 28 : 32,
+						height: isMobile ? 28 : 32,
+						fontSize: isMobile ? 20 : 24,
 						cursor: 'pointer',
 						transition: 'background 0.2s',
 					}}
@@ -161,7 +164,7 @@ const PickerModal: React.FC<PickerModalProps> = ({ isOpen, onClose, onSubmit, pr
 				>
 					×
 				</button>
-				<h2 style={{ marginTop: 0, marginBottom: 0, fontWeight: 700, fontSize: '1.25rem' }}>Project Info</h2>
+				<h2 style={{ marginTop: 0, marginBottom: 0, fontWeight: 700, fontSize: isMobile ? '1rem' : '1.25rem' }}>Project Info</h2>
 												<form
 													onSubmit={e => {
 														e.preventDefault();
@@ -177,144 +180,150 @@ const PickerModal: React.FC<PickerModalProps> = ({ isOpen, onClose, onSubmit, pr
 													}}
 													style={{ width: '100%' }}
 												>
-										<div style={{ marginBottom: 16 }}>
-											<label style={{ color: '#222', fontWeight: 600, display: 'block', marginBottom: 4 }}>Company Name</label>
+										<div style={{ marginBottom: isMobile ? 12 : 16 }}>
+											<label style={{ color: '#222', fontWeight: 600, display: 'block', marginBottom: 4, fontSize: isMobile ? 13 : 14 }}>Company Name</label>
 											<input
 												type="text"
 												value={companyName}
 												onChange={e => setCompanyName(e.target.value)}
 												style={{
 													width: '100%',
-													padding: 8,
+													padding: isMobile ? 7 : 8,
 													borderRadius: 6,
 													border: '1px solid #ccc',
 													background: companyName ? '#fff' : '#fff3e0',
 													color: '#222',
 													transition: 'background 0.2s',
+													fontSize: isMobile ? 14 : 16,
 												}}
 											/>
-											{errors.companyName && <div style={{ color: 'red', fontSize: 13 }}>{errors.companyName}</div>}
+											{errors.companyName && <div style={{ color: 'red', fontSize: 12 }}>{errors.companyName}</div>}
 										</div>
-										<div style={{ marginBottom: 24 }}>
-											<label style={{ color: '#222', fontWeight: 600, display: 'block', marginBottom: 4 }}>Job Name</label>
+										<div style={{ marginBottom: isMobile ? 12 : 24 }}>
+											<label style={{ color: '#222', fontWeight: 600, display: 'block', marginBottom: 4, fontSize: isMobile ? 13 : 14 }}>Job Name</label>
 											<input
 												type="text"
 												value={jobName}
 												onChange={e => setJobName(e.target.value)}
 												style={{
 													width: '100%',
-													padding: 8,
+													padding: isMobile ? 7 : 8,
 													borderRadius: 6,
 													border: '1px solid #ccc',
 													background: jobName ? '#fff' : '#fff3e0',
 													color: '#222',
 													transition: 'background 0.2s',
+													fontSize: isMobile ? 14 : 16,
 												}}
 											/>
-											{errors.jobName && <div style={{ color: 'red', fontSize: 13 }}>{errors.jobName}</div>}
+											{errors.jobName && <div style={{ color: 'red', fontSize: 12 }}>{errors.jobName}</div>}
 										</div>
-															<div style={{ marginBottom: 24 }}>
-																<label style={{ color: '#222', fontWeight: 600, display: 'block', marginBottom: 4 }}>Street Number</label>
+															<div style={{ marginBottom: isMobile ? 12 : 24 }}>
+																<label style={{ color: '#222', fontWeight: 600, display: 'block', marginBottom: 4, fontSize: isMobile ? 13 : 14 }}>Street Number</label>
 																<input
 																	type="text"
 																	value={streetNumber}
 																	onChange={e => setStreetNumber(e.target.value)}
 																	style={{
 																		width: '100%',
-																		padding: 8,
+																		padding: isMobile ? 7 : 8,
 																		borderRadius: 6,
 																		border: '1px solid #ccc',
 																		background: streetNumber ? '#fff' : '#fff3e0',
 																		color: '#222',
 																		transition: 'background 0.2s',
+																		fontSize: isMobile ? 14 : 16,
 																	}}
 																/>
-																{errors.streetNumber && <div style={{ color: 'red', fontSize: 13 }}>{errors.streetNumber}</div>}
+																{errors.streetNumber && <div style={{ color: 'red', fontSize: 12 }}>{errors.streetNumber}</div>}
 															</div>
-															<div style={{ marginBottom: 24 }}>
-																<label style={{ color: '#222', fontWeight: 600, display: 'block', marginBottom: 4 }}>Street Name</label>
+															<div style={{ marginBottom: isMobile ? 12 : 24 }}>
+																<label style={{ color: '#222', fontWeight: 600, display: 'block', marginBottom: 4, fontSize: isMobile ? 13 : 14 }}>Street Name</label>
 																<input
 																	type="text"
 																	value={streetName}
 																	onChange={e => setStreetName(e.target.value)}
 																	style={{
 																		width: '100%',
-																		padding: 8,
+																		padding: isMobile ? 7 : 8,
 																		borderRadius: 6,
 																		border: '1px solid #ccc',
 																		background: streetName ? '#fff' : '#fff3e0',
 																		color: '#222',
 																		transition: 'background 0.2s',
+																		fontSize: isMobile ? 14 : 16,
 																	}}
 																/>
-																{errors.streetName && <div style={{ color: 'red', fontSize: 13 }}>{errors.streetName}</div>}
+																{errors.streetName && <div style={{ color: 'red', fontSize: 12 }}>{errors.streetName}</div>}
 															</div>
-															<div style={{ marginBottom: 24 }}>
-																<label style={{ color: '#222', fontWeight: 600, display: 'block', marginBottom: 4 }}>City</label>
+															<div style={{ marginBottom: isMobile ? 12 : 24 }}>
+																<label style={{ color: '#222', fontWeight: 600, display: 'block', marginBottom: 4, fontSize: isMobile ? 13 : 14 }}>City</label>
 																<input
 																	type="text"
 																	value={city}
 																	onChange={e => setCity(e.target.value)}
 																	style={{
 																		width: '100%',
-																		padding: 8,
+																		padding: isMobile ? 7 : 8,
 																		borderRadius: 6,
 																		border: '1px solid #ccc',
 																		background: city ? '#fff' : '#fff3e0',
 																		color: '#222',
 																		transition: 'background 0.2s',
+																		fontSize: isMobile ? 14 : 16,
 																	}}
 																/>
-																{errors.city && <div style={{ color: 'red', fontSize: 13 }}>{errors.city}</div>}
+																{errors.city && <div style={{ color: 'red', fontSize: 12 }}>{errors.city}</div>}
 															</div>
-															<div style={{ marginBottom: 24 }}>
-																<label style={{ color: '#222', fontWeight: 600, display: 'block', marginBottom: 4 }}>Zipcode</label>
+															<div style={{ marginBottom: isMobile ? 12 : 24 }}>
+																<label style={{ color: '#222', fontWeight: 600, display: 'block', marginBottom: 4, fontSize: isMobile ? 13 : 14 }}>Zipcode</label>
 																<input
 																	type="text"
 																	value={zipcode}
 																	onChange={e => setZipcode(e.target.value)}
 																	style={{
 																		width: '100%',
-																		padding: 8,
+																		padding: isMobile ? 7 : 8,
 																		borderRadius: 6,
 																		border: '1px solid #ccc',
 																		background: zipcode ? '#fff' : '#fff3e0',
 																		color: '#222',
 																		transition: 'background 0.2s',
+																		fontSize: isMobile ? 14 : 16,
 																	}}
 																/>
-																{errors.zipcode && <div style={{ color: 'red', fontSize: 13 }}>{errors.zipcode}</div>}
+																{errors.zipcode && <div style={{ color: 'red', fontSize: 12 }}>{errors.zipcode}</div>}
 															</div>
 
 					<div style={{ 
 						display: 'flex', 
 						justifyContent: 'flex-end', 
-						gap: 12,
-						marginTop: '30px',
-						paddingTop: '20px',
-						paddingBottom: '40px',
+						gap: isMobile ? 8 : 12,
+						marginTop: isMobile ? '20px' : '30px',
+						paddingTop: isMobile ? '15px' : '20px',
+						paddingBottom: isMobile ? '30px' : '40px',
 						borderTop: '1px solid #eee',
 						position: 'sticky',
 						bottom: '0',
 						background: 'white',
-						marginLeft: '-20px',
-						marginRight: '-20px',
-						paddingLeft: '20px',
-						paddingRight: '20px',
+						marginLeft: isMobile ? '-12px' : '-20px',
+						marginRight: isMobile ? '-12px' : '-20px',
+						paddingLeft: isMobile ? '12px' : '20px',
+						paddingRight: isMobile ? '12px' : '20px',
 						zIndex: 10
 					}}>
 						<button 
 							type="button" 
 							onClick={onClose} 
 							style={{ 
-								padding: '12px 24px', 
+								padding: isMobile ? '10px 18px' : '12px 24px', 
 								borderRadius: 6, 
 								border: 'none', 
 								background: '#6c757d', 
 								color: 'white',
 								fontWeight: 600,
-								fontSize: '16px',
-								minHeight: '48px',
+								fontSize: isMobile ? '14px' : '16px',
+								minHeight: isMobile ? '42px' : '48px',
 								cursor: 'pointer'
 							}}
 						>
@@ -323,14 +332,14 @@ const PickerModal: React.FC<PickerModalProps> = ({ isOpen, onClose, onSubmit, pr
 						<button 
 							type="submit" 
 							style={{ 
-								padding: '12px 24px', 
+								padding: isMobile ? '10px 18px' : '12px 24px', 
 								borderRadius: 6, 
 								border: 'none', 
 								background: '#1976d2', 
 								color: '#fff', 
 								fontWeight: 600,
-								fontSize: '16px',
-								minHeight: '48px',
+								fontSize: isMobile ? '14px' : '16px',
+								minHeight: isMobile ? '42px' : '48px',
 								cursor: 'pointer'
 							}}
 						>
