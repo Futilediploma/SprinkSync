@@ -6,5 +6,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function tryFieldFab() {
   // Navigate to the Field Fab application
-  window.location.assign('http://localhost:5174/');
+  window.location.href = '/fieldfab/';
 }
