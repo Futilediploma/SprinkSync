@@ -42,6 +42,7 @@ function App() {
   const [showPieceForm, setShowPieceForm] = useState(false);
   const [editPieceIndex, setEditPieceIndex] = useState<number | null>(null);
   const [showOutletForm, setShowOutletForm] = useState(false);
+  const [editOutletIndex, setEditOutletIndex] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -322,7 +323,7 @@ function App() {
                 marginBottom: '40px',
               }}>
                 <button
-                  onClick={() => setShowOutletForm(false)}
+                  onClick={() => { setShowOutletForm(false); setEditOutletIndex(null); }}
                   style={{
                     position: 'absolute',
                     top: 12,
@@ -344,17 +345,128 @@ function App() {
                       if (prev.length === 0) return prev;
                       const lastIdx = prev.length - 1;
                       const lastPiece = prev[lastIdx];
+                      let updatedOutlets;
+                      if (editOutletIndex !== null) {
+                        // Edit existing outlet
+                        updatedOutlets = (lastPiece.outlets || []).map((o: any, i: number) => 
+                          i === editOutletIndex ? outlet : o
+                        );
+                      } else {
+                        // Add new outlet
+                        updatedOutlets = [...(lastPiece.outlets || []), outlet];
+                      }
                       const updatedPiece = {
                         ...lastPiece,
-                        outlets: [...(lastPiece.outlets || []), outlet],
+                        outlets: updatedOutlets,
                       };
-                      return [...prev.slice(0, lastIdx), updatedPiece];
+                      const newPieces = [...prev.slice(0, lastIdx), updatedPiece];
+                      if (currentProject) {
+                        updateProject(currentProject.id, { pieces: newPieces });
+                      }
+                      return newPieces;
                     });
                     setShowOutletForm(false);
+                    setEditOutletIndex(null);
                   }}
                   maxFeet={pieces.length > 0 ? Number(pieces[pieces.length-1].feet) : 10}
+                  initialValues={editOutletIndex !== null && pieces.length > 0 && pieces[pieces.length-1].outlets?.[editOutletIndex] ? pieces[pieces.length-1].outlets[editOutletIndex] : undefined}
+                  isEditing={editOutletIndex !== null}
                 />
               </div>
+            </div>
+          )}
+
+          {/* Outlet List for Current Piece */}
+          {pieces.length > 0 && pieces[pieces.length-1].outlets && pieces[pieces.length-1].outlets.length > 0 && (
+            <div style={{ 
+              maxWidth: '95vw', 
+              margin: '20px auto 0', 
+              background: '#fff', 
+              borderRadius: 8, 
+              boxShadow: '0 2px 8px #0001', 
+              padding: '16px',
+              color: '#222'
+            }}>
+              <h3 style={{ color: '#222', marginTop: 0, marginBottom: 12, fontSize: '1.1rem' }}>Welded Outlets on Current Piece</h3>
+              <ul style={{ paddingLeft: 16, margin: 0 }}>
+                {pieces[pieces.length-1].outlets.map((outlet: any, idx: number) => {
+                  const feet = Math.floor(outlet.location / 12);
+                  const inches = (outlet.location % 12).toFixed(2);
+                  return (
+                    <li key={idx} style={{ 
+                      marginBottom: 12, 
+                      fontSize: '0.875rem', 
+                      color: '#222', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 8, 
+                      flexWrap: 'wrap' 
+                    }}>
+                      <span>
+                        <strong>Location:</strong> {feet}' {inches}" | 
+                        <strong> Size:</strong> {outlet.size}" | 
+                        <strong> Type:</strong> {outlet.type} | 
+                        <strong> Direction:</strong> {outlet.direction}
+                      </span>
+                      <button
+                        style={{
+                          background: '#ffa726',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: 6,
+                          padding: '6px 10px',
+                          fontWeight: 600,
+                          fontSize: '0.7rem',
+                          cursor: 'pointer',
+                          minHeight: '28px',
+                          touchAction: 'manipulation',
+                        }}
+                        title="Edit outlet"
+                        onClick={() => {
+                          setEditOutletIndex(idx);
+                          setShowOutletForm(true);
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        style={{
+                          background: '#d32f2f',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: 6,
+                          padding: '6px 10px',
+                          fontWeight: 600,
+                          fontSize: '0.7rem',
+                          cursor: 'pointer',
+                          minHeight: '28px',
+                          touchAction: 'manipulation',
+                        }}
+                        title="Delete outlet"
+                        onClick={() => {
+                          setPieces(prev => {
+                            if (prev.length === 0) return prev;
+                            const lastIdx = prev.length - 1;
+                            const lastPiece = prev[lastIdx];
+                            const updatedOutlets = (lastPiece.outlets || []).filter((_: any, i: number) => i !== idx);
+                            const updatedPiece = {
+                              ...lastPiece,
+                              outlets: updatedOutlets,
+                            };
+                            const newPieces = [...prev.slice(0, lastIdx), updatedPiece];
+                            if (currentProject) {
+                              updateProject(currentProject.id, { pieces: newPieces });
+                            }
+                            return newPieces;
+                          });
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           )}
         </div>

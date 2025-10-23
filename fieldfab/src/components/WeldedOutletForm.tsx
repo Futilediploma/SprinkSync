@@ -13,16 +13,18 @@ export interface WeldedOutlet {
 interface WeldedOutletFormProps {
   onAdd: (outlet: WeldedOutlet) => void;
   maxFeet?: number;
+  initialValues?: WeldedOutlet;
+  isEditing?: boolean;
 }
 
 
-const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 100 }) => {
-  const [feet, setFeet] = useState(0);
-  const [inches, setInches] = useState(0);
-  const [fraction, setFraction] = useState("");
-  const [size, setSize] = useState("");
-  const [type, setType] = useState("");
-  const [direction, setDirection] = useState("");
+const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 100, initialValues, isEditing = false }) => {
+  const [feet, setFeet] = useState(initialValues ? Math.floor(initialValues.location / 12) : 0);
+  const [inches, setInches] = useState(initialValues ? Math.floor(initialValues.location % 12) : 0);
+  const [fraction, setFraction] = useState(initialValues ? String((initialValues.location % 1) * 8 / 8) : "");
+  const [size, setSize] = useState(initialValues?.size || "");
+  const [type, setType] = useState(initialValues?.type || "");
+  const [direction, setDirection] = useState(initialValues?.direction || "");
 
   function formatInches(val: number, frac: string) {
     let result = String(val);
@@ -51,7 +53,7 @@ const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 10
 
   return (
     <Box component="form" onSubmit={handleSubmit} p={2} borderRadius={2} bgcolor="#f5f5f5" mb={2}>
-      <Typography variant="h6" mb={2}>Add Welded Outlet</Typography>
+      <Typography variant="h6" mb={2}>{isEditing ? 'Edit Welded Outlet' : 'Add Welded Outlet'}</Typography>
       <Typography variant="body2" mb={1} color="text.secondary">
   Location: {feet}' {formatInches(inches, fraction)}"
       </Typography>
@@ -167,7 +169,7 @@ const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 10
     color="primary"
     disabled={feet > maxFeet || !size || !type || !direction}
   >
-    Add Outlet
+    {isEditing ? 'Update Outlet' : 'Add Outlet'}
   </Button>
     </Box>
   );
