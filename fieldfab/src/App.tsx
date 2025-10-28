@@ -10,6 +10,22 @@ import { getProjects, addProject, updateProject } from './data/db';
 import WeldedOutletForm from './components/WeldedOutletForm';
 import PipeSketch from './components/PipeSketch';
 
+// Helper function to parse inches (handles decimals and fractions)
+function parseInches(val: string): number {
+  if (!val) return 0;
+  if (/^\d+(\.\d+)?$/.test(val)) return parseFloat(val);
+  if (/^\d+\/\d+$/.test(val)) {
+    const [num, denom] = val.split("/").map(Number);
+    return denom ? num / denom : 0;
+  }
+  if (/^\d+ \d+\/\d+$/.test(val)) {
+    const [whole, frac] = val.split(" ");
+    const [num, denom] = frac.split("/").map(Number);
+    return parseInt(whole) + (denom ? num / denom : 0);
+  }
+  return 0;
+}
+
 // import { loadProject } from './db';                 // ← uncomment when you have db.ts
 // import ProjectPickerModal from './components/ProjectPickerModal'; // ← add later
 
@@ -184,7 +200,7 @@ function App() {
 
         <div style={{ width: '100%', maxWidth: '95vw', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24, padding: '0 8px' }}>
           <PipeSketch
-            length={pieces.length > 0 ? (Number(pieces[pieces.length-1].feet) * 12 + (parseFloat(pieces[pieces.length-1].inches) || 0)) : 0}
+            length={pieces.length > 0 ? (Number(pieces[pieces.length-1].feet) * 12 + parseInches(pieces[pieces.length-1].inches)) : 0}
             pipeType={pieces.length > 0 ? pieces[pieces.length-1].pipeType : ''}
             pipetag={pieces.length > 0 ? pieces[pieces.length-1].pipeTag : ''}
             diameter={pieces.length > 0 ? pieces[pieces.length-1].diameter : ''}

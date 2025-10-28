@@ -44,24 +44,52 @@ const unicodeFractions: Record<string, string> = {
 function toFraction(inch: number) {
   const whole = Math.floor(inch);
   const frac = inch - whole;
-  const denominator = 16;
-  let numerator = Math.round(frac * denominator);
-  // If the fractional part is less than 1/16, treat as whole inch
-  if (frac < 1/16) {
+  
+  // Handle zero fractional part
+  if (frac < 0.001) {
     return `${whole}`;
   }
+  
+  // Common fractions with exact decimal values
+  const exactFractions: [number, string][] = [
+    [1/8, '1/8'],
+    [1/4, '1/4'],
+    [3/8, '3/8'],
+    [1/2, '1/2'],
+    [5/8, '5/8'],
+    [3/4, '3/4'],
+    [7/8, '7/8'],
+  ];
+  
+  // Check for exact matches (with small tolerance for floating point)
+  for (const [decimal, fracStr] of exactFractions) {
+    if (Math.abs(frac - decimal) < 0.001) {
+      const unicode = unicodeFractions[fracStr];
+      if (unicode) {
+        return whole === 0 ? `${eval(`'${unicode}'`)}` : `${whole}${eval(`'${unicode}'`)}`;
+      }
+      return whole === 0 ? fracStr : `${whole} ${fracStr}`;
+    }
+  }
+  
+  // Fall back to 1/16 rounding for other values
+  const denominator = 16;
+  let numerator = Math.round(frac * denominator);
+  
   if (numerator === denominator) {
     return `${whole + 1}`;
   }
   if (numerator === 0) {
     return `${whole}`;
   }
+  
   // Reduce fraction
   let gcd = (a: number, b: number): number => b ? gcd(b, a % b) : a;
   const divisor = gcd(numerator, denominator);
   const reducedNum = numerator / divisor;
   const reducedDen = denominator / divisor;
   const fracStr = `${reducedNum}/${reducedDen}`;
+  
   // Use unicode if available
   const unicode = unicodeFractions[fracStr];
   if (unicode) {
