@@ -9,6 +9,10 @@ import ProjectsMenu from './components/projectsmenu';
 import { getProjects, addProject, updateProject } from './data/db';
 import WeldedOutletForm from './components/WeldedOutletForm';
 import PipeSketch from './components/PipeSketch';
+import LooseMaterialForm from './components/LooseMaterialForm';
+import type { MaterialItem } from './components/LooseMaterialForm';
+import type { Project } from './types';
+import { exportToCSV, exportToExcel, exportToPDF } from './utils/looseMaterialExport';
 
 // Helper function to parse inches (handles decimals and fractions)
 function parseInches(val: string): number {
@@ -29,20 +33,6 @@ function parseInches(val: string): number {
 // import { loadProject } from './db';                 // ← uncomment when you have db.ts
 // import ProjectPickerModal from './components/ProjectPickerModal'; // ← add later
 
-type Project = {
-  id: string;
-  name: string;
-  companyName: string;
-  streetNumber: string;
-  streetName: string;
-  city: string;
-  zipcode: string;
-  pieces: unknown[];
-  createdAt: string;
-  updatedAt: string;
-  schemaVersion: number;
-};
-
 function App() {
   // Removed unused isProcessingPiece
   // Track if a piece is pending addition
@@ -59,6 +49,9 @@ function App() {
   const [editPieceIndex, setEditPieceIndex] = useState<number | null>(null);
   const [showOutletForm, setShowOutletForm] = useState(false);
   const [editOutletIndex, setEditOutletIndex] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'fabrication' | 'loosematerial'>('fabrication');
+  const [looseMaterials, setLooseMaterials] = useState<MaterialItem[]>([]);
+  const [editMaterialIndex, setEditMaterialIndex] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -113,6 +106,7 @@ function App() {
     addProject(newProject);
     setCurrentProject(newProject);
     setPieces([]);
+    setLooseMaterials([]);
     localStorage.setItem('fieldfab:currentProjectId', newProject.id);
     setShowPicker(false);
   };
@@ -196,8 +190,75 @@ function App() {
               </button>
             </div>
           )}
+
+          {/* Tab selector */}
+          <div style={{
+            marginTop: 16,
+            display: 'flex',
+            gap: 8,
+            borderBottom: '2px solid #e0e0e0',
+            paddingBottom: 0
+          }}>
+            <button
+              style={{
+                padding: '10px 24px',
+                border: 'none',
+                background: activeTab === 'fabrication' ? '#1976d2' : 'transparent',
+                color: activeTab === 'fabrication' ? '#fff' : '#666',
+                fontWeight: 600,
+                fontSize: '0.95rem',
+                cursor: 'pointer',
+                borderRadius: '6px 6px 0 0',
+                transition: 'all 0.2s',
+              }}
+              onClick={() => setActiveTab('fabrication')}
+            >
+              Fabrication
+            </button>
+            <button
+              style={{
+                padding: '10px 24px',
+                border: 'none',
+                background: activeTab === 'loosematerial' ? '#1976d2' : 'transparent',
+                color: activeTab === 'loosematerial' ? '#fff' : '#666',
+                fontWeight: 600,
+                fontSize: '0.95rem',
+                cursor: 'pointer',
+                borderRadius: '6px 6px 0 0',
+                transition: 'all 0.2s',
+              }}
+              onClick={() => setActiveTab('loosematerial')}
+            >
+              Loose Material
+            </button>
+          </div>
         </div>
 
+        {activeTab === 'fabrication' && (
+          <>
+            {/* Beta Watermark Banner */}
+            <div style={{
+              width: '100%',
+              maxWidth: '95vw',
+              background: 'linear-gradient(135deg, rgba(25, 118, 210, 0.05) 0%, rgba(25, 118, 210, 0.02) 100%)',
+              border: '1px solid rgba(25, 118, 210, 0.15)',
+              borderRadius: 8,
+              padding: '10px 16px',
+              marginTop: 16,
+              marginBottom: 20,
+              textAlign: 'center',
+            }}>
+              <span style={{
+                color: '#1976d2',
+                fontSize: '0.6rem',
+                fontWeight: 600,
+                letterSpacing: '0.5px',
+                textTransform: 'uppercase',
+                opacity: 0.8,
+              }}>
+                Beta Version — Feature in Development
+              </span>
+            </div>
         <div style={{ width: '100%', maxWidth: '95vw', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24, padding: '0 8px' }}>
           <PipeSketch
             length={pieces.length > 0 ? (Number(pieces[pieces.length-1].feet) * 12 + parseInches(pieces[pieces.length-1].inches)) : 0}
@@ -599,6 +660,294 @@ function App() {
             </button>
           </div>
         </div>
+          </>
+        )}
+
+        {activeTab === 'loosematerial' && (
+          <div style={{ width: '100%', maxWidth: '95vw', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24, padding: '0 8px' }}>
+            {/* Beta Watermark Banner */}
+            <div style={{
+              width: '100%',
+              maxWidth: '800px',
+              background: 'linear-gradient(135deg, rgba(25, 118, 210, 0.05) 0%, rgba(25, 118, 210, 0.02) 100%)',
+              border: '1px solid rgba(25, 118, 210, 0.15)',
+              borderRadius: 8,
+              padding: '10px 16px',
+              marginTop: 1,
+              marginBottom: 1,
+              textAlign: 'center',
+            }}>
+              <span style={{
+                color: '#1976d2',
+                fontSize: '0.6rem',
+                fontWeight: 600,
+                letterSpacing: '0.5px',
+                textTransform: 'uppercase',
+                opacity: 0.8,
+              }}>
+                Beta Version — Feature in Development
+              </span>
+            </div>
+
+            <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
+              <h2 style={{ color: '#1a2233', textAlign: 'center' }}>Loose Material List</h2>
+              <p style={{ color: '#666', textAlign: 'center', marginBottom: 24 }}>
+                Add loose materials for your project using the form below. You can export the complete list to PDF, Excel, or CSV formats.
+              </p>
+
+              <LooseMaterialForm
+                onAdd={(material) => {
+                  setLooseMaterials(prev => {
+                    const newMaterials = [...prev, material];
+                    if (currentProject) {
+                      updateProject(currentProject.id, { looseMaterials: newMaterials });
+                    }
+                    return newMaterials;
+                  });
+                }}
+              />
+
+              {/* Material List Display */}
+              <div style={{
+                marginTop: 24,
+                background: '#fff',
+                borderRadius: 8,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                padding: 16,
+              }}>
+                <h3 style={{ marginTop: 0, marginBottom: 16, color: '#1a2233' }}>
+                  Materials ({looseMaterials.length})
+                </h3>
+
+                {looseMaterials.length === 0 ? (
+                  <p style={{ color: '#888', textAlign: 'center', padding: 20 }}>
+                    No materials added yet. Use the form above to add materials.
+                  </p>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{
+                      width: '100%',
+                      borderCollapse: 'collapse',
+                      fontSize: '0.9rem',
+                    }}>
+                      <thead>
+                        <tr style={{ borderBottom: '2px solid #e0e0e0', backgroundColor: '#f8f9fa' }}>
+                          <th style={{ padding: '12px 8px', textAlign: 'center', fontWeight: 600, width: '50px', color: '#222' }}>#</th>
+                          <th style={{ padding: '12px 8px', textAlign: 'center', fontWeight: 600, width: '60px', color: '#222' }}>Qty</th>
+                          <th style={{ padding: '12px 8px', textAlign: 'left', fontWeight: 600, width: '120px', color: '#222' }}>Size</th>
+                          <th style={{ padding: '12px 8px', textAlign: 'left', fontWeight: 600, minWidth: '200px', color: '#222' }}>Product Name</th>
+                          <th style={{ padding: '12px 8px', textAlign: 'left', fontWeight: 600, minWidth: '250px', color: '#222' }}>Description</th>
+                          <th style={{ padding: '12px 8px', textAlign: 'left', fontWeight: 600, width: '100px', color: '#222' }}>Type</th>
+                          <th style={{ padding: '12px 8px', textAlign: 'center', fontWeight: 600, width: '200px', color: '#222' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {looseMaterials.map((material, idx) => (
+                          <tr key={material.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                            <td style={{ padding: '12px 8px', textAlign: 'center', color: '#222' }}>{idx + 1}</td>
+                            <td style={{ padding: '12px 8px', textAlign: 'center', color: '#222' }}>{material.qty}</td>
+                            <td style={{ padding: '12px 8px', whiteSpace: 'nowrap', color: '#222' }}>
+                              {material.sizes && material.sizes.length > 0
+                                ? material.sizes.join(', ')
+                                : material.size || '-'}
+                            </td>
+                            <td style={{ padding: '12px 8px', fontWeight: 500, color: '#222' }}>{material.part}</td>
+                            <td style={{ padding: '12px 8px', color: '#222' }}>
+                              {material.description}
+                              {material.options && material.options.length > 0 && (
+                                <div style={{ marginTop: 4, fontSize: '0.8rem', color: '#1976d2' }}>
+                                  <strong>Options:</strong> {material.options.join(', ')}
+                                </div>
+                              )}
+                            </td>
+                            <td style={{ padding: '12px 8px', color: '#222' }}>{material.type}</td>
+                            <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+                                <button
+                                  style={{
+                                    background: '#ffa726',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: 6,
+                                    padding: '6px 12px',
+                                    fontWeight: 600,
+                                    fontSize: '0.75rem',
+                                    cursor: 'pointer',
+                                    width: '80px',
+                                  }}
+                                  onClick={() => setEditMaterialIndex(idx)}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  style={{
+                                    background: '#d32f2f',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: 6,
+                                    padding: '6px 12px',
+                                    fontWeight: 600,
+                                    fontSize: '0.75rem',
+                                    cursor: 'pointer',
+                                    width: '80px',
+                                  }}
+                                  onClick={() => {
+                                    const newMaterials = looseMaterials.filter(m => m.id !== material.id);
+                                    setLooseMaterials(newMaterials);
+                                    if (currentProject) {
+                                      updateProject(currentProject.id, { looseMaterials: newMaterials });
+                                    }
+                                  }}
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {looseMaterials.length > 0 && (
+                  <div style={{
+                    marginTop: 16,
+                    display: 'flex',
+                    flexDirection: window.innerWidth < 480 ? 'column' : 'row',
+                    justifyContent: 'center',
+                    gap: 12,
+                    flexWrap: 'wrap'
+                  }}>
+                    <button
+                      style={{
+                        background: '#1976d2',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 8,
+                        padding: '12px 28px',
+                        fontWeight: 700,
+                        fontSize: '1rem',
+                        cursor: 'pointer',
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+                        flex: window.innerWidth < 480 ? 'none' : '1',
+                        maxWidth: window.innerWidth < 480 ? 'none' : '200px',
+                        minHeight: '44px',
+                      }}
+                      onClick={() => exportToCSV(looseMaterials, currentProject)}
+                    >
+                      Export CSV
+                    </button>
+                    <button
+                      style={{
+                        background: '#2e7d32',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 8,
+                        padding: '12px 28px',
+                        fontWeight: 700,
+                        fontSize: '1rem',
+                        cursor: 'pointer',
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+                        flex: window.innerWidth < 480 ? 'none' : '1',
+                        maxWidth: window.innerWidth < 480 ? 'none' : '200px',
+                        minHeight: '44px',
+                      }}
+                      onClick={() => exportToExcel(looseMaterials, currentProject)}
+                    >
+                      Export Excel
+                    </button>
+                    <button
+                      style={{
+                        background: '#d32f2f',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 8,
+                        padding: '12px 28px',
+                        fontWeight: 700,
+                        fontSize: '1rem',
+                        cursor: 'pointer',
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+                        flex: window.innerWidth < 480 ? 'none' : '1',
+                        maxWidth: window.innerWidth < 480 ? 'none' : '200px',
+                        minHeight: '44px',
+                      }}
+                      onClick={() => exportToPDF(looseMaterials, currentProject)}
+                    >
+                      Export PDF
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Edit Material Modal */}
+              {editMaterialIndex !== null && (
+                <div style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  width: '100%',
+                  height: '100%',
+                  background: 'rgba(0,0,0,0.4)',
+                  backdropFilter: 'blur(6px)',
+                  zIndex: 2000,
+                  padding: '20px',
+                  boxSizing: 'border-box',
+                  overflow: 'auto',
+                  WebkitOverflowScrolling: 'touch',
+                } as React.CSSProperties}>
+                  <div style={{
+                    background: '#fff',
+                    borderRadius: 12,
+                    padding: '20px',
+                    width: '100%',
+                    maxWidth: '800px',
+                    margin: '0 auto',
+                    minHeight: 'fit-content',
+                    boxShadow: '0 4px 32px #0003',
+                    position: 'relative',
+                    marginBottom: '40px',
+                  }}>
+                    <button
+                      onClick={() => setEditMaterialIndex(null)}
+                      style={{
+                        position: 'absolute',
+                        top: 12,
+                        right: 12,
+                        background: 'none',
+                        border: 'none',
+                        fontSize: 26,
+                        color: '#888',
+                        cursor: 'pointer',
+                        zIndex: 1001,
+                      }}
+                      aria-label="Close"
+                    >
+                      ×
+                    </button>
+                    <h3 style={{ marginTop: 0, marginBottom: 20, color: '#1a2233' }}>Edit Material</h3>
+                    <LooseMaterialForm
+                      onAdd={(material) => {
+                        setLooseMaterials(prev => {
+                          const newMaterials = prev.map((m, i) => i === editMaterialIndex ? material : m);
+                          if (currentProject) {
+                            updateProject(currentProject.id, { looseMaterials: newMaterials });
+                          }
+                          return newMaterials;
+                        });
+                        setEditMaterialIndex(null);
+                      }}
+                      initialValues={looseMaterials[editMaterialIndex]}
+                      isEditing={true}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
       {/* Project picker modal (show when no current project) */}
       {showPicker && (
@@ -610,6 +959,7 @@ function App() {
           onSelectProject={p => {
             setCurrentProject(p);
             setPieces(p.pieces || []);
+            setLooseMaterials((p as any).looseMaterials || []);
             localStorage.setItem('fieldfab:currentProjectId', p.id);
             setShowPicker(false);
           }}
@@ -642,6 +992,7 @@ function App() {
               onSelect={p => {
                 setCurrentProject(p);
                 setPieces(p.pieces || []);
+                setLooseMaterials((p as any).looseMaterials || []);
                 localStorage.setItem('fieldfab:currentProjectId', p.id);
                 setShowProjectsMenu(false);
               }}
@@ -649,6 +1000,34 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Footer Disclaimer */}
+      <div style={{
+        width: '100%',
+        maxWidth: '95vw',
+        background: 'rgba(255,255,255,0.7)',
+        borderRadius: 12,
+        padding: '16px 20px',
+        marginTop: 40,
+        marginBottom: 20,
+        color: '#666',
+        fontSize: '0.75rem',
+        lineHeight: 1.5,
+        boxShadow: '0 2px 12px rgba(25, 118, 210, 0.06)',
+        border: '1px solid rgba(25, 118, 210, 0.1)',
+      }}>
+        <p style={{ margin: '0', color: '#555', fontSize: '0.78rem' }}>
+          <strong style={{ color: '#1976d2' }}>Quick heads up:</strong> Get a licensed fire protection engineer to review your specs before you build or install anything. This app helps with planning and organizing, but you're responsible for verifying everything matches your project needs and code requirements.
+        </p>
+
+        <p style={{ margin: '0', color: '#777', fontSize: '0.72rem', lineHeight: 1.4 }}>
+          Product info can change, so double-check with manufacturers before ordering. I built this tool to make your job easier, but use it at your own risk—I can't guarantee everything's perfect. Always verify against current NFPA standards and local requirements.
+        </p>
+
+        <p style={{ margin: '0', color: '#777', fontSize: '0.72rem', lineHeight: 1.4 }}>
+          Have a licensed fire protection engineer or proper NICET level review all specs before fabrication. This tool helps with planning, but always double-check measurements, materials, and code requirements (NFPA, local AHJ) before ordering or installing.
+        </p>
+      </div>
     </>
   );
 }

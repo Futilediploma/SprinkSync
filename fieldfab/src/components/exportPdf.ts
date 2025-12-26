@@ -105,7 +105,7 @@ export async function exportMultiPiecePdf(project: any, pieces: any[]) {
     // Pieces (up to 3 per page)
     for (let j = 0; j < 3 && i + j < pieces.length; ++j) {
       const piece = pieces[i + j];
-      let y = pieceStartY + j * pieceGapY;
+      const y = pieceStartY + j * pieceGapY;
       // Restore summary text above the image
       pdf.setFontSize(15);
       pdf.text(`Pipe ID: ${piece.pipeTag || ''}`, 40, y);
@@ -123,7 +123,7 @@ function formatFeetInches(inches: number) {
 }
 
       // Add the pipe sketch image, smaller and centered
-      let imageY = y + 60;
+      const imageY = y + 60;
       let imgHeight = 30;
       if (piece.image) {
         try {
@@ -149,7 +149,7 @@ function formatFeetInches(inches: number) {
       }
 
       // Welded Outlets section below image, centered
-      let outletsY = imageY + imgHeight + 20;
+      const outletsY = imageY + imgHeight + 20;
       if (piece.outlets && piece.outlets.length > 0) {
         pdf.setFontSize(12);
         pdf.text('Welded Outlets:', pageWidth / 2, outletsY, { align: 'center' });
@@ -164,6 +164,31 @@ function formatFeetInches(inches: number) {
       }
     }
   }
+
+  // Add disclaimer footer to all pages
+  const pageCount = pdf.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    pdf.setPage(i);
+    const pageHeight = pdf.internal.pageSize.getHeight();
+
+    // Disclaimer text
+    pdf.setFontSize(7);
+    pdf.setFont('helvetica', 'italic');
+    pdf.setTextColor(100, 100, 100);
+    pdf.text(
+      'IMPORTANT: Have a licensed fire protection engineer review all specs before fabrication/installation.',
+      pageWidth / 2,
+      pageHeight - 16,
+      { align: 'center', maxWidth: pageWidth - 40 }
+    );
+    pdf.text(
+      'Verify specifications and code compliance with manufacturers. Provided as-is for planning purposes.',
+      pageWidth / 2,
+      pageHeight - 10,
+      { align: 'center', maxWidth: pageWidth - 40 }
+    );
+  }
+
   pdf.save(`${project.name || 'project'}-pipe-report.pdf`);
 }
 
@@ -210,7 +235,7 @@ export async function exportPipeSketchPdf(svgElement: SVGSVGElement, pipeData: a
     pdf.setFontSize(13);
     pdf.text('Welded Outlets:', 40, 280);
     pdf.setFontSize(11);
-    let y = 300;
+    const y = 300;
     pipeData.outlets.forEach((o: any, i: number) => {
       pdf.text(
         `Location: ${o.location}   Size: ${o.size}   Type: ${o.type}   Direction: ${o.direction}`,
@@ -219,6 +244,24 @@ export async function exportPipeSketchPdf(svgElement: SVGSVGElement, pipeData: a
       );
     });
   }
+
+  // Add disclaimer footer
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  pdf.setFontSize(7);
+  pdf.setFont('helvetica', 'italic');
+  pdf.setTextColor(100, 100, 100);
+  pdf.text(
+    'IMPORTANT: Have a licensed fire protection engineer review all specs before fabrication/installation.',
+    pdf.internal.pageSize.getWidth() / 2,
+    pageHeight - 16,
+    { align: 'center', maxWidth: pdf.internal.pageSize.getWidth() - 80 }
+  );
+  pdf.text(
+    'Verify specifications and code compliance with manufacturers. Provided as-is for planning purposes.',
+    pdf.internal.pageSize.getWidth() / 2,
+    pageHeight - 10,
+    { align: 'center', maxWidth: pdf.internal.pageSize.getWidth() - 80 }
+  );
 
   // Save/download
   pdf.save('pipe-sketch-report.pdf');

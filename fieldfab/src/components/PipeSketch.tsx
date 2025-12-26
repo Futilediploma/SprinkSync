@@ -74,7 +74,7 @@ function toFraction(inch: number) {
   
   // Fall back to 1/16 rounding for other values
   const denominator = 16;
-  let numerator = Math.round(frac * denominator);
+  const numerator = Math.round(frac * denominator);
   
   if (numerator === denominator) {
     return `${whole + 1}`;
@@ -84,7 +84,7 @@ function toFraction(inch: number) {
   }
   
   // Reduce fraction
-  let gcd = (a: number, b: number): number => b ? gcd(b, a % b) : a;
+  const gcd = (a: number, b: number): number => b ? gcd(b, a % b) : a;
   const divisor = gcd(numerator, denominator);
   const reducedNum = numerator / divisor;
   const reducedDen = denominator / divisor;

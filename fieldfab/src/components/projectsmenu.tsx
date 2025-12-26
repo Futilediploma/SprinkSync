@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Project } from '../data/db';
+import type { Project } from '../types';
 
 interface ProjectsMenuProps {
   projects: Project[];

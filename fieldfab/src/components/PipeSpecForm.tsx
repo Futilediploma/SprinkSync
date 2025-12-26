@@ -82,7 +82,7 @@ function PipeSpecForm({ onCreatePiece, onCancel, initialValues }: PipeSpecFormPr
 
   // If initialValues change (editing a different piece), update form values
   // (This is a rare case, but ensures correct behavior)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   React.useEffect(() => {
     if (initialValues) {
       Object.entries(initialValues).forEach(([key, value]) => {
@@ -91,7 +91,7 @@ function PipeSpecForm({ onCreatePiece, onCancel, initialValues }: PipeSpecFormPr
     }
   }, [initialValues, setValue]);
   const feet = watch("feet") ?? 1; // default to 1 foot
-  let inchesRaw = watch("inches");
+  const inchesRaw = watch("inches");
   const pipeType = watch("pipeType") ?? "schedule_40";
   const diameterRaw = watch("diameter");
   const diameter = Math.max(typeof diameterRaw === "number" ? diameterRaw : parseFraction(String(diameterRaw ?? "0")), 1); // at least 1 inch

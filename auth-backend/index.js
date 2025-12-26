@@ -53,32 +53,55 @@ app.get('/procore/callback', async (req, res) => {
   }
 });
 
-// SQLite in-memory DB (use a file for persistence)
-const db = new sqlite3.Database(':memory:');
+// SQLite database (persistent)
+const db = new sqlite3.Database('./database.sqlite', (err) => {
+  if (err) console.error('Database opening error: ', err);
+});
+
 db.serialize(() => {
-  db.run('CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT UNIQUE, password TEXT)');
+  db.run('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, email TEXT UNIQUE, password TEXT)');
 });
 
 // Signup route
 app.post('/signup', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
-  const hash = await bcrypt.hash(password, 10);
-  db.run('INSERT INTO users (email, password) VALUES (?, ?)', [email, hash], function(err) {
-    if (err) return res.status(400).json({ error: 'User already exists' });
-    res.json({ id: this.lastID, email });
-  });
+  if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+
+  try {
+    const hash = await bcrypt.hash(password, 10);
+    db.run('INSERT INTO users (email, password) VALUES (?, ?)', [email, hash], function (err) {
+      if (err) {
+        if (err.message.includes('UNIQUE constraint failed')) {
+          return res.status(400).json({ error: 'User already exists' });
+        }
+        return res.status(500).json({ error: 'Database error' });
+      }
+      res.json({ id: this.lastID, email });
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error during signup' });
+  }
 });
 
 // Login route
 app.post('/login', (req, res) => {
   const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+
   db.get('SELECT * FROM users WHERE email = ?', [email], async (err, user) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
     if (!user) return res.status(400).json({ error: 'Invalid credentials' });
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(400).json({ error: 'Invalid credentials' });
-    const token = jwt.sign({ id: user.id, email: user.email }, SECRET, { expiresIn: '1h' });
-    res.json({ token });
+
+    try {
+      const valid = await bcrypt.compare(password, user.password);
+      if (!valid) return res.status(400).json({ error: 'Invalid credentials' });
+
+      const token = jwt.sign({ id: user.id, email: user.email }, SECRET, { expiresIn: '1h' });
+      res.json({ token });
+    } catch (err) {
+      res.status(500).json({ error: 'Login error' });
+    }
   });
 });
 

@@ -4,8 +4,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // window.location.assign('/fieldfab/');
 });
 
-// Make function globally available for onclick handler
+// Make functions globally available for onclick handlers
 window.tryFieldFab = function() {
   // Navigate to the Field Fab application
   window.location.href = '/fieldfab/';
+};
+
+window.tryScheduleExtractor = function() {
+  // Navigate to the Schedule Extractor application
+  window.location.href = '/schedule-extractor/';
 };

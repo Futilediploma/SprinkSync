@@ -1,17 +1,5 @@
 // Simple in-memory project DB (mock)
-export interface Project {
-	id: string;
-	name: string;
-	companyName: string;
-	streetNumber: string;
-	streetName: string;
-	city: string;
-	zipcode: string;
-	pieces: unknown[];
-	createdAt: string;
-	updatedAt: string;
-	schemaVersion: number;
-}
+import type { Project } from '../types';
 
 
 const LS_KEY = 'fieldfab:projects';
