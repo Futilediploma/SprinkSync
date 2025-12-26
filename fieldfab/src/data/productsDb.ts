@@ -42,7 +42,7 @@ export async function initProductsDatabase(): Promise<IDBPDatabase<ProductsDB>> 
   }
 
   dbInstance = await openDB<ProductsDB>('victaulic-products', 2, {
-    upgrade(db, oldVersion, newVersion, transaction) {
+    upgrade(db, oldVersion, _newVersion, transaction) {
       // Create products store
       if (!db.objectStoreNames.contains('products')) {
         const productStore = db.createObjectStore('products', {

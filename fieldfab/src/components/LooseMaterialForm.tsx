@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
@@ -39,7 +39,6 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [showResults, setShowResults] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [dbInitialized, setDbInitialized] = useState(false);
   const [dbLoading, setDbLoading] = useState(true);
@@ -196,7 +195,6 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
 
   const handleSelectProduct = (product: Product) => {
     justSelectedProduct.current = true; // Set flag to prevent search
-    setSelectedProduct(product);
     setSearchQuery(product.product_name);
     setDescription(product.short_description);
     setShowResults(false);
@@ -437,7 +435,6 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
       setSize('');
       setDescription('');
       setType('');
-      setSelectedProduct(null);
       setAvailableOptions([]);
       setSelectedOptions([]);
       setAvailableSizes([]);

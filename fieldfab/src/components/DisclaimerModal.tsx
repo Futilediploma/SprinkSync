@@ -47,7 +47,6 @@ export default function DisclaimerModal({ isOpen, onAccept }: DisclaimerModalPro
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div
             style={{
-              display: 'inline-block',
               width: 60,
               height: 60,
               borderRadius: '50%',
