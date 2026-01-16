@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 
-// Use empty string for dev (proxy handles it) or full URL for production
-const API_BASE = import.meta.env.VITE_API_URL || ''
+// Use /manpower for production, empty for local dev with proxy
+const API_BASE = import.meta.env.PROD ? '/manpower' : ''
 
 interface User {
   id: number
