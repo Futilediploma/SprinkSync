@@ -1,0 +1,224 @@
+"""Pydantic schemas for request/response validation."""
+from pydantic import BaseModel, Field, field_validator
+from typing import Optional, List
+from datetime import date, datetime
+from decimal import Decimal
+
+
+# ============================================
+# Crew Type Schemas
+# ============================================
+
+class CrewTypeBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+
+class CrewTypeCreate(CrewTypeBase):
+    pass
+
+
+class CrewType(CrewTypeBase):
+    id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+# ============================================
+# Project Schemas
+# ============================================
+
+class ProjectBase(BaseModel):
+    name: str
+    customer_name: Optional[str] = None
+    project_number: Optional[str] = None
+    status: str = "active"
+    status: str = "active"
+    notes: Optional[str] = None
+    budgeted_hours: Optional[Decimal] = None
+    start_date: Optional[date] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    is_mechanical: bool = False
+    is_electrical: bool = False
+    is_aws: bool = False
+
+
+class ProjectCreate(ProjectBase):
+    pass
+
+
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = None
+    customer_name: Optional[str] = None
+    project_number: Optional[str] = None
+    status: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    budgeted_hours: Optional[Decimal] = None
+    start_date: Optional[date] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    is_mechanical: Optional[bool] = None
+    is_electrical: Optional[bool] = None
+    is_aws: Optional[bool] = None
+
+
+class Project(ProjectBase):
+    id: int
+    total_scheduled_hours: Optional[float] = 0.0
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+# ============================================
+# Schedule Phase Schemas
+# ============================================
+
+class SchedulePhaseBase(BaseModel):
+    phase_name: str
+    start_date: date
+    end_date: date
+    estimated_man_hours: Optional[Decimal] = None
+    crew_size: Optional[Decimal] = None
+    crew_type_id: Optional[int] = None
+    notes: Optional[str] = None
+    sort_order: int = 0
+    
+    @field_validator('end_date')
+    @classmethod
+    def validate_end_date(cls, v, info):
+        if 'start_date' in info.data and v < info.data['start_date']:
+            raise ValueError('end_date must be >= start_date')
+        return v
+    
+    @field_validator('estimated_man_hours', 'crew_size')
+    @classmethod
+    def validate_labor_input(cls, v, info):
+        # At least one labor input must be provided
+        if info.data.get('estimated_man_hours') is None and info.data.get('crew_size') is None:
+            if v is None:
+                raise ValueError('Must provide either estimated_man_hours or crew_size')
+        return v
+
+
+class SchedulePhaseCreate(SchedulePhaseBase):
+    pass
+
+
+class SchedulePhaseUpdate(BaseModel):
+    phase_name: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    estimated_man_hours: Optional[Decimal] = None
+    crew_size: Optional[Decimal] = None
+    crew_type_id: Optional[int] = None
+    notes: Optional[str] = None
+    sort_order: Optional[int] = None
+
+
+class SchedulePhase(SchedulePhaseBase):
+    id: int
+    schedule_id: int
+    crew_type: Optional[CrewType] = None
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+# ============================================
+# Project Schedule Schemas
+# ============================================
+
+class ProjectScheduleBase(BaseModel):
+    schedule_name: str = "Main Schedule"
+    start_date: date
+    end_date: date
+    is_active: bool = True
+    
+    @field_validator('end_date')
+    @classmethod
+    def validate_end_date(cls, v, info):
+        if 'start_date' in info.data and v < info.data['start_date']:
+            raise ValueError('end_date must be >= start_date')
+        return v
+
+
+class ProjectScheduleCreate(ProjectScheduleBase):
+    phases: Optional[List[SchedulePhaseCreate]] = []
+
+
+class ProjectScheduleUpdate(BaseModel):
+    schedule_name: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    is_active: Optional[bool] = None
+
+
+class ProjectSchedule(ProjectScheduleBase):
+    id: int
+    project_id: int
+    total_estimated_hours: Optional[Decimal] = None
+    phases: List[SchedulePhase] = []
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+# ============================================
+# Forecast Schemas
+# ============================================
+
+class DailyManpower(BaseModel):
+    date: date
+    man_hours: Decimal
+    project_id: int
+    phase_id: int
+    crew_type_id: Optional[int] = None
+
+
+class WeeklyForecast(BaseModel):
+    week: str  # Format: "2026-W15"
+    week_start: date
+    man_hours: Decimal
+    crew_breakdown: dict[int, Decimal] = {}
+
+
+class MonthlyForecast(BaseModel):
+    month: str  # Format: "2026-03"
+    month_name: str
+    man_hours: Decimal
+    crew_breakdown: dict[int, Decimal] = {}
+
+
+class ProjectContribution(BaseModel):
+    id: int
+    name: str
+    man_hours: Decimal
+
+
+class ManpowerForecast(BaseModel):
+    start_date: date
+    end_date: date
+    total_man_hours: Decimal
+    project_count: int
+    weekly_forecast: List[WeeklyForecast] = []
+    monthly_forecast: List[MonthlyForecast] = []
+    projects_included: List[ProjectContribution] = []
+
+
+class ForecastFilters(BaseModel):
+    start_date: date
+    end_date: date
+    project_ids: Optional[List[int]] = None
+    crew_type_ids: Optional[List[int]] = None
+    granularity: str = "weekly"  # weekly, monthly, daily

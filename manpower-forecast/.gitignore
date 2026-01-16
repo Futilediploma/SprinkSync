@@ -1,0 +1,43 @@
+# Environment and secrets - NEVER COMMIT THESE
+.env
+.env.local
+.env.production
+*.env
+
+# Database files - contain your data, not code
+*.db
+*.sqlite
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+build/
+.cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test/coverage
+.coverage
+htmlcov/
+.pytest_cache/
