@@ -83,6 +83,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await response.json()
     localStorage.setItem('sprinksync_token', data.access_token)
     setToken(data.access_token)
+
+    // Immediately fetch user info so navigation works
+    const userResponse = await fetch(`${API_BASE}/api/auth/me`, {
+      headers: {
+        Authorization: `Bearer ${data.access_token}`,
+      },
+    })
+    if (userResponse.ok) {
+      const userData = await userResponse.json()
+      setUser(userData)
+    }
   }
 
   const logout = () => {
