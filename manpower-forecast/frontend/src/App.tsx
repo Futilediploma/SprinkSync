@@ -47,6 +47,11 @@ function App() {
     )
   }
 
+  // Redirect to login if not authenticated
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navigation */}
