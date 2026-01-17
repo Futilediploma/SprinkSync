@@ -28,6 +28,15 @@ const api = axios.create({
   },
 });
 
+// Add auth token to all requests
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('sprinksync_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 // ============================================
 // Projects
 // ============================================
