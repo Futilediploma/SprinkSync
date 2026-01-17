@@ -10,7 +10,8 @@ import models
 app = FastAPI(
     title="SprinkSync Manpower Forecast API",
     description="Manpower forecasting and project scheduling for fire sprinkler contractors",
-    version="1.0.0"
+    version="1.0.0",
+    redirect_slashes=False
 )
 
 # Configure CORS - uses settings from .env
