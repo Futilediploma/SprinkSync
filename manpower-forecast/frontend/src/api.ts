@@ -42,14 +42,14 @@ api.interceptors.request.use((config) => {
 // ============================================
 
 export const projectsApi = {
-  list: (status?: string) => 
-    api.get<Project[]>('/api/projects', { params: { status } }),
-  
-  get: (id: number) => 
+  list: (status?: string) =>
+    api.get<Project[]>('/api/projects/', { params: { status } }),
+
+  get: (id: number) =>
     api.get<Project>(`/api/projects/${id}`),
-  
-  create: (data: ProjectCreate) => 
-    api.post<Project>('/api/projects', data),
+
+  create: (data: ProjectCreate) =>
+    api.post<Project>('/api/projects/', data),
   
   update: (id: number, data: ProjectUpdate) => 
     api.put<Project>(`/api/projects/${id}`, data),
@@ -102,14 +102,14 @@ export const phasesApi = {
 // ============================================
 
 export const crewTypesApi = {
-  list: () => 
-    api.get<CrewType[]>('/api/crew-types'),
-  
-  get: (id: number) => 
+  list: () =>
+    api.get<CrewType[]>('/api/crew-types/'),
+
+  get: (id: number) =>
     api.get<CrewType>(`/api/crew-types/${id}`),
-  
-  create: (data: CrewTypeCreate) => 
-    api.post<CrewType>('/api/crew-types', data),
+
+  create: (data: CrewTypeCreate) =>
+    api.post<CrewType>('/api/crew-types/', data),
 };
 
 // ============================================
