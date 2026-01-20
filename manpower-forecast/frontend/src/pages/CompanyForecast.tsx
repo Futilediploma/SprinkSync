@@ -377,7 +377,7 @@ export default function CompanyForecast() {
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                <YAxis />
+                <YAxis domain={[0, Math.max(...chartData.map(d => d['Man Hours'] || 0)) + 250]} allowDecimals={false} />
                 <Tooltip />
                 <Legend />
                 <Bar dataKey="Man Hours" fill="#2563eb" />
