@@ -1,3 +1,11 @@
+// ============================================
+// PDF Export
+// ============================================
+
+export const exportApi = {
+  pdf: () =>
+    api.get('/api/export/pdf', { responseType: 'blob' })
+};
 /**
  * API client for making HTTP requests to the backend.
  */
@@ -17,9 +25,7 @@ import type {
   ManpowerForecast,
   ForecastFilters
 } from './types';
-
-// Use /manpower for production, localhost for dev
-const API_BASE_URL = import.meta.env.PROD ? '/manpower' : 'http://localhost:8001';
+import { API_BASE_URL, STORAGE_KEYS } from './config';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -30,7 +36,7 @@ const api = axios.create({
 
 // Add auth token to all requests
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('sprinksync_token');
+  const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }

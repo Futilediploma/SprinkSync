@@ -4,7 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from database import init_db, SessionLocal
 from api import projects, schedules, crew_types, forecasts, auth
+from api import export_pdf
 import models
+import logger
 
 # Create FastAPI app
 app = FastAPI(
@@ -19,16 +21,19 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # Include routers
+
+
 app.include_router(projects.router)
 app.include_router(schedules.router)
 app.include_router(crew_types.router)
 app.include_router(forecasts.router)
 app.include_router(auth.router)
+app.include_router(export_pdf.router)
 
 
 @app.on_event("startup")
@@ -54,7 +59,7 @@ def startup_event():
                 db.add(crew_type)
             
             db.commit()
-            print("✅ Seeded crew types")
+            logger.info("Seeded default crew types")
     finally:
         db.close()
 

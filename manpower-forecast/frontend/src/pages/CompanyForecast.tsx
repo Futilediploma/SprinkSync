@@ -1,22 +1,35 @@
 import { useState, useEffect } from 'react'
-import { forecastsApi, projectsApi, crewTypesApi } from '../api'
-import type { ManpowerForecast, Project, CrewType } from '../types'
+import { forecastsApi, projectsApi, exportApi } from '../api'
+  const handleExportPdf = async () => {
+    try {
+      const response = await exportApi.pdf();
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `all_projects_gantt_${new Date().getTime()}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error('Failed to export PDF:', error);
+      alert('Failed to export PDF');
+    }
+  };
+import type { ManpowerForecast, Project } from '../types'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { format, addMonths } from 'date-fns'
 
 export default function CompanyForecast() {
   const [forecast, setForecast] = useState<ManpowerForecast | null>(null)
   const [projects, setProjects] = useState<Project[]>([])
-  const [crewTypes, setCrewTypes] = useState<CrewType[]>([])
   const [loading, setLoading] = useState(false)
 
   // Filters
   const [startDate, setStartDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const [endDate, setEndDate] = useState(() => format(addMonths(new Date(), 3), 'yyyy-MM-dd'))
   const [selectedProjects, setSelectedProjects] = useState<number[]>([])
-  const [selectedCrewTypes, setSelectedCrewTypes] = useState<number[]>([])
   const [granularity, setGranularity] = useState<'weekly' | 'monthly'>('weekly')
-  const [typeFilter, setTypeFilter] = useState<string>('all') // all, mechanical, electrical, both
+  const [typeFilter, setTypeFilter] = useState<string>('all') // all, mechanical, electrical, vesda, both
   const [awsFilter, setAwsFilter] = useState<'all' | 'aws' | 'standard'>('standard')
 
   useEffect(() => {
@@ -27,22 +40,16 @@ export default function CompanyForecast() {
     if (projects.length > 0) {
       loadForecast()
     }
-  }, [startDate, endDate, selectedProjects, selectedCrewTypes, granularity, typeFilter, awsFilter])
+  }, [startDate, endDate, selectedProjects, granularity, typeFilter, awsFilter])
 
   const loadInitialData = async () => {
     try {
-      const [projectsRes, crewTypesRes] = await Promise.all([
-        projectsApi.list(),
-        crewTypesApi.list()
-      ])
-
+      const projectsRes = await projectsApi.list()
       // Filter for Active and Prospective projects only
       const fetchedProjects = projectsRes.data.filter(p =>
         ['active', 'prospective'].includes(p.status)
       )
-
       setProjects(fetchedProjects)
-      setCrewTypes(crewTypesRes.data)
 
       // Calculate date range from projects
       if (fetchedProjects.length > 0) {
@@ -85,6 +92,7 @@ export default function CompanyForecast() {
             // Filter by Type
             if (typeFilter === 'mechanical' && !p.is_mechanical) return false
             if (typeFilter === 'electrical' && !p.is_electrical) return false
+            if (typeFilter === 'vesda' && !p.is_vesda) return false
             if (typeFilter === 'both' && (!p.is_mechanical || !p.is_electrical)) return false
 
             return true
@@ -96,7 +104,7 @@ export default function CompanyForecast() {
         start_date: startDate,
         end_date: endDate,
         project_ids: effectiveProjectIds,
-        crew_type_ids: selectedCrewTypes.length > 0 ? selectedCrewTypes : undefined,
+        // crew_type_ids removed
         granularity
       })
       setForecast(response.data)
@@ -113,7 +121,7 @@ export default function CompanyForecast() {
         start_date: startDate,
         end_date: endDate,
         project_ids: selectedProjects.length > 0 ? selectedProjects : undefined,
-        crew_type_ids: selectedCrewTypes.length > 0 ? selectedCrewTypes : undefined,
+        // crew_type_ids removed
         granularity
       }, exportType)
 
@@ -139,18 +147,12 @@ export default function CompanyForecast() {
     )
   }
 
-  const toggleCrewType = (crewTypeId: number) => {
-    setSelectedCrewTypes(prev =>
-      prev.includes(crewTypeId)
-        ? prev.filter(id => id !== crewTypeId)
-        : [...prev, crewTypeId]
-    )
-  }
+
 
   const chartData = forecast ? (
     granularity === 'weekly'
       ? forecast.weekly_forecast.map(w => ({
-        name: w.week,
+        name: format(new Date(w.week_start), 'MMM d'),
         'Man Hours': w.man_hours
       }))
       : forecast.monthly_forecast.map(m => ({
@@ -222,7 +224,7 @@ export default function CompanyForecast() {
 
         {/* Type Filter Controls */}
         <div className="flex bg-gray-100 rounded-lg p-1 mb-4 w-fit">
-          {['all', 'mechanical', 'electrical', 'both'].map((type) => (
+          {['all', 'mechanical', 'electrical', 'vesda', 'both'].map((type) => (
             <button
               key={type}
               onClick={() => {
@@ -271,6 +273,7 @@ export default function CompanyForecast() {
                   if (typeFilter === 'all') return true
                   if (typeFilter === 'mechanical') return p.is_mechanical
                   if (typeFilter === 'electrical') return p.is_electrical
+                  if (typeFilter === 'vesda') return p.is_vesda
                   if (typeFilter === 'both') return p.is_mechanical && p.is_electrical
                   return true
                 })
@@ -288,40 +291,7 @@ export default function CompanyForecast() {
             </div>
           </div>
 
-          <div>
-            <div className="flex justify-between items-end mb-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Crew Types ({selectedCrewTypes.length > 0 ? selectedCrewTypes.length : 'All'})
-              </label>
-              <div className="space-x-2 text-xs">
-                <button
-                  onClick={() => setSelectedCrewTypes(crewTypes.map(c => c.id))}
-                  className="text-primary-600 hover:text-primary-800"
-                >
-                  Select All
-                </button>
-                <button
-                  onClick={() => setSelectedCrewTypes([])}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-            <div className="space-y-1 max-h-40 overflow-y-auto border border-gray-200 rounded p-2">
-              {crewTypes.map((crewType) => (
-                <label key={crewType.id} className="flex items-center space-x-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={selectedCrewTypes.includes(crewType.id)}
-                    onChange={() => toggleCrewType(crewType.id)}
-                    className="rounded"
-                  />
-                  <span>{crewType.name}</span>
-                </label>
-              ))}
-            </div>
-          </div>
+
         </div>
       </div>
 
@@ -386,6 +356,12 @@ export default function CompanyForecast() {
             className="btn btn-secondary"
           >
             Export Projects CSV
+          </button>
+          <button
+            onClick={handleExportPdf}
+            className="btn btn-secondary"
+          >
+            Export All Projects PDF
           </button>
         </div>
       </div>

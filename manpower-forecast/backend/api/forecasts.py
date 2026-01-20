@@ -5,9 +5,11 @@ from typing import List, Optional
 from datetime import date, timedelta
 import crud
 import schemas
+import models
 from database import get_db
 from services.manpower import generate_forecast
 from services.export import generate_forecast_csv, generate_project_breakdown_csv
+from api.auth import get_current_active_user
 
 router = APIRouter(prefix="/api/forecasts", tags=["forecasts"])
 
@@ -19,7 +21,8 @@ def get_company_wide_forecast(
     project_ids: Optional[str] = Query(None, description="Comma-separated project IDs"),
     crew_type_ids: Optional[str] = Query(None, description="Comma-separated crew type IDs"),
     granularity: str = Query("weekly", description="weekly or monthly"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
 ):
     """
     Get company-wide manpower forecast.
@@ -64,7 +67,8 @@ def get_company_wide_forecast(
 def get_project_forecast(
     project_id: int,
     granularity: str = Query("weekly", description="weekly or monthly"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
 ):
     """
     Get manpower forecast for a single project.
@@ -108,7 +112,8 @@ def export_company_forecast(
     crew_type_ids: Optional[str] = Query(None),
     granularity: str = Query("weekly"),
     export_type: str = Query("forecast", description="forecast or projects"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
 ):
     """
     Export company-wide forecast as CSV.

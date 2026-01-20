@@ -1,13 +1,12 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-
-// Use /manpower for production, empty for local dev with proxy
-const API_BASE = import.meta.env.PROD ? '/manpower' : ''
+import { API_BASE_URL, STORAGE_KEYS } from '../config'
 
 interface User {
   id: number
   email: string
   full_name: string | null
   is_active: boolean
+  role: 'admin' | 'editor' | 'viewer'
 }
 
 interface AuthContextType {
@@ -23,7 +22,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(() => {
-    return localStorage.getItem('sprinksync_token')
+    return localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)
   })
   const [isLoading, setIsLoading] = useState(true)
 
@@ -36,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const response = await fetch(`${API_BASE}/api/auth/me`, {
+        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -47,12 +46,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(userData)
         } else {
           // Token invalid, clear it
-          localStorage.removeItem('sprinksync_token')
+          localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN)
           setToken(null)
         }
       } catch (error) {
         console.error('Failed to fetch user:', error)
-        localStorage.removeItem('sprinksync_token')
+        localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN)
         setToken(null)
       } finally {
         setIsLoading(false)
@@ -67,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     formData.append('username', email)
     formData.append('password', password)
 
-    const response = await fetch(`${API_BASE}/api/auth/token`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -81,23 +80,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const data = await response.json()
-    localStorage.setItem('sprinksync_token', data.access_token)
+    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, data.access_token)
+    // Setting token triggers useEffect which fetches user info
     setToken(data.access_token)
-
-    // Immediately fetch user info so navigation works
-    const userResponse = await fetch(`${API_BASE}/api/auth/me`, {
-      headers: {
-        Authorization: `Bearer ${data.access_token}`,
-      },
-    })
-    if (userResponse.ok) {
-      const userData = await userResponse.json()
-      setUser(userData)
-    }
   }
 
   const logout = () => {
-    localStorage.removeItem('sprinksync_token')
+    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN)
     setToken(null)
     setUser(null)
   }

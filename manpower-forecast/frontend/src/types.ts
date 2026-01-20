@@ -34,6 +34,7 @@ export interface Project {
   end_date: string | null;
   is_mechanical: boolean;
   is_electrical: boolean;
+  is_vesda: boolean;
   is_aws: boolean;
   total_scheduled_hours: number;
   created_at: string;
@@ -51,6 +52,7 @@ export interface ProjectCreate {
   end_date?: string;
   is_mechanical?: boolean;
   is_electrical?: boolean;
+  is_vesda?: boolean;
   is_aws?: boolean;
 }
 
@@ -65,6 +67,7 @@ export interface ProjectUpdate {
   end_date?: string;
   is_mechanical?: boolean;
   is_electrical?: boolean;
+  is_vesda?: boolean;
   is_aws?: boolean;
 }
 
@@ -182,4 +185,77 @@ export interface ForecastFilters {
   project_ids?: number[];
   crew_type_ids?: number[];
   granularity?: 'weekly' | 'monthly' | 'daily';
+}
+
+// ============================================
+// API Error Types
+// ============================================
+
+/**
+ * Standard API error response from FastAPI
+ */
+export interface ApiError {
+  status: number;
+  detail: string;
+}
+
+/**
+ * Validation error detail from FastAPI/Pydantic
+ */
+export interface ValidationErrorDetail {
+  loc: (string | number)[];
+  msg: string;
+  type: string;
+}
+
+/**
+ * Validation error response (422 Unprocessable Entity)
+ */
+export interface ValidationErrorResponse {
+  detail: ValidationErrorDetail[];
+}
+
+/**
+ * Check if an error response is a validation error
+ */
+export function isValidationError(error: unknown): error is { response: { data: ValidationErrorResponse } } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'response' in error &&
+    typeof (error as any).response?.data?.detail === 'object' &&
+    Array.isArray((error as any).response?.data?.detail)
+  );
+}
+
+/**
+ * Check if an error response is a standard API error
+ */
+export function isApiError(error: unknown): error is { response: { data: ApiError; status: number } } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'response' in error &&
+    typeof (error as any).response?.data?.detail === 'string'
+  );
+}
+
+/**
+ * Extract error message from various error types
+ */
+export function getErrorMessage(error: unknown): string {
+  if (isValidationError(error)) {
+    const details = error.response.data.detail;
+    return details.map(d => `${d.loc.join('.')}: ${d.msg}`).join(', ');
+  }
+
+  if (isApiError(error)) {
+    return error.response.data.detail;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'An unexpected error occurred';
 }

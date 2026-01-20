@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { projectsApi, schedulesApi, phasesApi, crewTypesApi } from '../api'
-import type { Project, ProjectSchedule, SchedulePhase, CrewType } from '../types'
+import { projectsApi, schedulesApi, phasesApi } from '../api'
+import type { Project, ProjectSchedule, SchedulePhase } from '../types'
+import { validatePhase, validateSchedule, ValidationError } from '../utils/validation'
+
+// Default crew size (foreman + helper/journeyman)
+const DEFAULT_CREW_SIZE = 2
 
 export default function ScheduleEditor() {
   const { id } = useParams<{ id: string }>()
@@ -9,7 +13,6 @@ export default function ScheduleEditor() {
 
   const [project, setProject] = useState<Project | null>(null)
   const [schedule, setSchedule] = useState<ProjectSchedule | null>(null)
-  const [crewTypes, setCrewTypes] = useState<CrewType[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateSchedule, setShowCreateSchedule] = useState(false)
   const [newScheduleDates, setNewScheduleDates] = useState({
@@ -24,8 +27,6 @@ export default function ScheduleEditor() {
     start_date: '',
     end_date: '',
     estimated_man_hours: '',
-    crew_size: '',
-    crew_type_id: '',
     notes: ''
   })
 
@@ -34,10 +35,12 @@ export default function ScheduleEditor() {
     start_date: '',
     end_date: '',
     estimated_man_hours: '',
-    crew_size: '',
-    crew_type_id: '',
     notes: ''
   })
+
+  const [scheduleErrors, setScheduleErrors] = useState<ValidationError[]>([])
+  const [phaseErrors, setPhaseErrors] = useState<ValidationError[]>([])
+  const [editPhaseErrors, setEditPhaseErrors] = useState<ValidationError[]>([])
 
   useEffect(() => {
     loadData()
@@ -46,13 +49,8 @@ export default function ScheduleEditor() {
   const loadData = async () => {
     try {
       setLoading(true)
-      const [projectRes, crewTypesRes] = await Promise.all([
-        projectsApi.get(projectId),
-        crewTypesApi.list()
-      ])
-
+      const projectRes = await projectsApi.get(projectId)
       setProject(projectRes.data)
-      setCrewTypes(crewTypesRes.data)
 
       // Try to load schedule
       try {
@@ -72,7 +70,10 @@ export default function ScheduleEditor() {
   const handleCreateSchedule = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!newScheduleDates.start_date || !newScheduleDates.end_date) return
+    const validation = validateSchedule(newScheduleDates)
+    setScheduleErrors(validation.errors)
+
+    if (!validation.isValid) return
 
     try {
       await projectsApi.createSchedule(projectId, {
@@ -81,6 +82,7 @@ export default function ScheduleEditor() {
         schedule_name: 'Main Schedule'
       })
       setShowCreateSchedule(false)
+      setScheduleErrors([])
       loadData()
     } catch (error) {
       console.error('Failed to create schedule:', error)
@@ -92,14 +94,22 @@ export default function ScheduleEditor() {
     e.preventDefault()
     if (!schedule) return
 
+    // Simplified validation - just need name and dates
+    const validation = validatePhase({
+      ...newPhase,
+      crew_size: DEFAULT_CREW_SIZE.toString() // Always use default crew size
+    })
+    setPhaseErrors(validation.errors)
+
+    if (!validation.isValid) return
+
     try {
       await schedulesApi.createPhase(schedule.id, {
         phase_name: newPhase.phase_name,
         start_date: newPhase.start_date,
         end_date: newPhase.end_date,
-        estimated_man_hours: newPhase.estimated_man_hours ? parseFloat(newPhase.estimated_man_hours) : undefined,
-        crew_size: newPhase.crew_size ? parseFloat(newPhase.crew_size) : undefined,
-        crew_type_id: newPhase.crew_type_id ? parseInt(newPhase.crew_type_id) : undefined,
+        estimated_man_hours: newPhase.estimated_man_hours?.trim() ? parseFloat(newPhase.estimated_man_hours) : undefined,
+        crew_size: DEFAULT_CREW_SIZE, // Always use default crew size
         notes: newPhase.notes || undefined
       })
 
@@ -108,15 +118,14 @@ export default function ScheduleEditor() {
         start_date: '',
         end_date: '',
         estimated_man_hours: '',
-        crew_size: '',
-        crew_type_id: '',
         notes: ''
       })
+      setPhaseErrors([])
       setShowCreatePhase(false)
       loadData()
     } catch (error) {
       console.error('Failed to add phase:', error)
-      alert('Failed to add phase. Make sure to provide either man-hours or crew size.')
+      alert('Failed to add phase')
     }
   }
 
@@ -139,8 +148,6 @@ export default function ScheduleEditor() {
       start_date: phase.start_date,
       end_date: phase.end_date,
       estimated_man_hours: phase.estimated_man_hours?.toString() || '',
-      crew_size: phase.crew_size?.toString() || '',
-      crew_type_id: phase.crew_type_id?.toString() || '',
       notes: phase.notes || ''
     })
   }
@@ -149,14 +156,21 @@ export default function ScheduleEditor() {
     e.preventDefault()
     if (!editingPhaseId) return
 
+    const validation = validatePhase({
+      ...editPhase,
+      crew_size: DEFAULT_CREW_SIZE.toString()
+    })
+    setEditPhaseErrors(validation.errors)
+
+    if (!validation.isValid) return
+
     try {
       await phasesApi.update(editingPhaseId, {
         phase_name: editPhase.phase_name,
         start_date: editPhase.start_date,
         end_date: editPhase.end_date,
-        estimated_man_hours: editPhase.estimated_man_hours ? parseFloat(editPhase.estimated_man_hours) : undefined,
-        crew_size: editPhase.crew_size ? parseFloat(editPhase.crew_size) : undefined,
-        crew_type_id: editPhase.crew_type_id ? parseInt(editPhase.crew_type_id) : undefined,
+        estimated_man_hours: editPhase.estimated_man_hours?.trim() ? parseFloat(editPhase.estimated_man_hours) : undefined,
+        crew_size: DEFAULT_CREW_SIZE,
         notes: editPhase.notes || undefined
       })
 
@@ -166,14 +180,13 @@ export default function ScheduleEditor() {
         start_date: '',
         end_date: '',
         estimated_man_hours: '',
-        crew_size: '',
-        crew_type_id: '',
         notes: ''
       })
+      setEditPhaseErrors([])
       loadData()
     } catch (error) {
       console.error('Failed to update phase:', error)
-      alert('Failed to update phase. Make sure to provide either man-hours or crew size.')
+      alert('Failed to update phase')
     }
   }
 
@@ -184,10 +197,9 @@ export default function ScheduleEditor() {
       start_date: '',
       end_date: '',
       estimated_man_hours: '',
-      crew_size: '',
-      crew_type_id: '',
       notes: ''
     })
+    setEditPhaseErrors([])
   }
 
   if (loading) {
@@ -243,6 +255,11 @@ export default function ScheduleEditor() {
               <div className="bg-white rounded-lg p-6 w-full max-w-md">
                 <h3 className="text-lg font-bold mb-4">Create Project Schedule</h3>
                 <form onSubmit={handleCreateSchedule} className="space-y-4">
+                  {scheduleErrors.length > 0 && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+                      {scheduleErrors.map((err, i) => <div key={i}>{err.message}</div>)}
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Start Date
@@ -319,8 +336,13 @@ export default function ScheduleEditor() {
               <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                 <h4 className="font-bold mb-3">New Phase</h4>
                 <form onSubmit={handleAddPhase} className="space-y-3">
+                  {phaseErrors.length > 0 && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+                      {phaseErrors.map((err, i) => <div key={i}>{err.message}</div>)}
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
+                    <div className="col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Phase Name *
                       </label>
@@ -329,24 +351,9 @@ export default function ScheduleEditor() {
                         value={newPhase.phase_name}
                         onChange={(e) => setNewPhase({ ...newPhase, phase_name: e.target.value })}
                         className="input"
-                        placeholder="e.g., Underground, Rough-In"
+                        placeholder="e.g., Underground, Rough-In, Trim, Heads"
                         required
                       />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Crew Type
-                      </label>
-                      <select
-                        value={newPhase.crew_type_id}
-                        onChange={(e) => setNewPhase({ ...newPhase, crew_type_id: e.target.value })}
-                        className="input"
-                      >
-                        <option value="">None</option>
-                        {crewTypes.map((ct) => (
-                          <option key={ct.id} value={ct.id}>{ct.name}</option>
-                        ))}
-                      </select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -372,9 +379,9 @@ export default function ScheduleEditor() {
                         required
                       />
                     </div>
-                    <div>
+                    <div className="col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Total Man-Hours
+                        Total Man-Hours (optional)
                       </label>
                       <input
                         type="number"
@@ -382,20 +389,7 @@ export default function ScheduleEditor() {
                         value={newPhase.estimated_man_hours}
                         onChange={(e) => setNewPhase({ ...newPhase, estimated_man_hours: e.target.value })}
                         className="input"
-                        placeholder="e.g., 640"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        OR Crew Size
-                      </label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={newPhase.crew_size}
-                        onChange={(e) => setNewPhase({ ...newPhase, crew_size: e.target.value })}
-                        className="input"
-                        placeholder="e.g., 3.5"
+                        placeholder="Leave blank to calculate from dates (2-person crew × 8 hrs/day)"
                       />
                     </div>
                   </div>
@@ -420,8 +414,13 @@ export default function ScheduleEditor() {
               <div className="mb-6 p-4 bg-blue-50 rounded-lg">
                 <h4 className="font-bold mb-3">Edit Phase</h4>
                 <form onSubmit={handleUpdatePhase} className="space-y-3">
+                  {editPhaseErrors.length > 0 && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+                      {editPhaseErrors.map((err, i) => <div key={i}>{err.message}</div>)}
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
+                    <div className="col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Phase Name *
                       </label>
@@ -430,24 +429,9 @@ export default function ScheduleEditor() {
                         value={editPhase.phase_name}
                         onChange={(e) => setEditPhase({ ...editPhase, phase_name: e.target.value })}
                         className="input"
-                        placeholder="e.g., Underground, Rough-In"
+                        placeholder="e.g., Underground, Rough-In, Trim, Heads"
                         required
                       />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Crew Type
-                      </label>
-                      <select
-                        value={editPhase.crew_type_id}
-                        onChange={(e) => setEditPhase({ ...editPhase, crew_type_id: e.target.value })}
-                        className="input"
-                      >
-                        <option value="">None</option>
-                        {crewTypes.map((ct) => (
-                          <option key={ct.id} value={ct.id}>{ct.name}</option>
-                        ))}
-                      </select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -473,9 +457,9 @@ export default function ScheduleEditor() {
                         required
                       />
                     </div>
-                    <div>
+                    <div className="col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Total Man-Hours
+                        Total Man-Hours (optional)
                       </label>
                       <input
                         type="number"
@@ -483,20 +467,7 @@ export default function ScheduleEditor() {
                         value={editPhase.estimated_man_hours}
                         onChange={(e) => setEditPhase({ ...editPhase, estimated_man_hours: e.target.value })}
                         className="input"
-                        placeholder="e.g., 640"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        OR Crew Size
-                      </label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={editPhase.crew_size}
-                        onChange={(e) => setEditPhase({ ...editPhase, crew_size: e.target.value })}
-                        className="input"
-                        placeholder="e.g., 3.5"
+                        placeholder="Leave blank to calculate from dates (2-person crew × 8 hrs/day)"
                       />
                     </div>
                   </div>
@@ -529,8 +500,6 @@ export default function ScheduleEditor() {
                     <th>Start Date</th>
                     <th>End Date</th>
                     <th>Man-Hours</th>
-                    <th>Crew Size</th>
-                    <th>Crew Type</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -540,9 +509,7 @@ export default function ScheduleEditor() {
                       <td className="font-medium">{phase.phase_name}</td>
                       <td>{phase.start_date}</td>
                       <td>{phase.end_date}</td>
-                      <td>{phase.estimated_man_hours || '—'}</td>
-                      <td>{phase.crew_size || '—'}</td>
-                      <td>{phase.crew_type?.name || '—'}</td>
+                      <td>{phase.estimated_man_hours || '(calculated)'}</td>
                       <td>
                         <div className="flex space-x-2">
                           <button

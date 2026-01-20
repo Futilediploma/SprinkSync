@@ -35,14 +35,13 @@ class ProjectBase(BaseModel):
     customer_name: Optional[str] = None
     project_number: Optional[str] = None
     status: str = "active"
-    status: str = "active"
     notes: Optional[str] = None
     budgeted_hours: Optional[Decimal] = None
-    start_date: Optional[date] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     is_mechanical: bool = False
     is_electrical: bool = False
+    is_vesda: bool = False
     is_aws: bool = False
 
 
@@ -55,14 +54,13 @@ class ProjectUpdate(BaseModel):
     customer_name: Optional[str] = None
     project_number: Optional[str] = None
     status: Optional[str] = None
-    status: Optional[str] = None
     notes: Optional[str] = None
     budgeted_hours: Optional[Decimal] = None
-    start_date: Optional[date] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     is_mechanical: Optional[bool] = None
     is_electrical: Optional[bool] = None
+    is_vesda: Optional[bool] = None
     is_aws: Optional[bool] = None
 
 
@@ -85,25 +83,16 @@ class SchedulePhaseBase(BaseModel):
     start_date: date
     end_date: date
     estimated_man_hours: Optional[Decimal] = None
-    crew_size: Optional[Decimal] = None
+    crew_size: Optional[Decimal] = Decimal('2')  # Default: foreman + helper/journeyman
     crew_type_id: Optional[int] = None
     notes: Optional[str] = None
     sort_order: int = 0
-    
+
     @field_validator('end_date')
     @classmethod
     def validate_end_date(cls, v, info):
         if 'start_date' in info.data and v < info.data['start_date']:
             raise ValueError('end_date must be >= start_date')
-        return v
-    
-    @field_validator('estimated_man_hours', 'crew_size')
-    @classmethod
-    def validate_labor_input(cls, v, info):
-        # At least one labor input must be provided
-        if info.data.get('estimated_man_hours') is None and info.data.get('crew_size') is None:
-            if v is None:
-                raise ValueError('Must provide either estimated_man_hours or crew_size')
         return v
 
 

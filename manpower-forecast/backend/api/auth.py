@@ -10,12 +10,13 @@ from pydantic import BaseModel
 
 from database import get_db
 from config import settings
+from constants import TOKEN_EXPIRE_MINUTES, UserRole
 import models
 
 # Configuration
 SECRET_KEY = settings.secret_key
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = TOKEN_EXPIRE_MINUTES
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -41,6 +42,7 @@ class UserOut(BaseModel):
     email: str
     full_name: Optional[str] = None
     is_active: bool
+    role: str = "viewer"
 
     class Config:
         from_attributes = True
@@ -50,6 +52,7 @@ class UserCreate(BaseModel):
     email: str
     password: str
     full_name: Optional[str] = None
+    role: Optional[str] = "viewer"  # admin, editor, viewer
 
 
 # Helper functions
@@ -154,7 +157,21 @@ async def create_user(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
-    """Create a new user (requires authentication)."""
+    """Create a new user (requires admin role)."""
+    # Only admins can create users
+    if getattr(current_user, 'role', UserRole.VIEWER) != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required to create users"
+        )
+
+    # Validate role
+    if user_data.role and user_data.role not in UserRole.ALL:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid role. Must be one of: {', '.join(UserRole.ALL)}"
+        )
+
     # Check if email already exists
     existing = db.query(models.User).filter(models.User.email == user_data.email).first()
     if existing:
@@ -168,6 +185,7 @@ async def create_user(
         email=user_data.email,
         hashed_password=get_password_hash(user_data.password),
         full_name=user_data.full_name,
+        role=user_data.role or UserRole.VIEWER,
         is_active=True
     )
     db.add(new_user)
@@ -181,5 +199,10 @@ async def list_users(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
-    """List all users (requires authentication)."""
+    """List all users (requires admin role)."""
+    if getattr(current_user, 'role', UserRole.VIEWER) != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required to list users"
+        )
     return db.query(models.User).all()

@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { projectsApi } from '../api'
 import type { Project } from '../types'
+import { validateProject, ValidationError, getFieldError } from '../utils/validation'
 
 export default function ProjectsList() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('active')
-  const [typeFilter, setTypeFilter] = useState<string>('all') // all, mechanical, electrical, both
+  const [typeFilter, setTypeFilter] = useState<string>('all') // all, mechanical, electrical, vesda, both
   const [awsFilter, setAwsFilter] = useState<'all' | 'aws' | 'standard'>('standard')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -30,8 +31,11 @@ export default function ProjectsList() {
     status: 'active',
     is_mechanical: false,
     is_electrical: false,
+    is_vesda: false,
     is_aws: false
   })
+
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
 
   useEffect(() => {
     loadProjects()
@@ -51,10 +55,16 @@ export default function ProjectsList() {
 
   const handleSaveProject = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    const validation = validateProject(newProject)
+    setValidationErrors(validation.errors)
+
+    if (!validation.isValid) return
+
     try {
       const payload = {
         ...newProject,
-        budgeted_hours: newProject.budgeted_hours ? parseFloat(newProject.budgeted_hours) : undefined
+        budgeted_hours: newProject.budgeted_hours?.trim() ? parseFloat(newProject.budgeted_hours) : undefined
       }
 
       if (editingId) {
@@ -87,6 +97,7 @@ export default function ProjectsList() {
       status: project.status || 'active',
       is_mechanical: project.is_mechanical || false,
       is_electrical: project.is_electrical || false,
+      is_vesda: project.is_vesda || false,
       is_aws: project.is_aws || false
     })
     setShowCreateForm(true)
@@ -104,10 +115,12 @@ export default function ProjectsList() {
       status: 'active',
       is_mechanical: false,
       is_electrical: false,
+      is_vesda: false,
       is_aws: false
     })
     setEditingId(null)
     setShowCreateForm(false)
+    setValidationErrors([])
   }
 
   const handleDeleteClick = (project: Project) => {
@@ -152,6 +165,7 @@ export default function ProjectsList() {
       if (typeFilter === 'all') return true
       if (typeFilter === 'mechanical') return p.is_mechanical
       if (typeFilter === 'electrical') return p.is_electrical
+      if (typeFilter === 'vesda') return p.is_vesda
       if (typeFilter === 'both') return p.is_mechanical && p.is_electrical
       return true
     })
@@ -238,7 +252,7 @@ export default function ProjectsList() {
 
         <div className="w-px bg-gray-300 mx-2 h-8 self-center" />
 
-        {['all', 'mechanical', 'electrical', 'both'].map((type) => (
+        {['all', 'mechanical', 'electrical', 'vesda', 'both'].map((type) => (
           <button
             key={type}
             onClick={() => setTypeFilter(type)}
@@ -260,6 +274,15 @@ export default function ProjectsList() {
               {editingId ? 'Edit Project' : 'Create New Project'}
             </h3>
             <form onSubmit={handleSaveProject} className="space-y-4">
+              {validationErrors.length > 0 && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                  <ul className="list-disc list-inside">
+                    {validationErrors.map((error, index) => (
+                      <li key={index}>{error.message}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Project Name *
@@ -268,7 +291,7 @@ export default function ProjectsList() {
                   type="text"
                   value={newProject.name}
                   onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-                  className="input"
+                  className={`input ${getFieldError(validationErrors, 'Project name') ? 'border-red-500' : ''}`}
                   required
                 />
               </div>
@@ -307,6 +330,15 @@ export default function ProjectsList() {
                     className="rounded text-primary-600"
                   />
                   <span className="text-sm font-medium text-gray-700">Electrical</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={newProject.is_vesda}
+                    onChange={e => setNewProject({ ...newProject, is_vesda: e.target.checked })}
+                    className="rounded text-red-600"
+                  />
+                  <span className="text-sm font-medium text-gray-700">VESDA</span>
                 </label>
               </div>
 
@@ -504,6 +536,7 @@ export default function ProjectsList() {
                       {project.is_aws && <span className="text-[10px] uppercase bg-purple-100 text-purple-800 px-1 rounded border border-purple-200">AWS</span>}
                       {project.is_mechanical && <span className="text-[10px] uppercase bg-orange-100 text-orange-800 px-1 rounded">Mech</span>}
                       {project.is_electrical && <span className="text-[10px] uppercase bg-yellow-100 text-yellow-800 px-1 rounded">Elec</span>}
+                      {project.is_vesda && <span className="text-[10px] uppercase bg-red-100 text-red-800 px-1 rounded">VESDA</span>}
                     </div>
                   </td>
                   <td>

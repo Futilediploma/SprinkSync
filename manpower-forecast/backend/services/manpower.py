@@ -29,40 +29,40 @@ def get_working_days(start_date: date, end_date: date) -> List[date]:
 def calculate_phase_daily_manpower(phase: models.SchedulePhase) -> List[Dict]:
     """
     Distribute a phase's man-hours evenly across its duration.
-    
+
     Returns: List of daily manpower records
     """
-    # Step 1: Determine total man-hours
+    # Step 1: Determine total man-hours (use Decimal for precision)
     if phase.estimated_man_hours:
-        total_hours = float(phase.estimated_man_hours)
+        total_hours = Decimal(str(phase.estimated_man_hours))
     elif phase.crew_size:
         # Convert crew size to total hours
         duration_days = (phase.end_date - phase.start_date).days + 1
-        total_hours = float(phase.crew_size) * 8 * duration_days  # 8 hrs/day
+        total_hours = Decimal(str(phase.crew_size)) * Decimal('8') * Decimal(str(duration_days))
     else:
         raise ValueError("Phase must have man-hours or crew size")
-    
+
     # Step 2: Calculate working days (exclude weekends)
     working_days = get_working_days(phase.start_date, phase.end_date)
     num_working_days = len(working_days)
-    
+
     if num_working_days == 0:
         return []
-    
-    # Step 3: Evenly distribute hours across working days
-    hours_per_day = total_hours / num_working_days
-    
+
+    # Step 3: Evenly distribute hours across working days (Decimal division)
+    hours_per_day = total_hours / Decimal(str(num_working_days))
+
     # Step 4: Build daily records
     daily_records = []
     for day in working_days:
         daily_records.append({
             'date': day,
-            'man_hours': Decimal(str(round(hours_per_day, 2))),
+            'man_hours': hours_per_day.quantize(Decimal('0.01')),
             'phase_id': phase.id,
             'project_id': phase.schedule.project_id,
             'crew_type_id': phase.crew_type_id
         })
-    
+
     return daily_records
 
 

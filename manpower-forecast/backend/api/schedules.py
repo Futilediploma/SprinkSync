@@ -4,7 +4,9 @@ from sqlalchemy.orm import Session
 from typing import List
 import crud
 import schemas
+import models
 from database import get_db
+from api.auth import get_current_active_user
 
 router = APIRouter(prefix="/api", tags=["schedules"])
 
@@ -17,7 +19,8 @@ router = APIRouter(prefix="/api", tags=["schedules"])
 def update_schedule(
     schedule_id: int,
     schedule: schemas.ProjectScheduleUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
 ):
     """Update project schedule."""
     updated_schedule = crud.update_project_schedule(db, schedule_id, schedule)
@@ -31,7 +34,11 @@ def update_schedule(
 # ============================================
 
 @router.get("/schedules/{schedule_id}/phases", response_model=List[schemas.SchedulePhase])
-def list_phases(schedule_id: int, db: Session = Depends(get_db)):
+def list_phases(
+    schedule_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Get all phases for a schedule."""
     return crud.get_schedule_phases(db, schedule_id)
 
@@ -40,14 +47,19 @@ def list_phases(schedule_id: int, db: Session = Depends(get_db)):
 def create_phase(
     schedule_id: int,
     phase: schemas.SchedulePhaseCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
 ):
     """Add a phase to a schedule."""
     return crud.create_schedule_phase(db, schedule_id, phase)
 
 
 @router.get("/phases/{phase_id}", response_model=schemas.SchedulePhase)
-def get_phase(phase_id: int, db: Session = Depends(get_db)):
+def get_phase(
+    phase_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Get phase by ID."""
     phase = crud.get_schedule_phase(db, phase_id)
     if not phase:
@@ -59,7 +71,8 @@ def get_phase(phase_id: int, db: Session = Depends(get_db)):
 def update_phase(
     phase_id: int,
     phase: schemas.SchedulePhaseUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
 ):
     """Update phase."""
     updated_phase = crud.update_schedule_phase(db, phase_id, phase)
@@ -69,7 +82,11 @@ def update_phase(
 
 
 @router.delete("/phases/{phase_id}")
-def delete_phase(phase_id: int, db: Session = Depends(get_db)):
+def delete_phase(
+    phase_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Delete phase."""
     success = crud.delete_schedule_phase(db, phase_id)
     if not success:

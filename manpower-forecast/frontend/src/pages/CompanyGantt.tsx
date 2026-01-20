@@ -7,7 +7,7 @@ export default function CompanyGantt() {
     const [projects, setProjects] = useState<Project[]>([])
     const [loading, setLoading] = useState(true)
     const [filterStatus, setFilterStatus] = useState<string>('all') // all, active, prospective
-    const [filterType, setFilterType] = useState<string>('all') // all, mechanical, electrical
+    const [filterType, setFilterType] = useState<string>('all') // all, mechanical, electrical, vesda
     const [awsFilter, setAwsFilter] = useState<'all' | 'aws' | 'standard'>('standard')
 
     useEffect(() => {
@@ -37,7 +37,7 @@ export default function CompanyGantt() {
             // Filter by type
             if (filterType === 'mechanical' && !p.is_mechanical) return false
             if (filterType === 'electrical' && !p.is_electrical) return false
-            if (filterType === 'both' && (!p.is_mechanical || !p.is_electrical)) return false
+            if (filterType === 'vesda' && !p.is_vesda) return false
 
             // Filter by AWS
             if (awsFilter === 'aws' && !p.is_aws) return false
@@ -147,7 +147,7 @@ export default function CompanyGantt() {
 
                 {/* Type Filter Controls */}
                 <div className="flex bg-gray-200 rounded-lg p-1 ml-4">
-                    {['all', 'mechanical', 'electrical', 'both'].map(type => (
+                    {['all', 'mechanical', 'electrical', 'vesda'].map(type => (
                         <button
                             key={type}
                             onClick={() => setFilterType(type)}
@@ -199,6 +199,7 @@ export default function CompanyGantt() {
                                             {project.is_aws && <span className="text-[10px] uppercase bg-purple-100 text-purple-800 px-1 rounded border border-purple-200">AWS</span>}
                                             {project.is_mechanical && <span className="text-[10px] uppercase bg-orange-100 text-orange-800 px-1 rounded">M</span>}
                                             {project.is_electrical && <span className="text-[10px] uppercase bg-yellow-100 text-yellow-800 px-1 rounded">E</span>}
+                                            {project.is_vesda && <span className="text-[10px] uppercase bg-pink-100 text-pink-800 px-1 rounded">VESDA</span>}
                                         </div>
                                     </div>
                                 </div>

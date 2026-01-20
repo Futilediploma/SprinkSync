@@ -17,10 +17,10 @@ class Project(Base):
     notes = Column(Text)
     budgeted_hours = Column(Numeric(10, 2))
     start_date = Column(Date)
-    start_date = Column(Date)
     end_date = Column(Date)
     is_mechanical = Column(Boolean, default=False)
     is_electrical = Column(Boolean, default=False)
+    is_vesda = Column(Boolean, default=False)
     is_aws = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -69,6 +69,7 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
     full_name = Column(String(255), nullable=True)
+    role = Column(String(50), default="viewer")  # admin, editor, viewer
     created_at = Column(DateTime, server_default=func.now())
 
 

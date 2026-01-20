@@ -27,8 +27,12 @@ def create_project(db: Session, project: schemas.ProjectCreate) -> models.Projec
     """Create new project."""
     db_project = models.Project(**project.model_dump())
     db.add(db_project)
-    db.commit()
-    db.refresh(db_project)
+    try:
+        db.commit()
+        db.refresh(db_project)
+    except Exception:
+        db.rollback()
+        raise
     return db_project
 
 
@@ -37,13 +41,17 @@ def update_project(db: Session, project_id: int, project: schemas.ProjectUpdate)
     db_project = get_project(db, project_id)
     if not db_project:
         return None
-    
+
     update_data = project.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(db_project, field, value)
-    
-    db.commit()
-    db.refresh(db_project)
+
+    try:
+        db.commit()
+        db.refresh(db_project)
+    except Exception:
+        db.rollback()
+        raise
     return db_project
 
 
@@ -52,9 +60,13 @@ def delete_project(db: Session, project_id: int) -> bool:
     db_project = get_project(db, project_id)
     if not db_project:
         return False
-    
+
     db.delete(db_project)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     return True
 
 
@@ -76,8 +88,12 @@ def create_crew_type(db: Session, crew_type: schemas.CrewTypeCreate) -> models.C
     """Create new crew type."""
     db_crew_type = models.CrewType(**crew_type.model_dump())
     db.add(db_crew_type)
-    db.commit()
-    db.refresh(db_crew_type)
+    try:
+        db.commit()
+        db.refresh(db_crew_type)
+    except Exception:
+        db.rollback()
+        raise
     return db_crew_type
 
 
@@ -94,42 +110,50 @@ def get_project_schedule(db: Session, project_id: int) -> Optional[models.Projec
 
 
 def create_project_schedule(
-    db: Session, 
-    project_id: int, 
+    db: Session,
+    project_id: int,
     schedule: schemas.ProjectScheduleCreate
 ) -> models.ProjectSchedule:
     """Create new project schedule."""
     schedule_data = schedule.model_dump(exclude={'phases'})
     db_schedule = models.ProjectSchedule(project_id=project_id, **schedule_data)
     db.add(db_schedule)
-    db.commit()
-    db.refresh(db_schedule)
-    
-    # Add phases if provided
-    if schedule.phases:
-        for phase in schedule.phases:
-            create_schedule_phase(db, db_schedule.id, phase)
+    try:
+        db.commit()
         db.refresh(db_schedule)
-    
+
+        # Add phases if provided
+        if schedule.phases:
+            for phase in schedule.phases:
+                create_schedule_phase(db, db_schedule.id, phase)
+            db.refresh(db_schedule)
+    except Exception:
+        db.rollback()
+        raise
+
     return db_schedule
 
 
 def update_project_schedule(
-    db: Session, 
-    schedule_id: int, 
+    db: Session,
+    schedule_id: int,
     schedule: schemas.ProjectScheduleUpdate
 ) -> Optional[models.ProjectSchedule]:
     """Update project schedule."""
     db_schedule = db.query(models.ProjectSchedule).filter(models.ProjectSchedule.id == schedule_id).first()
     if not db_schedule:
         return None
-    
+
     update_data = schedule.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(db_schedule, field, value)
-    
-    db.commit()
-    db.refresh(db_schedule)
+
+    try:
+        db.commit()
+        db.refresh(db_schedule)
+    except Exception:
+        db.rollback()
+        raise
     return db_schedule
 
 
@@ -138,9 +162,13 @@ def delete_project_schedule(db: Session, schedule_id: int) -> bool:
     db_schedule = db.query(models.ProjectSchedule).filter(models.ProjectSchedule.id == schedule_id).first()
     if not db_schedule:
         return False
-    
+
     db.delete(db_schedule)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     return True
 
 
@@ -161,34 +189,42 @@ def get_schedule_phase(db: Session, phase_id: int) -> Optional[models.SchedulePh
 
 
 def create_schedule_phase(
-    db: Session, 
-    schedule_id: int, 
+    db: Session,
+    schedule_id: int,
     phase: schemas.SchedulePhaseCreate
 ) -> models.SchedulePhase:
     """Create new schedule phase."""
     db_phase = models.SchedulePhase(schedule_id=schedule_id, **phase.model_dump())
     db.add(db_phase)
-    db.commit()
-    db.refresh(db_phase)
+    try:
+        db.commit()
+        db.refresh(db_phase)
+    except Exception:
+        db.rollback()
+        raise
     return db_phase
 
 
 def update_schedule_phase(
-    db: Session, 
-    phase_id: int, 
+    db: Session,
+    phase_id: int,
     phase: schemas.SchedulePhaseUpdate
 ) -> Optional[models.SchedulePhase]:
     """Update schedule phase."""
     db_phase = get_schedule_phase(db, phase_id)
     if not db_phase:
         return None
-    
+
     update_data = phase.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(db_phase, field, value)
-    
-    db.commit()
-    db.refresh(db_phase)
+
+    try:
+        db.commit()
+        db.refresh(db_phase)
+    except Exception:
+        db.rollback()
+        raise
     return db_phase
 
 
@@ -197,15 +233,30 @@ def delete_schedule_phase(db: Session, phase_id: int) -> bool:
     db_phase = get_schedule_phase(db, phase_id)
     if not db_phase:
         return False
-    
+
     db.delete(db_phase)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     return True
 
 
 # ============================================
 # Query Helpers for Forecasting
 # ============================================
+
+# ============================================
+# PDF Export Helpers
+# ============================================
+def get_all_projects(db: Session):
+    """Get all projects."""
+    return db.query(models.Project).all()
+
+def get_all_phases(db: Session):
+    """Get all schedule phases for all projects."""
+    return db.query(models.SchedulePhase).all()
 
 def get_active_phases_in_date_range(
     db: Session,
