@@ -47,8 +47,8 @@ function App() {
     )
   }
 
-  // Redirect to login if not authenticated
-  if (!user) {
+  // Redirect to login if not authenticated, but only after loading is complete
+  if (!user && !isLoading) {
     return <Navigate to="/login" replace />
   }
 
