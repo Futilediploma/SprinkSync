@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from database import init_db, SessionLocal
 from api import projects, schedules, crew_types, forecasts, auth
-from api import export_pdf
+from api import export_pdf, subcontractor_reports
 import models
 import logger
 
@@ -34,6 +34,7 @@ app.include_router(crew_types.router)
 app.include_router(forecasts.router)
 app.include_router(auth.router)
 app.include_router(export_pdf.router)
+app.include_router(subcontractor_reports.router)
 
 
 @app.on_event("startup")

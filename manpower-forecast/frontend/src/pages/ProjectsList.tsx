@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { projectsApi } from '../api'
-import type { Project } from '../types'
+import type { Project, ProjectSubcontractor } from '../types'
+import { apiSubsToUiSubs, uiSubsToApiSubs } from '../types'
 import { validateProject, ValidationError, getFieldError } from '../utils/validation'
 
 export default function ProjectsList() {
@@ -20,7 +21,22 @@ export default function ProjectsList() {
   // Sorting State
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
 
-  const [newProject, setNewProject] = useState({
+  const [newProject, setNewProject] = useState<{
+    name: string;
+    customer_name: string;
+    project_number: string;
+    notes: string;
+    budgeted_hours: string;
+    start_date: string;
+    end_date: string;
+    status: string;
+    is_mechanical: boolean;
+    is_electrical: boolean;
+    is_vesda: boolean;
+    is_aws: boolean;
+    is_out_of_town: boolean;
+    subcontractors: ProjectSubcontractor[];
+  }>({
     name: '',
     customer_name: '',
     project_number: '',
@@ -32,7 +48,9 @@ export default function ProjectsList() {
     is_mechanical: false,
     is_electrical: false,
     is_vesda: false,
-    is_aws: false
+    is_aws: false,
+    is_out_of_town: false,
+    subcontractors: [],
   })
 
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
@@ -64,7 +82,8 @@ export default function ProjectsList() {
     try {
       const payload = {
         ...newProject,
-        budgeted_hours: newProject.budgeted_hours?.trim() ? parseFloat(newProject.budgeted_hours) : undefined
+        budgeted_hours: newProject.budgeted_hours?.trim() ? parseFloat(newProject.budgeted_hours) : undefined,
+        subcontractors: uiSubsToApiSubs(newProject.subcontractors)
       }
 
       if (editingId) {
@@ -98,7 +117,9 @@ export default function ProjectsList() {
       is_mechanical: project.is_mechanical || false,
       is_electrical: project.is_electrical || false,
       is_vesda: project.is_vesda || false,
-      is_aws: project.is_aws || false
+      is_aws: project.is_aws || false,
+      is_out_of_town: project.is_out_of_town || false,
+      subcontractors: project.subcontractors ? apiSubsToUiSubs(project.subcontractors) : [],
     })
     setShowCreateForm(true)
   }
@@ -116,7 +137,9 @@ export default function ProjectsList() {
       is_mechanical: false,
       is_electrical: false,
       is_vesda: false,
-      is_aws: false
+      is_aws: false,
+      is_out_of_town: false,
+      subcontractors: [],
     })
     setEditingId(null)
     setShowCreateForm(false)
@@ -342,15 +365,98 @@ export default function ProjectsList() {
                 </label>
               </div>
 
-              {/* AWS Toggle */}
-              <div className="flex items-center space-x-2 border-t pt-4">
-                <input
-                  type="checkbox"
-                  checked={newProject.is_aws}
-                  onChange={e => setNewProject({ ...newProject, is_aws: e.target.checked })}
-                  className="rounded text-purple-600 focus:ring-purple-500"
-                />
-                <span className="text-sm font-bold text-purple-700">Is AWS Project?</span>
+              {/* AWS/Out of Town and Subcontractors - Two Column Layout */}
+              <div className="grid grid-cols-2 gap-4 border-t pt-4">
+                {/* Left Column: AWS and Out of Town */}
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={newProject.is_aws}
+                      onChange={e => setNewProject({ ...newProject, is_aws: e.target.checked })}
+                      className="rounded text-purple-600 focus:ring-purple-500"
+                    />
+                    <span className="text-sm font-bold text-purple-700">Is AWS Project?</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={newProject.is_out_of_town}
+                      onChange={e => setNewProject({ ...newProject, is_out_of_town: e.target.checked })}
+                      className="rounded text-purple-600 focus:ring-purple-500"
+                    />
+                    <span className="text-sm font-bold text-purple-700">Is Out of Town?</span>
+                  </div>
+                </div>
+
+                {/* Right Column: Subcontractors */}
+                <div className="space-y-2">
+                  {["Dynalectric", "Fuentes", "Power Solutions", "Power Plus"].map((subName) => {
+                    const subIndex = newProject.subcontractors.findIndex(s => s.name === subName);
+                    const isChecked = subIndex !== -1;
+                    const laborTypes = isChecked ? newProject.subcontractors[subIndex].labor_types : [];
+                    return (
+                      <div key={subName} className="flex flex-col">
+                        <label className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={e => {
+                              let updatedSubs = [...newProject.subcontractors];
+                              if (e.target.checked) {
+                                // Auto-select "sprinkler" as default labor type
+                                updatedSubs.push({ name: subName, labor_types: ["sprinkler"] });
+                              } else {
+                                updatedSubs = updatedSubs.filter(s => s.name !== subName);
+                              }
+                              setNewProject({ ...newProject, subcontractors: updatedSubs });
+                            }}
+                            className="rounded text-purple-600 focus:ring-purple-500"
+                          />
+                          <span className="text-sm font-bold text-purple-700">{subName}</span>
+                        </label>
+                        {isChecked && (
+                          <div className="ml-6 flex space-x-4 mt-1">
+                            <label className="flex items-center space-x-1">
+                              <input
+                                type="checkbox"
+                                checked={laborTypes.includes("sprinkler")}
+                                onChange={e => {
+                                  const updatedSubs = [...newProject.subcontractors];
+                                  const sub = updatedSubs[subIndex];
+                                  if (e.target.checked) {
+                                    sub.labor_types = Array.from(new Set([...sub.labor_types, "sprinkler"]));
+                                  } else {
+                                    sub.labor_types = sub.labor_types.filter(l => l !== "sprinkler");
+                                  }
+                                  setNewProject({ ...newProject, subcontractors: updatedSubs });
+                                }}
+                              />
+                              <span className="text-xs">Sprinkler</span>
+                            </label>
+                            <label className="flex items-center space-x-1">
+                              <input
+                                type="checkbox"
+                                checked={laborTypes.includes("vesda")}
+                                onChange={e => {
+                                  const updatedSubs = [...newProject.subcontractors];
+                                  const sub = updatedSubs[subIndex];
+                                  if (e.target.checked) {
+                                    sub.labor_types = Array.from(new Set([...sub.labor_types, "vesda"]));
+                                  } else {
+                                    sub.labor_types = sub.labor_types.filter(l => l !== "vesda");
+                                  }
+                                  setNewProject({ ...newProject, subcontractors: updatedSubs });
+                                }}
+                              />
+                              <span className="text-xs">VESDA</span>
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               <div>
@@ -500,6 +606,7 @@ export default function ProjectsList() {
                 <th className="cursor-pointer hover:bg-gray-50" onClick={() => handleSort('status')}>
                   Status {sortConfig?.key === 'status' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
+                <th>Subcontractors</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -538,6 +645,22 @@ export default function ProjectsList() {
                       {project.is_electrical && <span className="text-[10px] uppercase bg-yellow-100 text-yellow-800 px-1 rounded">Elec</span>}
                       {project.is_vesda && <span className="text-[10px] uppercase bg-red-100 text-red-800 px-1 rounded">VESDA</span>}
                     </div>
+                  </td>
+                  <td>
+                    {project.subcontractors && project.subcontractors.length > 0 ? (
+                      <div className="space-y-1">
+                        {project.subcontractors.map((sub, idx) => (
+                          <div key={idx} className="text-xs">
+                            <span className="font-medium text-gray-700">{sub.subcontractor_name}</span>
+                            <span className={`ml-1 px-1 rounded ${sub.labor_type === 'sprinkler' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                              {sub.labor_type}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 text-xs">—</span>
+                    )}
                   </td>
                   <td>
                     <div className="flex space-x-2">

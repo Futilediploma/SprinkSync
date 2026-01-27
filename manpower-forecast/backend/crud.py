@@ -25,11 +25,24 @@ def get_project(db: Session, project_id: int) -> Optional[models.Project]:
 
 def create_project(db: Session, project: schemas.ProjectCreate) -> models.Project:
     """Create new project."""
-    db_project = models.Project(**project.model_dump())
+    project_data = project.model_dump(exclude={'subcontractors'})
+    db_project = models.Project(**project_data)
     db.add(db_project)
     try:
         db.commit()
         db.refresh(db_project)
+
+        # Add subcontractors if provided
+        if project.subcontractors:
+            for sub in project.subcontractors:
+                db_sub = models.ProjectSubcontractor(
+                    project_id=db_project.id,
+                    subcontractor_name=sub.subcontractor_name,
+                    labor_type=sub.labor_type
+                )
+                db.add(db_sub)
+            db.commit()
+            db.refresh(db_project)
     except Exception:
         db.rollback()
         raise
@@ -42,9 +55,24 @@ def update_project(db: Session, project_id: int, project: schemas.ProjectUpdate)
     if not db_project:
         return None
 
-    update_data = project.model_dump(exclude_unset=True)
+    update_data = project.model_dump(exclude_unset=True, exclude={'subcontractors'})
     for field, value in update_data.items():
         setattr(db_project, field, value)
+
+    # Handle subcontractors if provided
+    if project.subcontractors is not None:
+        # Delete existing subcontractors
+        db.query(models.ProjectSubcontractor).filter(
+            models.ProjectSubcontractor.project_id == project_id
+        ).delete()
+        # Add new subcontractors
+        for sub in project.subcontractors:
+            db_sub = models.ProjectSubcontractor(
+                project_id=project_id,
+                subcontractor_name=sub.subcontractor_name,
+                labor_type=sub.labor_type
+            )
+            db.add(db_sub)
 
     try:
         db.commit()
@@ -275,11 +303,65 @@ def get_active_phases_in_date_range(
         models.SchedulePhase.start_date <= end_date,
         models.SchedulePhase.end_date >= start_date
     )
-    
+
     if project_ids:
         query = query.filter(models.Project.id.in_(project_ids))
-    
+
     if crew_type_ids:
         query = query.filter(models.SchedulePhase.crew_type_id.in_(crew_type_ids))
-    
+
     return query.all()
+
+
+# ============================================
+# Subcontractor CRUD
+# ============================================
+
+def get_projects_by_subcontractor(
+    db: Session,
+    subcontractor_name: str,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None
+) -> List[tuple]:
+    """Get all projects assigned to a subcontractor with their labor types."""
+    query = db.query(
+        models.Project,
+        models.ProjectSubcontractor.labor_type
+    ).join(
+        models.ProjectSubcontractor
+    ).filter(
+        models.ProjectSubcontractor.subcontractor_name == subcontractor_name,
+        models.Project.status.in_(['active', 'prospective'])
+    )
+
+    if start_date:
+        query = query.filter(models.Project.end_date >= start_date)
+    if end_date:
+        query = query.filter(models.Project.start_date <= end_date)
+
+    return query.all()
+
+
+def get_project_phases_for_labor_type(
+    db: Session,
+    project_id: int,
+    labor_type: str,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None
+) -> List[models.SchedulePhase]:
+    """Get phases for a project filtered by labor type (sprinkler/vesda)."""
+    query = db.query(models.SchedulePhase).join(
+        models.ProjectSchedule
+    ).join(
+        models.Project
+    ).filter(
+        models.ProjectSchedule.project_id == project_id,
+        models.ProjectSchedule.is_active == True
+    )
+
+    if start_date:
+        query = query.filter(models.SchedulePhase.end_date >= start_date)
+    if end_date:
+        query = query.filter(models.SchedulePhase.start_date <= end_date)
+
+    return query.order_by(models.SchedulePhase.start_date).all()

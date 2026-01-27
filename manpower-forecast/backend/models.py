@@ -22,11 +22,13 @@ class Project(Base):
     is_electrical = Column(Boolean, default=False)
     is_vesda = Column(Boolean, default=False)
     is_aws = Column(Boolean, default=False)
+    is_out_of_town = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     
     # Relationships
     schedules = relationship("ProjectSchedule", back_populates="project", cascade="all, delete-orphan")
+    subcontractors = relationship("ProjectSubcontractor", back_populates="project", cascade="all, delete-orphan")
 
     @property
     def total_scheduled_hours(self):
@@ -129,3 +131,17 @@ class SchedulePhase(Base):
     __table_args__ = (
         CheckConstraint('end_date >= start_date', name='phase_date_check'),
     )
+
+
+class ProjectSubcontractor(Base):
+    """Project subcontractor assignment model."""
+    __tablename__ = "project_subcontractors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    subcontractor_name = Column(String(100), nullable=False)  # e.g., "Dynalectric"
+    labor_type = Column(String(20), nullable=False)  # "sprinkler" or "vesda"
+    created_at = Column(DateTime, server_default=func.now())
+
+    # Relationships
+    project = relationship("Project", back_populates="subcontractors")

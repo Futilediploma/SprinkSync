@@ -1,11 +1,3 @@
-// ============================================
-// PDF Export
-// ============================================
-
-export const exportApi = {
-  pdf: () =>
-    api.get('/api/export/pdf', { responseType: 'blob' })
-};
 /**
  * API client for making HTTP requests to the backend.
  */
@@ -163,6 +155,63 @@ export const forecastsApi = {
     }
     
     return api.get('/api/forecasts/company-wide/export', {
+      params,
+      responseType: 'blob'
+    });
+  }
+};
+
+// ============================================
+// PDF Export
+// ============================================
+
+export const exportApi = {
+  pdf: () =>
+    api.get('/api/export/pdf', { responseType: 'blob' })
+};
+
+// ============================================
+// Subcontractor Reports
+// ============================================
+
+export interface SubcontractorPhaseInfo {
+  phase_name: string;
+  start_date: string;
+  end_date: string;
+  man_hours: number;
+}
+
+export interface SubcontractorProjectInfo {
+  project_id: number;
+  project_name: string;
+  project_number: string | null;
+  labor_type: string;
+  phases: SubcontractorPhaseInfo[];
+  total_project_hours: number;
+}
+
+export interface SubcontractorReport {
+  subcontractor_name: string;
+  total_man_hours: number;
+  projects: SubcontractorProjectInfo[];
+}
+
+export const subcontractorReportsApi = {
+  listSubcontractors: () =>
+    api.get<{ subcontractors: string[] }>('/api/reports/subcontractors'),
+
+  getReport: (name: string, startDate?: string, endDate?: string) => {
+    const params: any = {};
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+    return api.get<SubcontractorReport>(`/api/reports/subcontractor/${encodeURIComponent(name)}`, { params });
+  },
+
+  exportPdf: (name: string, startDate?: string, endDate?: string) => {
+    const params: any = {};
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+    return api.get(`/api/export/pdf/subcontractor/${encodeURIComponent(name)}`, {
       params,
       responseType: 'blob'
     });

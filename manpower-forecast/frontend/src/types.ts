@@ -22,6 +22,43 @@ export interface CrewTypeCreate {
 // Projects
 // ============================================
 
+// API format - flat structure from backend
+export interface ProjectSubcontractorApi {
+  id?: number;
+  project_id?: number;
+  subcontractor_name: string;
+  labor_type: "sprinkler" | "vesda";
+}
+
+// UI format - grouped by subcontractor name
+export interface ProjectSubcontractor {
+  name: string;
+  labor_types: ("sprinkler" | "vesda")[];
+}
+
+// Helper to convert API format to UI format
+export function apiSubsToUiSubs(apiSubs: ProjectSubcontractorApi[]): ProjectSubcontractor[] {
+  const grouped: Record<string, ("sprinkler" | "vesda")[]> = {};
+  for (const sub of apiSubs) {
+    if (!grouped[sub.subcontractor_name]) {
+      grouped[sub.subcontractor_name] = [];
+    }
+    grouped[sub.subcontractor_name].push(sub.labor_type);
+  }
+  return Object.entries(grouped).map(([name, labor_types]) => ({ name, labor_types }));
+}
+
+// Helper to convert UI format to API format
+export function uiSubsToApiSubs(uiSubs: ProjectSubcontractor[]): ProjectSubcontractorApi[] {
+  const result: ProjectSubcontractorApi[] = [];
+  for (const sub of uiSubs) {
+    for (const laborType of sub.labor_types) {
+      result.push({ subcontractor_name: sub.name, labor_type: laborType });
+    }
+  }
+  return result;
+}
+
 export interface Project {
   id: number;
   name: string;
@@ -36,7 +73,9 @@ export interface Project {
   is_electrical: boolean;
   is_vesda: boolean;
   is_aws: boolean;
+  is_out_of_town: boolean;
   total_scheduled_hours: number;
+  subcontractors?: ProjectSubcontractorApi[];
   created_at: string;
   updated_at: string;
 }
@@ -54,6 +93,8 @@ export interface ProjectCreate {
   is_electrical?: boolean;
   is_vesda?: boolean;
   is_aws?: boolean;
+  is_out_of_town?: boolean;
+  subcontractors?: ProjectSubcontractorApi[];
 }
 
 export interface ProjectUpdate {
@@ -69,6 +110,8 @@ export interface ProjectUpdate {
   is_electrical?: boolean;
   is_vesda?: boolean;
   is_aws?: boolean;
+  is_out_of_town?: boolean;
+  subcontractors?: ProjectSubcontractorApi[];
 }
 
 // ============================================

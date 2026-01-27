@@ -27,6 +27,27 @@ class CrewType(CrewTypeBase):
 
 
 # ============================================
+# Subcontractor Schemas
+# ============================================
+
+class ProjectSubcontractorBase(BaseModel):
+    subcontractor_name: str
+    labor_type: str  # "sprinkler" or "vesda"
+
+
+class ProjectSubcontractorCreate(ProjectSubcontractorBase):
+    pass
+
+
+class ProjectSubcontractor(ProjectSubcontractorBase):
+    id: int
+    project_id: int
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================
 # Project Schemas
 # ============================================
 
@@ -46,7 +67,7 @@ class ProjectBase(BaseModel):
 
 
 class ProjectCreate(ProjectBase):
-    pass
+    subcontractors: Optional[List[ProjectSubcontractorCreate]] = []
 
 
 class ProjectUpdate(BaseModel):
@@ -62,14 +83,16 @@ class ProjectUpdate(BaseModel):
     is_electrical: Optional[bool] = None
     is_vesda: Optional[bool] = None
     is_aws: Optional[bool] = None
+    subcontractors: Optional[List[ProjectSubcontractorCreate]] = None
 
 
 class Project(ProjectBase):
     id: int
     total_scheduled_hours: Optional[float] = 0.0
+    subcontractors: List[ProjectSubcontractor] = []
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -211,3 +234,29 @@ class ForecastFilters(BaseModel):
     project_ids: Optional[List[int]] = None
     crew_type_ids: Optional[List[int]] = None
     granularity: str = "weekly"  # weekly, monthly, daily
+
+
+# ============================================
+# Subcontractor Report Schemas
+# ============================================
+
+class SubcontractorPhaseInfo(BaseModel):
+    phase_name: str
+    start_date: date
+    end_date: date
+    man_hours: Decimal
+
+
+class SubcontractorProjectInfo(BaseModel):
+    project_id: int
+    project_name: str
+    project_number: Optional[str] = None
+    labor_type: str
+    phases: List[SubcontractorPhaseInfo] = []
+    total_project_hours: Decimal
+
+
+class SubcontractorReport(BaseModel):
+    subcontractor_name: str
+    total_man_hours: Decimal
+    projects: List[SubcontractorProjectInfo] = []

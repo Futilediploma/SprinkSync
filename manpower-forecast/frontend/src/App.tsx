@@ -5,6 +5,7 @@ import ScheduleEditor from './pages/ScheduleEditor'
 import ProjectForecast from './pages/ProjectForecast'
 import CompanyForecast from './pages/CompanyForecast'
 import CompanyGantt from './pages/CompanyGantt'
+import SubcontractorReports from './pages/SubcontractorReports'
 import Login from './pages/Login'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -92,6 +93,15 @@ function App() {
                 >
                   Gantt Chart
                 </Link>
+                <Link
+                  to="/subcontractor-reports"
+                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${location.pathname === '/subcontractor-reports'
+                    ? 'border-primary-500 text-gray-900'
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                    }`}
+                >
+                  Sub Reports
+                </Link>
               </div>
             </div>
             {/* User info and logout */}
@@ -119,6 +129,7 @@ function App() {
           <Route path="/projects/:id/forecast" element={<ProtectedRoute><ProjectForecast /></ProtectedRoute>} />
           <Route path="/forecasts" element={<ProtectedRoute><CompanyForecast /></ProtectedRoute>} />
           <Route path="/gantt" element={<ProtectedRoute><CompanyGantt /></ProtectedRoute>} />
+          <Route path="/subcontractor-reports" element={<ProtectedRoute><SubcontractorReports /></ProtectedRoute>} />
         </Routes>
       </main>
     </div>

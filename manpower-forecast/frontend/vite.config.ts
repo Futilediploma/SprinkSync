@@ -9,7 +9,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/manpower/api': {
-        target: 'http://localhost:8001',
+        target: 'http://localhost:8000',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/manpower/, '')
       }
