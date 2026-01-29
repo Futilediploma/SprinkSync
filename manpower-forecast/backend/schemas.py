@@ -64,6 +64,7 @@ class ProjectBase(BaseModel):
     is_electrical: bool = False
     is_vesda: bool = False
     is_aws: bool = False
+    is_out_of_town: bool = False
 
 
 class ProjectCreate(ProjectBase):
@@ -83,6 +84,7 @@ class ProjectUpdate(BaseModel):
     is_electrical: Optional[bool] = None
     is_vesda: Optional[bool] = None
     is_aws: Optional[bool] = None
+    is_out_of_town: Optional[bool] = None
     subcontractors: Optional[List[ProjectSubcontractorCreate]] = None
 
 
