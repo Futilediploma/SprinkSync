@@ -54,16 +54,18 @@ class GanttChartPDF:
         self.margin_bottom = 0.8 * inch
 
         # Table column configuration (left side)
-        self.table_width = 4.0 * inch
+        self.table_width = 5.0 * inch
         self.col_widths = {
-            'activity_name': 2.4 * inch,
+            'activity_name': 1.8 * inch,
+            'subcontractor': 1.0 * inch,
+            'headcount': 0.5 * inch,
             'duration': 0.5 * inch,
-            'start': 0.7 * inch,
-            'finish': 0.7 * inch,
+            'start': 0.6 * inch,
+            'finish': 0.6 * inch,
         }
 
         # Gantt chart area (right side)
-        self.gantt_start_x = self.margin_left + self.table_width + 0.2 * inch
+        self.gantt_start_x = self.margin_left + self.table_width + 0.1 * inch
         self.gantt_width = self.width - self.gantt_start_x - self.margin_right
 
         # Row configuration
@@ -74,7 +76,8 @@ class GanttChartPDF:
         self.page_number = 0
         self.total_pages = 1
 
-    def draw_header(self, project_name: str, run_date: str, logo_path: str = None):
+    def draw_header(self, project_name: str, run_date: str, logo_path: str = None,
+                     subcontractor_name: str = None):
         """Draw the page header with project info and logo"""
         c = self.canvas
         y = self.height - self.margin_top + 20
@@ -98,6 +101,17 @@ class GanttChartPDF:
         c.setFont("Helvetica-Bold", 14)
         c.setFillColor(COLORS['text_primary'])
         c.drawString(self.margin_left + logo_width, y, project_name)
+
+        # Subcontractor/Company name box (yellow highlight)
+        title_width = c.stringWidth(project_name, "Helvetica-Bold", 14)
+        box_x = self.margin_left + logo_width + title_width + 10
+        display_name = subcontractor_name if subcontractor_name else "BFPE"
+        c.setFillColor(HexColor('#fef08a'))  # Yellow background
+        name_width = c.stringWidth(display_name, "Helvetica-Bold", 12) + 16
+        c.rect(box_x, y - 5, name_width, 20, fill=1, stroke=0)
+        c.setFillColor(COLORS['text_primary'])
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(box_x + 8, y, display_name)
 
         # Page info on the right
         c.setFont("Helvetica", 9)
@@ -132,6 +146,8 @@ class GanttChartPDF:
 
         headers = [
             ('Project Name', self.col_widths['activity_name']),
+            ('Subcontractor', self.col_widths['subcontractor']),
+            ('HC', self.col_widths['headcount']),
             ('Days', self.col_widths['duration']),
             ('Start', self.col_widths['start']),
             ('Finish', self.col_widths['finish']),
@@ -216,6 +232,28 @@ class GanttChartPDF:
             name = name[:max_chars-2] + '..'
         c.drawString(x, text_y, name)
         x += self.col_widths['activity_name']
+
+        # Subcontractor Name (orange highlight background for this cell)
+        sub_names = activity.get('subcontractor_names', '')
+        if sub_names:
+            # Draw orange background for cell
+            c.setFillColor(HexColor('#fed7aa'))  # Light orange
+            c.rect(x - 2, y_pos - self.row_height, self.col_widths['subcontractor'], self.row_height, fill=1, stroke=0)
+            c.setFillColor(COLORS['text_primary'])
+        sub_max_chars = int(self.col_widths['subcontractor'] / 4.5)
+        if len(sub_names) > sub_max_chars:
+            sub_names = sub_names[:sub_max_chars-2] + '..'
+        c.drawString(x, text_y, sub_names)
+        x += self.col_widths['subcontractor']
+
+        # Headcount (orange highlight background)
+        headcount = activity.get('headcount', 0)
+        if headcount:
+            c.setFillColor(HexColor('#fed7aa'))  # Light orange
+            c.rect(x - 2, y_pos - self.row_height, self.col_widths['headcount'], self.row_height, fill=1, stroke=0)
+            c.setFillColor(COLORS['text_primary'])
+        c.drawString(x + 2, text_y, str(headcount) if headcount else '')
+        x += self.col_widths['headcount']
 
         # Duration
         duration = activity.get('duration', 0)
@@ -344,8 +382,21 @@ class GanttChartPDF:
 
     def generate(self, projects: list, phases: list,
                  project_name: str = "Project Schedule",
-                 company_name: str = ""):
-        """Generate the complete PDF"""
+                 company_name: str = "",
+                 subcontractor_filter: str = None,
+                 project_subcontractors: dict = None):
+        """Generate the complete PDF
+
+        Args:
+            projects: List of project objects
+            phases: List of phase objects
+            project_name: Title for the PDF
+            company_name: Company name
+            subcontractor_filter: Name of subcontractor being filtered (for header)
+            project_subcontractors: Dict mapping project_id to list of {name, headcount} dicts
+        """
+        if project_subcontractors is None:
+            project_subcontractors = {}
 
         # Prepare activity data
         activities = []
@@ -362,11 +413,18 @@ class GanttChartPDF:
                 project_start = project.start_date
                 project_end = project.end_date
 
+            # Get subcontractor info for this project
+            subs_info = project_subcontractors.get(project.id, [])
+            sub_names = ', '.join([s['name'] for s in subs_info]) if subs_info else ''
+            total_headcount = sum(s.get('headcount', 0) for s in subs_info) if subs_info else 0
+
             # Only add project-level row with single Gantt bar
             if project_start and project_end:
                 activities.append({
                     'activity_id': f'PROJ-{project.id}',
                     'name': project.name,
+                    'subcontractor_names': sub_names,
+                    'headcount': total_headcount,
                     'duration': (project_end - project_start).days,
                     'start_date': project_start,
                     'end_date': project_end,
@@ -406,8 +464,8 @@ class GanttChartPDF:
             logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
                                     'frontend', 'bfpe_logo.png')
 
-            # Draw header with logo
-            self.draw_header(project_name, run_date, logo_path)
+            # Draw header with logo and subcontractor name
+            self.draw_header(project_name, run_date, logo_path, subcontractor_filter)
 
             # Starting Y position
             y_pos = self.height - self.margin_top - 25
@@ -525,13 +583,37 @@ def export_pdf(
         # Get all phases for Gantt
         phases = crud.get_all_phases(db)
 
+    # Build subcontractor info dict for each project
+    project_subcontractors = {}
+    for project in projects:
+        # Get subcontractors for this project
+        subs = db.query(models.ProjectSubcontractor).filter(
+            models.ProjectSubcontractor.project_id == project.id
+        ).all()
+
+        # If filtering by specific subcontractors, only include those
+        if subcontractor_name_list:
+            subs = [s for s in subs if s.subcontractor_name in subcontractor_name_list]
+
+        project_subcontractors[project.id] = [
+            {'name': s.subcontractor_name, 'headcount': s.headcount or 0}
+            for s in subs
+        ]
+
+    # Determine display name for header
+    subcontractor_display = None
+    if subcontractor_name_list:
+        subcontractor_display = ', '.join(subcontractor_name_list)
+
     # Generate PDF
     pdf_generator = GanttChartPDF(page_size=landscape(letter))
     pdf_buffer = pdf_generator.generate(
         projects=projects,
         phases=phases,
         project_name="Fire Protection Schedule",
-        company_name="BFPE International"
+        company_name="BFPE International",
+        subcontractor_filter=subcontractor_display,
+        project_subcontractors=project_subcontractors
     )
 
     return Response(
@@ -934,13 +1016,26 @@ def export_project_pdf(
     phases = crud.get_all_phases(db)
     project_phases = [p for p in phases if p.schedule.project_id == project_id]
 
+    # Get subcontractors for this project
+    subs = db.query(models.ProjectSubcontractor).filter(
+        models.ProjectSubcontractor.project_id == project_id
+    ).all()
+
+    project_subcontractors = {
+        project_id: [
+            {'name': s.subcontractor_name, 'headcount': s.headcount or 0}
+            for s in subs
+        ]
+    }
+
     # Generate PDF
     pdf_generator = GanttChartPDF(page_size=landscape(letter))
     pdf_buffer = pdf_generator.generate(
         projects=[project],
         phases=project_phases,
         project_name=project.name,
-        company_name="BFPE International"
+        company_name="BFPE International",
+        project_subcontractors=project_subcontractors
     )
 
     filename = f"{project.name.replace(' ', '_')}_schedule.pdf"

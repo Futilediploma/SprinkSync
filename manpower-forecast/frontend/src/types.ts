@@ -28,32 +28,45 @@ export interface ProjectSubcontractorApi {
   project_id?: number;
   subcontractor_name: string;
   labor_type: "sprinkler" | "vesda";
+  headcount: number;
 }
 
-// UI format - grouped by subcontractor name
+// UI format - grouped by subcontractor name with headcount per trade
 export interface ProjectSubcontractor {
   name: string;
-  labor_types: ("sprinkler" | "vesda")[];
+  sprinkler: { enabled: boolean; headcount: number };
+  vesda: { enabled: boolean; headcount: number };
 }
 
 // Helper to convert API format to UI format
 export function apiSubsToUiSubs(apiSubs: ProjectSubcontractorApi[]): ProjectSubcontractor[] {
-  const grouped: Record<string, ("sprinkler" | "vesda")[]> = {};
+  const grouped: Record<string, ProjectSubcontractor> = {};
   for (const sub of apiSubs) {
     if (!grouped[sub.subcontractor_name]) {
-      grouped[sub.subcontractor_name] = [];
+      grouped[sub.subcontractor_name] = {
+        name: sub.subcontractor_name,
+        sprinkler: { enabled: false, headcount: 0 },
+        vesda: { enabled: false, headcount: 0 }
+      };
     }
-    grouped[sub.subcontractor_name].push(sub.labor_type);
+    if (sub.labor_type === 'sprinkler') {
+      grouped[sub.subcontractor_name].sprinkler = { enabled: true, headcount: sub.headcount || 0 };
+    } else if (sub.labor_type === 'vesda') {
+      grouped[sub.subcontractor_name].vesda = { enabled: true, headcount: sub.headcount || 0 };
+    }
   }
-  return Object.entries(grouped).map(([name, labor_types]) => ({ name, labor_types }));
+  return Object.values(grouped);
 }
 
 // Helper to convert UI format to API format
 export function uiSubsToApiSubs(uiSubs: ProjectSubcontractor[]): ProjectSubcontractorApi[] {
   const result: ProjectSubcontractorApi[] = [];
   for (const sub of uiSubs) {
-    for (const laborType of sub.labor_types) {
-      result.push({ subcontractor_name: sub.name, labor_type: laborType });
+    if (sub.sprinkler.enabled) {
+      result.push({ subcontractor_name: sub.name, labor_type: 'sprinkler', headcount: sub.sprinkler.headcount });
+    }
+    if (sub.vesda.enabled) {
+      result.push({ subcontractor_name: sub.name, labor_type: 'vesda', headcount: sub.vesda.headcount });
     }
   }
   return result;
@@ -74,6 +87,7 @@ export interface Project {
   is_vesda: boolean;
   is_aws: boolean;
   is_out_of_town: boolean;
+  sub_headcount: number;
   total_scheduled_hours: number;
   subcontractors?: ProjectSubcontractorApi[];
   created_at: string;
@@ -94,6 +108,7 @@ export interface ProjectCreate {
   is_vesda?: boolean;
   is_aws?: boolean;
   is_out_of_town?: boolean;
+  sub_headcount?: number;
   subcontractors?: ProjectSubcontractorApi[];
 }
 
@@ -111,6 +126,7 @@ export interface ProjectUpdate {
   is_vesda?: boolean;
   is_aws?: boolean;
   is_out_of_town?: boolean;
+  sub_headcount?: number;
   subcontractors?: ProjectSubcontractorApi[];
 }
 

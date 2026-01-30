@@ -27,6 +27,7 @@ export default function ProjectsList() {
     project_number: string;
     notes: string;
     budgeted_hours: string;
+    sub_headcount: string;
     start_date: string;
     end_date: string;
     status: string;
@@ -42,6 +43,7 @@ export default function ProjectsList() {
     project_number: '',
     notes: '',
     budgeted_hours: '',
+    sub_headcount: '',
     start_date: '',
     end_date: '',
     status: 'active',
@@ -83,6 +85,7 @@ export default function ProjectsList() {
       const payload = {
         ...newProject,
         budgeted_hours: newProject.budgeted_hours?.trim() ? parseFloat(newProject.budgeted_hours) : undefined,
+        sub_headcount: newProject.sub_headcount?.trim() ? parseInt(newProject.sub_headcount) : 0,
         subcontractors: uiSubsToApiSubs(newProject.subcontractors)
       }
 
@@ -111,6 +114,7 @@ export default function ProjectsList() {
       project_number: project.project_number || '',
       notes: project.notes || '',
       budgeted_hours: project.budgeted_hours?.toString() || '',
+      sub_headcount: project.sub_headcount?.toString() || '',
       start_date: project.start_date || '',
       end_date: project.end_date || '',
       status: project.status || 'active',
@@ -131,6 +135,7 @@ export default function ProjectsList() {
       project_number: '',
       notes: '',
       budgeted_hours: '',
+      sub_headcount: '',
       start_date: '',
       end_date: '',
       status: 'active',
@@ -228,6 +233,12 @@ export default function ProjectsList() {
           {/* Main View Tabs */}
           <div className="flex space-x-1 mt-1">
             <button
+              onClick={() => setAwsFilter('all')}
+              className={`text-xs px-2 py-1 rounded ${awsFilter === 'all' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+            >
+              All
+            </button>
+            <button
               onClick={() => setAwsFilter('standard')}
               className={`text-xs px-2 py-1 rounded ${awsFilter === 'standard' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
             >
@@ -238,12 +249,6 @@ export default function ProjectsList() {
               className={`text-xs px-2 py-1 rounded ${awsFilter === 'aws' ? 'bg-purple-600 text-white' : 'text-purple-600 hover:bg-purple-50'}`}
             >
               AWS Projects
-            </button>
-            <button
-              onClick={() => setAwsFilter('all')}
-              className={`text-xs px-2 py-1 rounded ${awsFilter === 'all' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
-            >
-              All
             </button>
           </div>
         </div>
@@ -291,12 +296,12 @@ export default function ProjectsList() {
 
       {/* Create Form Modal */}
       {showCreateForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-bold mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-5 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold mb-3">
               {editingId ? 'Edit Project' : 'Create New Project'}
             </h3>
-            <form onSubmit={handleSaveProject} className="space-y-4">
+            <form onSubmit={handleSaveProject} className="space-y-3">
               {validationErrors.length > 0 && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
                   <ul className="list-disc list-inside">
@@ -306,228 +311,184 @@ export default function ProjectsList() {
                   </ul>
                 </div>
               )}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Project Name *
-                </label>
-                <input
-                  type="text"
-                  value={newProject.name}
-                  onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-                  className={`input ${getFieldError(validationErrors, 'Project name') ? 'border-red-500' : ''}`}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Status
-                </label>
-                <select
-                  value={newProject.status}
-                  onChange={(e) => setNewProject({ ...newProject, status: e.target.value })}
-                  className="input"
-                >
-                  <option value="active">Active</option>
-                  <option value="prospective">Prospective</option>
-                  <option value="completed">Completed</option>
-                  <option value="archived">Archived</option>
-                </select>
-              </div>
-
-              {/* Project Types */}
-              <div className="flex space-x-6">
-                <label className="flex items-center space-x-2">
+              {/* Row 1: Name & Status */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-700">Project Name *</label>
                   <input
-                    type="checkbox"
-                    checked={newProject.is_mechanical}
-                    onChange={e => setNewProject({ ...newProject, is_mechanical: e.target.checked })}
-                    className="rounded text-primary-600"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Mechanical</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={newProject.is_electrical}
-                    onChange={e => setNewProject({ ...newProject, is_electrical: e.target.checked })}
-                    className="rounded text-primary-600"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Electrical</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={newProject.is_vesda}
-                    onChange={e => setNewProject({ ...newProject, is_vesda: e.target.checked })}
-                    className="rounded text-red-600"
-                  />
-                  <span className="text-sm font-medium text-gray-700">VESDA</span>
-                </label>
-              </div>
-
-              {/* AWS/Out of Town and Subcontractors - Two Column Layout */}
-              <div className="grid grid-cols-2 gap-4 border-t pt-4">
-                {/* Left Column: AWS and Out of Town */}
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={newProject.is_aws}
-                      onChange={e => setNewProject({ ...newProject, is_aws: e.target.checked })}
-                      className="rounded text-purple-600 focus:ring-purple-500"
-                    />
-                    <span className="text-sm font-bold text-purple-700">Is AWS Project?</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={newProject.is_out_of_town}
-                      onChange={e => setNewProject({ ...newProject, is_out_of_town: e.target.checked })}
-                      className="rounded text-purple-600 focus:ring-purple-500"
-                    />
-                    <span className="text-sm font-bold text-purple-700">Is Out of Town?</span>
-                  </div>
-                </div>
-
-                {/* Right Column: Subcontractors */}
-                <div className="space-y-2">
-                  {["Dynalectric", "Fuentes", "Power Solutions", "Power Plus"].map((subName) => {
-                    const subIndex = newProject.subcontractors.findIndex(s => s.name === subName);
-                    const isChecked = subIndex !== -1;
-                    const laborTypes = isChecked ? newProject.subcontractors[subIndex].labor_types : [];
-                    return (
-                      <div key={subName} className="flex flex-col">
-                        <label className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={e => {
-                              let updatedSubs = [...newProject.subcontractors];
-                              if (e.target.checked) {
-                                // Auto-select "sprinkler" as default labor type
-                                updatedSubs.push({ name: subName, labor_types: ["sprinkler"] });
-                              } else {
-                                updatedSubs = updatedSubs.filter(s => s.name !== subName);
-                              }
-                              setNewProject({ ...newProject, subcontractors: updatedSubs });
-                            }}
-                            className="rounded text-purple-600 focus:ring-purple-500"
-                          />
-                          <span className="text-sm font-bold text-purple-700">{subName}</span>
-                        </label>
-                        {isChecked && (
-                          <div className="ml-6 flex space-x-4 mt-1">
-                            <label className="flex items-center space-x-1">
-                              <input
-                                type="checkbox"
-                                checked={laborTypes.includes("sprinkler")}
-                                onChange={e => {
-                                  const updatedSubs = [...newProject.subcontractors];
-                                  const sub = updatedSubs[subIndex];
-                                  if (e.target.checked) {
-                                    sub.labor_types = Array.from(new Set([...sub.labor_types, "sprinkler"]));
-                                  } else {
-                                    sub.labor_types = sub.labor_types.filter(l => l !== "sprinkler");
-                                  }
-                                  setNewProject({ ...newProject, subcontractors: updatedSubs });
-                                }}
-                              />
-                              <span className="text-xs">Sprinkler</span>
-                            </label>
-                            <label className="flex items-center space-x-1">
-                              <input
-                                type="checkbox"
-                                checked={laborTypes.includes("vesda")}
-                                onChange={e => {
-                                  const updatedSubs = [...newProject.subcontractors];
-                                  const sub = updatedSubs[subIndex];
-                                  if (e.target.checked) {
-                                    sub.labor_types = Array.from(new Set([...sub.labor_types, "vesda"]));
-                                  } else {
-                                    sub.labor_types = sub.labor_types.filter(l => l !== "vesda");
-                                  }
-                                  setNewProject({ ...newProject, subcontractors: updatedSubs });
-                                }}
-                              />
-                              <span className="text-xs">VESDA</span>
-                            </label>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Customer Name
-                </label>
-                <input
-                  type="text"
-                  value={newProject.customer_name}
-                  onChange={(e) => setNewProject({ ...newProject, customer_name: e.target.value })}
-                  className="input"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Start Date
-                  </label>
-                  <input
-                    type="date"
-                    value={newProject.start_date}
-                    onChange={(e) => setNewProject({ ...newProject, start_date: e.target.value })}
-                    className="input"
+                    type="text"
+                    value={newProject.name}
+                    onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                    className={`input py-1 text-sm ${getFieldError(validationErrors, 'Project name') ? 'border-red-500' : ''}`}
+                    required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    End Date
-                  </label>
-                  <input
-                    type="date"
-                    value={newProject.end_date}
-                    onChange={(e) => setNewProject({ ...newProject, end_date: e.target.value })}
-                    className="input"
-                  />
+                  <label className="block text-xs font-medium text-gray-700">Status</label>
+                  <select
+                    value={newProject.status}
+                    onChange={(e) => setNewProject({ ...newProject, status: e.target.value })}
+                    className="input py-1 text-sm"
+                  >
+                    <option value="active">Active</option>
+                    <option value="prospective">Prospective</option>
+                    <option value="completed">Completed</option>
+                    <option value="archived">Archived</option>
+                  </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+
+              {/* Row 2: Customer & Project # */}
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Project Number
-                  </label>
+                  <label className="block text-xs font-medium text-gray-700">Customer</label>
+                  <input
+                    type="text"
+                    value={newProject.customer_name}
+                    onChange={(e) => setNewProject({ ...newProject, customer_name: e.target.value })}
+                    className="input py-1 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">Project #</label>
                   <input
                     type="text"
                     value={newProject.project_number}
                     onChange={(e) => setNewProject({ ...newProject, project_number: e.target.value })}
-                    className="input"
+                    className="input py-1 text-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Row 3: Dates & Hours */}
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">Start Date</label>
+                  <input
+                    type="date"
+                    value={newProject.start_date}
+                    onChange={(e) => setNewProject({ ...newProject, start_date: e.target.value })}
+                    className="input py-1 text-sm w-full"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Budgeted Hours
-                  </label>
+                  <label className="block text-xs font-medium text-gray-700">End Date</label>
+                  <input
+                    type="date"
+                    value={newProject.end_date}
+                    onChange={(e) => setNewProject({ ...newProject, end_date: e.target.value })}
+                    className="input py-1 text-sm w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">Budgeted Hrs</label>
                   <input
                     type="number"
                     step="0.01"
                     value={newProject.budgeted_hours}
                     onChange={(e) => setNewProject({ ...newProject, budgeted_hours: e.target.value })}
-                    className="input"
+                    className="input py-1 text-sm w-full"
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Notes
+
+              {/* Row 4: Types & Flags - All inline */}
+              <div className="flex flex-wrap gap-x-4 gap-y-1 py-2 border-y text-xs">
+                <label className="flex items-center gap-1">
+                  <input type="checkbox" checked={newProject.is_mechanical} onChange={e => setNewProject({ ...newProject, is_mechanical: e.target.checked })} className="rounded text-primary-600" />
+                  <span>Mechanical</span>
                 </label>
+                <label className="flex items-center gap-1">
+                  <input type="checkbox" checked={newProject.is_electrical} onChange={e => setNewProject({ ...newProject, is_electrical: e.target.checked })} className="rounded text-primary-600" />
+                  <span>Electrical</span>
+                </label>
+                <label className="flex items-center gap-1">
+                  <input type="checkbox" checked={newProject.is_vesda} onChange={e => setNewProject({ ...newProject, is_vesda: e.target.checked })} className="rounded text-red-600" />
+                  <span>VESDA</span>
+                </label>
+                <label className="flex items-center gap-1">
+                  <input type="checkbox" checked={newProject.is_aws} onChange={e => setNewProject({ ...newProject, is_aws: e.target.checked })} className="rounded text-purple-600" />
+                  <span className="text-purple-700 font-medium">AWS</span>
+                </label>
+                <label className="flex items-center gap-1">
+                  <input type="checkbox" checked={newProject.is_out_of_town} onChange={e => setNewProject({ ...newProject, is_out_of_town: e.target.checked })} className="rounded text-purple-600" />
+                  <span className="text-purple-700 font-medium">Out of Town</span>
+                </label>
+              </div>
+
+              {/* Row 5: Subcontractors - Compact grid */}
+              <div className="grid grid-cols-2 gap-2">
+                {["Dynalectric", "Fuentes", "Power Solutions", "Power Plus"].map((subName) => {
+                  const subIndex = newProject.subcontractors.findIndex(s => s.name === subName);
+                  const isChecked = subIndex !== -1;
+                  const sub = isChecked ? newProject.subcontractors[subIndex] : null;
+                  return (
+                    <div key={subName} className="border rounded p-2 text-xs">
+                      <label className="flex items-center gap-1 font-medium text-purple-700">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={e => {
+                            let updatedSubs = [...newProject.subcontractors];
+                            if (e.target.checked) {
+                              updatedSubs.push({ name: subName, sprinkler: { enabled: true, headcount: 0 }, vesda: { enabled: false, headcount: 0 } });
+                            } else {
+                              updatedSubs = updatedSubs.filter(s => s.name !== subName);
+                            }
+                            setNewProject({ ...newProject, subcontractors: updatedSubs });
+                          }}
+                          className="rounded text-purple-600"
+                        />
+                        {subName}
+                      </label>
+                      {isChecked && sub && (
+                        <div className="mt-1 ml-4 space-y-1">
+                          <div className="flex items-center gap-1">
+                            <input type="checkbox" checked={sub.sprinkler.enabled} onChange={e => {
+                              const updatedSubs = [...newProject.subcontractors];
+                              updatedSubs[subIndex] = { ...sub, sprinkler: { ...sub.sprinkler, enabled: e.target.checked } };
+                              setNewProject({ ...newProject, subcontractors: updatedSubs });
+                            }} className="rounded" />
+                            <span className="w-12">Sprinkler</span>
+                            {sub.sprinkler.enabled && (
+                              <input type="number" min="0" value={sub.sprinkler.headcount || ''} onChange={e => {
+                                const updatedSubs = [...newProject.subcontractors];
+                                updatedSubs[subIndex] = { ...sub, sprinkler: { ...sub.sprinkler, headcount: parseInt(e.target.value) || 0 } };
+                                setNewProject({ ...newProject, subcontractors: updatedSubs });
+                              }} placeholder="#" className="w-12 px-1 py-0.5 border rounded text-xs" />
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <input type="checkbox" checked={sub.vesda.enabled} onChange={e => {
+                              const updatedSubs = [...newProject.subcontractors];
+                              updatedSubs[subIndex] = { ...sub, vesda: { ...sub.vesda, enabled: e.target.checked } };
+                              setNewProject({ ...newProject, subcontractors: updatedSubs });
+                            }} className="rounded" />
+                            <span className="w-12">VESDA</span>
+                            {sub.vesda.enabled && (
+                              <input type="number" min="0" value={sub.vesda.headcount || ''} onChange={e => {
+                                const updatedSubs = [...newProject.subcontractors];
+                                updatedSubs[subIndex] = { ...sub, vesda: { ...sub.vesda, headcount: parseInt(e.target.value) || 0 } };
+                                setNewProject({ ...newProject, subcontractors: updatedSubs });
+                              }} placeholder="#" className="w-12 px-1 py-0.5 border rounded text-xs" />
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700">Notes</label>
                 <textarea
                   value={newProject.notes}
                   onChange={(e) => setNewProject({ ...newProject, notes: e.target.value })}
-                  className="input"
-                  rows={3}
+                  className="input py-1 text-sm"
+                  rows={1}
+                  placeholder="Optional..."
                 />
               </div>
               <div className="flex space-x-3">

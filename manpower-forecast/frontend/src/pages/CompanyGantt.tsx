@@ -109,6 +109,12 @@ export default function CompanyGantt() {
                     {/* Main View Tabs */}
                     <div className="flex space-x-1 mt-2">
                         <button
+                            onClick={() => setAwsFilter('all')}
+                            className={`text-xs px-2 py-1 rounded ${awsFilter === 'all' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                        >
+                            All
+                        </button>
+                        <button
                             onClick={() => setAwsFilter('standard')}
                             className={`text-xs px-2 py-1 rounded ${awsFilter === 'standard' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
                         >
@@ -119,12 +125,6 @@ export default function CompanyGantt() {
                             className={`text-xs px-2 py-1 rounded ${awsFilter === 'aws' ? 'bg-purple-600 text-white' : 'text-purple-600 hover:bg-purple-50'}`}
                         >
                             AWS Projects
-                        </button>
-                        <button
-                            onClick={() => setAwsFilter('all')}
-                            className={`text-xs px-2 py-1 rounded ${awsFilter === 'all' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
-                        >
-                            All
                         </button>
                     </div>
                 </div>

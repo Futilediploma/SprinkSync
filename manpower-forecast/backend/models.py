@@ -23,6 +23,7 @@ class Project(Base):
     is_vesda = Column(Boolean, default=False)
     is_aws = Column(Boolean, default=False)
     is_out_of_town = Column(Boolean, default=False)
+    sub_headcount = Column(Integer, default=0)  # Number of subcontractor workers required on site
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     
@@ -141,6 +142,7 @@ class ProjectSubcontractor(Base):
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
     subcontractor_name = Column(String(100), nullable=False)  # e.g., "Dynalectric"
     labor_type = Column(String(20), nullable=False)  # "sprinkler" or "vesda"
+    headcount = Column(Integer, default=0)  # Number of workers for this trade
     created_at = Column(DateTime, server_default=func.now())
 
     # Relationships

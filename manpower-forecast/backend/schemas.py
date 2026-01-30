@@ -33,6 +33,7 @@ class CrewType(CrewTypeBase):
 class ProjectSubcontractorBase(BaseModel):
     subcontractor_name: str
     labor_type: str  # "sprinkler" or "vesda"
+    headcount: int = 0  # Number of workers for this trade
 
 
 class ProjectSubcontractorCreate(ProjectSubcontractorBase):
@@ -65,6 +66,7 @@ class ProjectBase(BaseModel):
     is_vesda: bool = False
     is_aws: bool = False
     is_out_of_town: bool = False
+    sub_headcount: int = 0  # Number of subcontractor workers required on site
 
 
 class ProjectCreate(ProjectBase):
@@ -85,6 +87,7 @@ class ProjectUpdate(BaseModel):
     is_vesda: Optional[bool] = None
     is_aws: Optional[bool] = None
     is_out_of_town: Optional[bool] = None
+    sub_headcount: Optional[int] = None
     subcontractors: Optional[List[ProjectSubcontractorCreate]] = None
 
 

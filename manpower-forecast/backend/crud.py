@@ -38,7 +38,8 @@ def create_project(db: Session, project: schemas.ProjectCreate) -> models.Projec
                 db_sub = models.ProjectSubcontractor(
                     project_id=db_project.id,
                     subcontractor_name=sub.subcontractor_name,
-                    labor_type=sub.labor_type
+                    labor_type=sub.labor_type,
+                    headcount=sub.headcount
                 )
                 db.add(db_sub)
             db.commit()
@@ -70,7 +71,8 @@ def update_project(db: Session, project_id: int, project: schemas.ProjectUpdate)
             db_sub = models.ProjectSubcontractor(
                 project_id=project_id,
                 subcontractor_name=sub.subcontractor_name,
-                labor_type=sub.labor_type
+                labor_type=sub.labor_type,
+                headcount=sub.headcount
             )
             db.add(db_sub)
 
