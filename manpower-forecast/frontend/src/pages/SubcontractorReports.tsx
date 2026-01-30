@@ -206,6 +206,8 @@ export default function SubcontractorReports() {
                                   <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
                                     project.labor_type === 'sprinkler'
                                       ? 'bg-blue-100 text-blue-800'
+                                      : project.labor_type === 'electrical'
+                                      ? 'bg-yellow-100 text-yellow-800'
                                       : 'bg-purple-100 text-purple-800'
                                   }`}>
                                     {project.labor_type.charAt(0).toUpperCase() + project.labor_type.slice(1)}
@@ -229,6 +231,8 @@ export default function SubcontractorReports() {
                             <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
                               project.labor_type === 'sprinkler'
                                 ? 'bg-blue-100 text-blue-800'
+                                : project.labor_type === 'electrical'
+                                ? 'bg-yellow-100 text-yellow-800'
                                 : 'bg-purple-100 text-purple-800'
                             }`}>
                               {project.labor_type.charAt(0).toUpperCase() + project.labor_type.slice(1)}

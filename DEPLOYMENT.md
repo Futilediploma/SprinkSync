@@ -87,29 +87,34 @@ tail -10 backend.log
 ## Backup Database First
 
 ```bash
-cp ~/manpower_forecast.db ~/database_backup_$(date +%Y%m%d).db
-```
+cp /home/futilediploma/SprinkSync/manpower-forecast/backend/manpower_forecast.db ~/database_backup_$(date +%Y%m%d).db
+
+
 
 ---
 
 ## Troubleshooting
 
 ### Check if backend is running
+
 ```bash
 ps aux | grep uvicorn
 ```
 
 ### View backend logs
+
 ```bash
 tail -50 backend.log
 ```
 
 ### Test API endpoint
+
 ```bash
 curl http://localhost:8000/api/projects/
 ```
 
 ### Migration errors
+
 ```bash
 # Check current migration status
 alembic current
@@ -119,6 +124,7 @@ alembic history
 ```
 
 ### Git conflicts
+
 ```bash
 # If you have local changes on server that conflict
 git stash

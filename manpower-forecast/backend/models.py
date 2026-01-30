@@ -141,7 +141,7 @@ class ProjectSubcontractor(Base):
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
     subcontractor_name = Column(String(100), nullable=False)  # e.g., "Dynalectric"
-    labor_type = Column(String(20), nullable=False)  # "sprinkler" or "vesda"
+    labor_type = Column(String(20), nullable=False)  # "sprinkler", "vesda", or "electrical"
     headcount = Column(Integer, default=0)  # Number of workers for this trade
     created_at = Column(DateTime, server_default=func.now())
 

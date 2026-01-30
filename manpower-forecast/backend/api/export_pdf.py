@@ -54,14 +54,15 @@ class GanttChartPDF:
         self.margin_bottom = 0.8 * inch
 
         # Table column configuration (left side)
-        self.table_width = 5.0 * inch
+        self.table_width = 5.6 * inch
         self.col_widths = {
-            'activity_name': 1.8 * inch,
-            'subcontractor': 1.0 * inch,
-            'headcount': 0.5 * inch,
-            'duration': 0.5 * inch,
-            'start': 0.6 * inch,
-            'finish': 0.6 * inch,
+            'activity_name': 1.7 * inch,
+            'sprinkler_sub': 0.7 * inch,
+            'vesda_sub': 0.7 * inch,
+            'electrical_sub': 0.7 * inch,
+            'duration': 0.4 * inch,
+            'start': 0.7 * inch,
+            'finish': 0.7 * inch,
         }
 
         # Gantt chart area (right side)
@@ -144,16 +145,37 @@ class GanttChartPDF:
         x = self.margin_left + 8
         text_y = y_pos - header_height / 2 - 3
 
-        headers = [
+        # Single-line headers
+        single_headers = [
             ('Project Name', self.col_widths['activity_name']),
-            ('Subcontractor', self.col_widths['subcontractor']),
-            ('HC', self.col_widths['headcount']),
+        ]
+
+        for header, width in single_headers:
+            c.drawString(x, text_y, header)
+            x += width
+
+        # Two-line headers for subcontractor columns (title on top, "Sub" below)
+        two_line_headers = [
+            ('Sprinkler', self.col_widths['sprinkler_sub']),
+            ('VESDA', self.col_widths['vesda_sub']),
+            ('Electrical', self.col_widths['electrical_sub']),
+        ]
+
+        c.setFont("Helvetica-Bold", 8)
+        for header, width in two_line_headers:
+            c.drawString(x, text_y + 6, header)
+            c.drawString(x, text_y - 4, "Sub")
+            x += width
+
+        # Remaining single-line headers
+        c.setFont("Helvetica-Bold", 9)
+        remaining_headers = [
             ('Days', self.col_widths['duration']),
             ('Start', self.col_widths['start']),
             ('Finish', self.col_widths['finish']),
         ]
 
-        for header, width in headers:
+        for header, width in remaining_headers:
             c.drawString(x, text_y, header)
             x += width
 
@@ -233,27 +255,41 @@ class GanttChartPDF:
         c.drawString(x, text_y, name)
         x += self.col_widths['activity_name']
 
-        # Subcontractor Name (orange highlight background for this cell)
-        sub_names = activity.get('subcontractor_names', '')
-        if sub_names:
-            # Draw orange background for cell
-            c.setFillColor(HexColor('#fed7aa'))  # Light orange
-            c.rect(x - 2, y_pos - self.row_height, self.col_widths['subcontractor'], self.row_height, fill=1, stroke=0)
+        # Sprinkler Sub (blue highlight background)
+        sprinkler_sub = activity.get('sprinkler_sub', '')
+        if sprinkler_sub:
+            c.setFillColor(HexColor('#dbeafe'))  # Light blue
+            c.rect(x - 2, y_pos - self.row_height, self.col_widths['sprinkler_sub'], self.row_height, fill=1, stroke=0)
             c.setFillColor(COLORS['text_primary'])
-        sub_max_chars = int(self.col_widths['subcontractor'] / 4.5)
-        if len(sub_names) > sub_max_chars:
-            sub_names = sub_names[:sub_max_chars-2] + '..'
-        c.drawString(x, text_y, sub_names)
-        x += self.col_widths['subcontractor']
+        sub_max_chars = int(self.col_widths['sprinkler_sub'] / 4.5)
+        if len(sprinkler_sub) > sub_max_chars:
+            sprinkler_sub = sprinkler_sub[:sub_max_chars-2] + '..'
+        c.drawString(x, text_y, sprinkler_sub)
+        x += self.col_widths['sprinkler_sub']
 
-        # Headcount (orange highlight background)
-        headcount = activity.get('headcount', 0)
-        if headcount:
-            c.setFillColor(HexColor('#fed7aa'))  # Light orange
-            c.rect(x - 2, y_pos - self.row_height, self.col_widths['headcount'], self.row_height, fill=1, stroke=0)
+        # VESDA Sub (purple highlight background)
+        vesda_sub = activity.get('vesda_sub', '')
+        if vesda_sub:
+            c.setFillColor(HexColor('#e9d5ff'))  # Light purple
+            c.rect(x - 2, y_pos - self.row_height, self.col_widths['vesda_sub'], self.row_height, fill=1, stroke=0)
             c.setFillColor(COLORS['text_primary'])
-        c.drawString(x + 2, text_y, str(headcount) if headcount else '')
-        x += self.col_widths['headcount']
+        sub_max_chars = int(self.col_widths['vesda_sub'] / 4.5)
+        if len(vesda_sub) > sub_max_chars:
+            vesda_sub = vesda_sub[:sub_max_chars-2] + '..'
+        c.drawString(x, text_y, vesda_sub)
+        x += self.col_widths['vesda_sub']
+
+        # Electrical Sub (yellow highlight background)
+        electrical_sub = activity.get('electrical_sub', '')
+        if electrical_sub:
+            c.setFillColor(HexColor('#fef08a'))  # Light yellow
+            c.rect(x - 2, y_pos - self.row_height, self.col_widths['electrical_sub'], self.row_height, fill=1, stroke=0)
+            c.setFillColor(COLORS['text_primary'])
+        sub_max_chars = int(self.col_widths['electrical_sub'] / 4.5)
+        if len(electrical_sub) > sub_max_chars:
+            electrical_sub = electrical_sub[:sub_max_chars-2] + '..'
+        c.drawString(x, text_y, electrical_sub)
+        x += self.col_widths['electrical_sub']
 
         # Duration
         duration = activity.get('duration', 0)
@@ -413,18 +449,40 @@ class GanttChartPDF:
                 project_start = project.start_date
                 project_end = project.end_date
 
-            # Get subcontractor info for this project
+            # Get subcontractor info for this project, separated by labor type
             subs_info = project_subcontractors.get(project.id, [])
-            sub_names = ', '.join([s['name'] for s in subs_info]) if subs_info else ''
-            total_headcount = sum(s.get('headcount', 0) for s in subs_info) if subs_info else 0
+
+            # Build separate sub info for each labor type
+            sprinkler_subs = [s for s in subs_info if s.get('labor_type') == 'sprinkler']
+            vesda_subs = [s for s in subs_info if s.get('labor_type') == 'vesda']
+            electrical_subs = [s for s in subs_info if s.get('labor_type') == 'electrical']
+
+            # Format: "Name (HC)" or just "Name" if no headcount
+            def format_sub(subs):
+                if not subs:
+                    return ''
+                parts = []
+                for s in subs:
+                    name = s['name']
+                    hc = s.get('headcount', 0)
+                    if hc:
+                        parts.append(f"{name} ({hc})")
+                    else:
+                        parts.append(name)
+                return ', '.join(parts)
+
+            sprinkler_sub = format_sub(sprinkler_subs)
+            vesda_sub = format_sub(vesda_subs)
+            electrical_sub = format_sub(electrical_subs)
 
             # Only add project-level row with single Gantt bar
             if project_start and project_end:
                 activities.append({
                     'activity_id': f'PROJ-{project.id}',
                     'name': project.name,
-                    'subcontractor_names': sub_names,
-                    'headcount': total_headcount,
+                    'sprinkler_sub': sprinkler_sub,
+                    'vesda_sub': vesda_sub,
+                    'electrical_sub': electrical_sub,
                     'duration': (project_end - project_start).days,
                     'start_date': project_start,
                     'end_date': project_end,
@@ -596,7 +654,7 @@ def export_pdf(
             subs = [s for s in subs if s.subcontractor_name in subcontractor_name_list]
 
         project_subcontractors[project.id] = [
-            {'name': s.subcontractor_name, 'headcount': s.headcount or 0}
+            {'name': s.subcontractor_name, 'headcount': s.headcount or 0, 'labor_type': s.labor_type}
             for s in subs
         ]
 
@@ -1023,7 +1081,7 @@ def export_project_pdf(
 
     project_subcontractors = {
         project_id: [
-            {'name': s.subcontractor_name, 'headcount': s.headcount or 0}
+            {'name': s.subcontractor_name, 'headcount': s.headcount or 0, 'labor_type': s.labor_type}
             for s in subs
         ]
     }

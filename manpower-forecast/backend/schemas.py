@@ -32,7 +32,7 @@ class CrewType(CrewTypeBase):
 
 class ProjectSubcontractorBase(BaseModel):
     subcontractor_name: str
-    labor_type: str  # "sprinkler" or "vesda"
+    labor_type: str  # "sprinkler", "vesda", or "electrical"
     headcount: int = 0  # Number of workers for this trade
 
 

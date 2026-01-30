@@ -431,7 +431,7 @@ export default function ProjectsList() {
                           onChange={e => {
                             let updatedSubs = [...newProject.subcontractors];
                             if (e.target.checked) {
-                              updatedSubs.push({ name: subName, sprinkler: { enabled: true, headcount: 0 }, vesda: { enabled: false, headcount: 0 } });
+                              updatedSubs.push({ name: subName, sprinkler: { enabled: true, headcount: 0 }, vesda: { enabled: false, headcount: 0 }, electrical: { enabled: false, headcount: 0 } });
                             } else {
                               updatedSubs = updatedSubs.filter(s => s.name !== subName);
                             }
@@ -469,6 +469,21 @@ export default function ProjectsList() {
                               <input type="number" min="0" value={sub.vesda.headcount || ''} onChange={e => {
                                 const updatedSubs = [...newProject.subcontractors];
                                 updatedSubs[subIndex] = { ...sub, vesda: { ...sub.vesda, headcount: parseInt(e.target.value) || 0 } };
+                                setNewProject({ ...newProject, subcontractors: updatedSubs });
+                              }} placeholder="#" className="w-12 px-1 py-0.5 border rounded text-xs" />
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <input type="checkbox" checked={sub.electrical.enabled} onChange={e => {
+                              const updatedSubs = [...newProject.subcontractors];
+                              updatedSubs[subIndex] = { ...sub, electrical: { ...sub.electrical, enabled: e.target.checked } };
+                              setNewProject({ ...newProject, subcontractors: updatedSubs });
+                            }} className="rounded" />
+                            <span className="w-12">Electrical</span>
+                            {sub.electrical.enabled && (
+                              <input type="number" min="0" value={sub.electrical.headcount || ''} onChange={e => {
+                                const updatedSubs = [...newProject.subcontractors];
+                                updatedSubs[subIndex] = { ...sub, electrical: { ...sub.electrical, headcount: parseInt(e.target.value) || 0 } };
                                 setNewProject({ ...newProject, subcontractors: updatedSubs });
                               }} placeholder="#" className="w-12 px-1 py-0.5 border rounded text-xs" />
                             )}
@@ -613,7 +628,7 @@ export default function ProjectsList() {
                         {project.subcontractors.map((sub, idx) => (
                           <div key={idx} className="text-xs">
                             <span className="font-medium text-gray-700">{sub.subcontractor_name}</span>
-                            <span className={`ml-1 px-1 rounded ${sub.labor_type === 'sprinkler' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                            <span className={`ml-1 px-1 rounded ${sub.labor_type === 'sprinkler' ? 'bg-blue-100 text-blue-700' : sub.labor_type === 'electrical' ? 'bg-yellow-100 text-yellow-700' : 'bg-purple-100 text-purple-700'}`}>
                               {sub.labor_type}
                             </span>
                           </div>
