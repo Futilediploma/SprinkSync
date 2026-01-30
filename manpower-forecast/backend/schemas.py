@@ -66,7 +66,7 @@ class ProjectBase(BaseModel):
     is_vesda: bool = False
     is_aws: bool = False
     is_out_of_town: bool = False
-    sub_headcount: int = 0  # Number of subcontractor workers required on site
+    sub_headcount: Optional[int] = None  # Number of subcontractor workers required on site
 
 
 class ProjectCreate(ProjectBase):
@@ -97,6 +97,7 @@ class Project(ProjectBase):
     subcontractors: List[ProjectSubcontractor] = []
     created_at: datetime
     updated_at: datetime
+    sub_headcount: Optional[int] = None
 
     class Config:
         from_attributes = True
