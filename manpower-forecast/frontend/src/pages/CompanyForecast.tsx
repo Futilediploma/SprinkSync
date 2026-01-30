@@ -1,20 +1,5 @@
 import { useState, useEffect } from 'react'
 import { forecastsApi, projectsApi, exportApi } from '../api'
-  const handleExportPdf = async () => {
-    try {
-      const response = await exportApi.pdf();
-      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `all_projects_gantt_${new Date().getTime()}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (error) {
-      console.error('Failed to export PDF:', error);
-      alert('Failed to export PDF');
-    }
-  };
 import type { ManpowerForecast, Project } from '../types'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { format, addMonths } from 'date-fns'
@@ -28,9 +13,15 @@ export default function CompanyForecast() {
   const [startDate, setStartDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const [endDate, setEndDate] = useState(() => format(addMonths(new Date(), 3), 'yyyy-MM-dd'))
   const [selectedProjects, setSelectedProjects] = useState<number[]>([])
+  const [selectedSubcontractors, setSelectedSubcontractors] = useState<string[]>([])
   const [granularity, setGranularity] = useState<'weekly' | 'monthly'>('weekly')
   const [typeFilter, setTypeFilter] = useState<string>('all') // all, mechanical, electrical, vesda, both
   const [awsFilter, setAwsFilter] = useState<'all' | 'aws' | 'standard'>('standard')
+
+  // Get unique subcontractors from all projects
+  const uniqueSubcontractors = [...new Set(
+    projects.flatMap(p => p.subcontractors?.map(s => s.subcontractor_name) || [])
+  )].sort()
 
   useEffect(() => {
     loadInitialData()
@@ -40,7 +31,7 @@ export default function CompanyForecast() {
     if (projects.length > 0) {
       loadForecast()
     }
-  }, [startDate, endDate, selectedProjects, granularity, typeFilter, awsFilter])
+  }, [startDate, endDate, selectedProjects, selectedSubcontractors, granularity, typeFilter, awsFilter])
 
   const loadInitialData = async () => {
     try {
@@ -95,6 +86,12 @@ export default function CompanyForecast() {
             if (typeFilter === 'vesda' && !p.is_vesda) return false
             if (typeFilter === 'both' && (!p.is_mechanical || !p.is_electrical)) return false
 
+            // Filter by Subcontractor
+            if (selectedSubcontractors.length > 0) {
+              const projectSubs = p.subcontractors?.map(s => s.subcontractor_name) || []
+              if (!selectedSubcontractors.some(sub => projectSubs.includes(sub))) return false
+            }
+
             return true
           })
           .map(p => p.id)
@@ -115,13 +112,36 @@ export default function CompanyForecast() {
     }
   }
 
+  // Compute effective project IDs based on all filters
+  const getEffectiveProjectIds = () => {
+    if (selectedProjects.length > 0) {
+      return selectedProjects
+    }
+    return projects
+      .filter(p => {
+        if (awsFilter === 'aws' && !p.is_aws) return false
+        if (awsFilter === 'standard' && p.is_aws) return false
+        if (typeFilter === 'mechanical' && !p.is_mechanical) return false
+        if (typeFilter === 'electrical' && !p.is_electrical) return false
+        if (typeFilter === 'vesda' && !p.is_vesda) return false
+        if (typeFilter === 'both' && (!p.is_mechanical || !p.is_electrical)) return false
+        if (selectedSubcontractors.length > 0) {
+          const projectSubs = p.subcontractors?.map(s => s.subcontractor_name) || []
+          if (!selectedSubcontractors.some(sub => projectSubs.includes(sub))) return false
+        }
+        return true
+      })
+      .map(p => p.id)
+  }
+
   const handleExportCsv = async (exportType: 'forecast' | 'projects') => {
     try {
+      const effectiveProjectIds = getEffectiveProjectIds()
       const response = await forecastsApi.exportCsv({
         start_date: startDate,
         end_date: endDate,
-        project_ids: selectedProjects.length > 0 ? selectedProjects : undefined,
-        // crew_type_ids removed
+        project_ids: effectiveProjectIds.length > 0 ? effectiveProjectIds : undefined,
+        subcontractor_names: selectedSubcontractors.length > 0 ? selectedSubcontractors : undefined,
         granularity
       }, exportType)
 
@@ -139,11 +159,41 @@ export default function CompanyForecast() {
     }
   }
 
+  const handleExportPdf = async () => {
+    try {
+      const effectiveProjectIds = getEffectiveProjectIds()
+      const response = await exportApi.pdf({
+        start_date: startDate,
+        end_date: endDate,
+        project_ids: effectiveProjectIds.length > 0 ? effectiveProjectIds : undefined,
+        subcontractor_names: selectedSubcontractors.length > 0 ? selectedSubcontractors : undefined,
+      })
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `projects_gantt_${new Date().getTime()}.pdf`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+    } catch (error) {
+      console.error('Failed to export PDF:', error)
+      alert('Failed to export PDF')
+    }
+  }
+
   const toggleProject = (projectId: number) => {
     setSelectedProjects(prev =>
       prev.includes(projectId)
         ? prev.filter(id => id !== projectId)
         : [...prev, projectId]
+    )
+  }
+
+  const toggleSubcontractor = (subName: string) => {
+    setSelectedSubcontractors(prev =>
+      prev.includes(subName)
+        ? prev.filter(name => name !== subName)
+        : [...prev, subName]
     )
   }
 
@@ -291,6 +341,45 @@ export default function CompanyForecast() {
             </div>
           </div>
 
+          {/* Subcontractor Filter */}
+          <div>
+            <div className="flex justify-between items-end mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Subcontractors ({selectedSubcontractors.length > 0 ? selectedSubcontractors.length : 'All'})
+              </label>
+              <div className="space-x-2 text-xs">
+                <button
+                  onClick={() => setSelectedSubcontractors([...uniqueSubcontractors])}
+                  className="text-primary-600 hover:text-primary-800"
+                >
+                  Select All
+                </button>
+                <button
+                  onClick={() => setSelectedSubcontractors([])}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1 max-h-40 overflow-y-auto border border-gray-200 rounded p-2">
+              {uniqueSubcontractors.length > 0 ? (
+                uniqueSubcontractors.map((subName) => (
+                  <label key={subName} className="flex items-center space-x-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={selectedSubcontractors.includes(subName)}
+                      onChange={() => toggleSubcontractor(subName)}
+                      className="rounded"
+                    />
+                    <span>{subName}</span>
+                  </label>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500 italic">No subcontractors assigned</p>
+              )}
+            </div>
+          </div>
 
         </div>
       </div>

@@ -291,7 +291,8 @@ def get_active_phases_in_date_range(
     start_date: date,
     end_date: date,
     project_ids: Optional[List[int]] = None,
-    crew_type_ids: Optional[List[int]] = None
+    crew_type_ids: Optional[List[int]] = None,
+    subcontractor_names: Optional[List[str]] = None
 ) -> List[models.SchedulePhase]:
     """Get all active phases within a date range."""
     query = db.query(models.SchedulePhase).join(
@@ -309,6 +310,13 @@ def get_active_phases_in_date_range(
 
     if crew_type_ids:
         query = query.filter(models.SchedulePhase.crew_type_id.in_(crew_type_ids))
+
+    if subcontractor_names:
+        # Filter to only include projects that have any of the specified subcontractors
+        subquery = db.query(models.ProjectSubcontractor.project_id).filter(
+            models.ProjectSubcontractor.subcontractor_name.in_(subcontractor_names)
+        ).distinct()
+        query = query.filter(models.Project.id.in_(subquery))
 
     return query.all()
 

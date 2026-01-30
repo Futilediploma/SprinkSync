@@ -145,15 +145,19 @@ export const forecastsApi = {
       granularity: filters.granularity || 'weekly',
       export_type: exportType,
     };
-    
+
     if (filters.project_ids && filters.project_ids.length > 0) {
       params.project_ids = filters.project_ids.join(',');
     }
-    
+
     if (filters.crew_type_ids && filters.crew_type_ids.length > 0) {
       params.crew_type_ids = filters.crew_type_ids.join(',');
     }
-    
+
+    if (filters.subcontractor_names && filters.subcontractor_names.length > 0) {
+      params.subcontractor_names = filters.subcontractor_names.join(',');
+    }
+
     return api.get('/api/forecasts/company-wide/export', {
       params,
       responseType: 'blob'
@@ -166,8 +170,20 @@ export const forecastsApi = {
 // ============================================
 
 export const exportApi = {
-  pdf: () =>
-    api.get('/api/export/pdf', { responseType: 'blob' })
+  pdf: (filters?: ForecastFilters) => {
+    const params: any = {};
+
+    if (filters) {
+      if (filters.project_ids && filters.project_ids.length > 0) {
+        params.project_ids = filters.project_ids.join(',');
+      }
+      if (filters.subcontractor_names && filters.subcontractor_names.length > 0) {
+        params.subcontractor_names = filters.subcontractor_names.join(',');
+      }
+    }
+
+    return api.get('/api/export/pdf', { params, responseType: 'blob' });
+  }
 };
 
 // ============================================

@@ -227,6 +227,7 @@ export interface ForecastFilters {
   end_date: string;
   project_ids?: number[];
   crew_type_ids?: number[];
+  subcontractor_names?: string[];
   granularity?: 'weekly' | 'monthly' | 'daily';
 }
 

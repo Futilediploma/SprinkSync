@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react'
+import { useState, FormEvent, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
@@ -7,11 +7,17 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const isSubmitting = useRef(false)
   const { login } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+
+    // Prevent double submission
+    if (isSubmitting.current) return
+    isSubmitting.current = true
+
     setError('')
     setIsLoading(true)
 
@@ -22,6 +28,7 @@ export default function Login() {
       setError(err instanceof Error ? err.message : 'Login failed')
     } finally {
       setIsLoading(false)
+      isSubmitting.current = false
     }
   }
 

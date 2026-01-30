@@ -6,6 +6,7 @@ Generates GC-style Gantt chart PDFs matching industry standard construction sche
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 from datetime import date, datetime, timedelta
+from typing import Optional, List
 import io
 from database import get_db
 from api.auth import get_current_active_user
@@ -474,16 +475,55 @@ class GanttChartPDF:
 
 @router.get("/pdf")
 def export_pdf(
+    project_ids: Optional[str] = Query(None, description="Comma-separated project IDs"),
+    subcontractor_names: Optional[str] = Query(None, description="Comma-separated subcontractor names"),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
     """
-    Export all project data, man-hours, and a professional Gantt chart as a PDF.
+    Export project data, man-hours, and a professional Gantt chart as a PDF.
+    Optionally filter by project IDs or subcontractor names.
     """
-    # Get all projects
-    projects = crud.get_all_projects(db)
-    # Get all phases for Gantt
-    phases = crud.get_all_phases(db)
+    # Parse project IDs if provided
+    project_id_list = None
+    if project_ids:
+        try:
+            project_id_list = [int(id.strip()) for id in project_ids.split(',')]
+        except ValueError:
+            pass  # Ignore invalid IDs
+
+    # Parse subcontractor names if provided
+    subcontractor_name_list = None
+    if subcontractor_names:
+        subcontractor_name_list = [name.strip() for name in subcontractor_names.split(',')]
+
+    # Get projects (filtered or all)
+    if project_id_list or subcontractor_name_list:
+        # Build filtered query
+        query = db.query(models.Project).filter(
+            models.Project.status.in_(['active', 'prospective'])
+        )
+        if project_id_list:
+            query = query.filter(models.Project.id.in_(project_id_list))
+        if subcontractor_name_list:
+            subquery = db.query(models.ProjectSubcontractor.project_id).filter(
+                models.ProjectSubcontractor.subcontractor_name.in_(subcontractor_name_list)
+            ).distinct()
+            query = query.filter(models.Project.id.in_(subquery))
+        projects = query.all()
+
+        # Get phases only for filtered projects
+        project_ids_to_include = [p.id for p in projects]
+        phases = db.query(models.SchedulePhase).join(
+            models.ProjectSchedule
+        ).filter(
+            models.ProjectSchedule.project_id.in_(project_ids_to_include)
+        ).all()
+    else:
+        # Get all projects
+        projects = crud.get_all_projects(db)
+        # Get all phases for Gantt
+        phases = crud.get_all_phases(db)
 
     # Generate PDF
     pdf_generator = GanttChartPDF(page_size=landscape(letter))

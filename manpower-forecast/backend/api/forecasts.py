@@ -110,6 +110,7 @@ def export_company_forecast(
     end_date: date = Query(...),
     project_ids: Optional[str] = Query(None),
     crew_type_ids: Optional[str] = Query(None),
+    subcontractor_names: Optional[str] = Query(None),
     granularity: str = Query("weekly"),
     export_type: str = Query("forecast", description="forecast or projects"),
     db: Session = Depends(get_db),
@@ -125,17 +126,22 @@ def export_company_forecast(
             project_id_list = [int(id.strip()) for id in project_ids.split(',')]
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid project_ids format")
-    
+
     crew_type_id_list = None
     if crew_type_ids:
         try:
             crew_type_id_list = [int(id.strip()) for id in crew_type_ids.split(',')]
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid crew_type_ids format")
-    
+
+    # Parse subcontractor names
+    subcontractor_name_list = None
+    if subcontractor_names:
+        subcontractor_name_list = [name.strip() for name in subcontractor_names.split(',')]
+
     # Get phases and generate forecast
     phases = crud.get_active_phases_in_date_range(
-        db, start_date, end_date, project_id_list, crew_type_id_list
+        db, start_date, end_date, project_id_list, crew_type_id_list, subcontractor_name_list
     )
     forecast = generate_forecast(phases, start_date, end_date, granularity)
     
