@@ -16,7 +16,7 @@ export default function CompanyForecast() {
   const [selectedSubcontractors, setSelectedSubcontractors] = useState<string[]>([])
   const [granularity, setGranularity] = useState<'weekly' | 'monthly'>('weekly')
   const [typeFilter, setTypeFilter] = useState<string>('all') // all, mechanical, electrical, vesda, both
-  const [awsFilter, setAwsFilter] = useState<'all' | 'aws' | 'standard'>('standard')
+  const [awsFilter, setAwsFilter] = useState<'all' | 'aws' | 'standard'>('all')
 
   // Get unique subcontractors from all projects
   const uniqueSubcontractors = [...new Set(

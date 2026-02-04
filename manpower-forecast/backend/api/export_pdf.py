@@ -53,18 +53,26 @@ class GanttChartPDF:
         self.margin_top = 0.6 * inch
         self.margin_bottom = 0.8 * inch
 
-        # Table column configuration (left side)
-        self.table_width = 5.6 * inch
+        # Table column configuration (left side) - combined trade columns
         self.col_widths = {
-            'activity_name': 1.7 * inch,
-            'sprinkler_sub': 0.7 * inch,
-            'vesda_sub': 0.7 * inch,
-            'electrical_sub': 0.7 * inch,
+            'activity_name': 1.5 * inch,
+            'project_number': 0.6 * inch,
+            'sprinkler': 0.85 * inch,  # Combined BFPE + Sub
+            'vesda': 0.85 * inch,       # Combined BFPE + Sub
+            'electrical': 0.85 * inch,  # Combined BFPE + Sub
             'duration': 0.4 * inch,
             'start': 0.7 * inch,
             'finish': 0.7 * inch,
         }
+        self.show_bfpe = False  # Will be set in generate()
+        self._update_table_width()
 
+    def _update_table_width(self):
+        """Recalculate table width"""
+        self.table_width = (self.col_widths['activity_name'] + self.col_widths['project_number'] +
+                           self.col_widths['sprinkler'] + self.col_widths['vesda'] +
+                           self.col_widths['electrical'] + self.col_widths['duration'] +
+                           self.col_widths['start'] + self.col_widths['finish'])
         # Gantt chart area (right side)
         self.gantt_start_x = self.margin_left + self.table_width + 0.1 * inch
         self.gantt_width = self.width - self.gantt_start_x - self.margin_right
@@ -148,23 +156,23 @@ class GanttChartPDF:
         # Single-line headers
         single_headers = [
             ('Project Name', self.col_widths['activity_name']),
+            ('Job #', self.col_widths['project_number']),
         ]
 
         for header, width in single_headers:
             c.drawString(x, text_y, header)
             x += width
 
-        # Two-line headers for subcontractor columns (title on top, "Sub" below)
-        two_line_headers = [
-            ('Sprinkler', self.col_widths['sprinkler_sub']),
-            ('VESDA', self.col_widths['vesda_sub']),
-            ('Electrical', self.col_widths['electrical_sub']),
+        # Combined trade columns (BFPE + Sub stacked)
+        c.setFont("Helvetica-Bold", 8)
+        trade_headers = [
+            ('Sprinkler', self.col_widths['sprinkler']),
+            ('VESDA', self.col_widths['vesda']),
+            ('Electrical', self.col_widths['electrical']),
         ]
 
-        c.setFont("Helvetica-Bold", 8)
-        for header, width in two_line_headers:
-            c.drawString(x, text_y + 6, header)
-            c.drawString(x, text_y - 4, "Sub")
+        for header, width in trade_headers:
+            c.drawString(x, text_y, header)
             x += width
 
         # Remaining single-line headers
@@ -246,50 +254,98 @@ class GanttChartPDF:
         x = self.margin_left + 4
         text_y = y_pos - self.row_height + 5
 
-        # Project Name
+        # Project Name - with text wrapping
         name = activity.get('name', '')
-        # Truncate if too long
-        max_chars = int(self.col_widths['activity_name'] / 4.5)
-        if len(name) > max_chars:
-            name = name[:max_chars-2] + '..'
-        c.drawString(x, text_y, name)
+        col_width = self.col_widths['activity_name']
+        max_chars_per_line = int(col_width / 4.5)
+
+        # Split name into lines if needed
+        if len(name) <= max_chars_per_line:
+            c.drawString(x, text_y, name)
+        else:
+            # Wrap text into two lines
+            words = name.split()
+            line1 = ""
+            line2 = ""
+            for word in words:
+                test_line = line1 + " " + word if line1 else word
+                if len(test_line) <= max_chars_per_line:
+                    line1 = test_line
+                else:
+                    line2 = (line2 + " " + word if line2 else word)
+
+            # Truncate line2 if needed
+            if len(line2) > max_chars_per_line:
+                line2 = line2[:max_chars_per_line-2] + '..'
+
+            c.setFont("Helvetica", 7)  # Smaller font for wrapped text
+            c.drawString(x, text_y + 4, line1)
+            c.drawString(x, text_y - 4, line2)
+            c.setFont("Helvetica", 8)
         x += self.col_widths['activity_name']
 
-        # Sprinkler Sub (blue highlight background)
+        # Project Number (Job #)
+        project_number = activity.get('project_number', '') or ''
+        c.drawString(x, text_y, str(project_number))
+        x += self.col_widths['project_number']
+
+        # Helper function to draw combined BFPE + Sub cell (BFPE on top, Sub below)
+        def draw_combined_trade_cell(bfpe_count, sub_text, col_width, bg_color):
+            nonlocal x
+            has_content = (self.show_bfpe and bfpe_count > 0) or sub_text
+
+            if has_content:
+                c.setFillColor(bg_color)
+                c.rect(x - 2, y_pos - self.row_height, col_width, self.row_height, fill=1, stroke=0)
+                c.setFillColor(COLORS['text_primary'])
+
+            c.setFont("Helvetica", 7)
+
+            # Draw BFPE count on top line (only on full company report)
+            if self.show_bfpe and bfpe_count > 0:
+                c.drawString(x, text_y + 4, f"BFPE: {bfpe_count}")
+
+            # Draw Sub info on bottom line
+            if sub_text:
+                import re
+                match = re.match(r'^(.+?)\s*\((\d+)\)$', sub_text)
+                if match:
+                    name_part = match.group(1)
+                    hc_part = match.group(2)
+                    # Truncate name if needed
+                    max_name_chars = int(col_width / 4.5)
+                    if len(name_part) > max_name_chars:
+                        name_part = name_part[:max_name_chars-1] + '..'
+                    sub_display = f"{name_part} ({hc_part})"
+                else:
+                    max_chars = int(col_width / 4.5)
+                    if len(sub_text) > max_chars:
+                        sub_text = sub_text[:max_chars-1] + '..'
+                    sub_display = sub_text
+
+                # Position sub text based on whether BFPE is shown
+                if self.show_bfpe and bfpe_count > 0:
+                    c.drawString(x, text_y - 4, sub_display)
+                else:
+                    c.drawString(x, text_y, sub_display)
+
+            c.setFont("Helvetica", 8)
+            x += col_width
+
+        # Sprinkler column (blue background)
+        bfpe_sprinkler = activity.get('bfpe_sprinkler_headcount', 0) or 0
         sprinkler_sub = activity.get('sprinkler_sub', '')
-        if sprinkler_sub:
-            c.setFillColor(HexColor('#dbeafe'))  # Light blue
-            c.rect(x - 2, y_pos - self.row_height, self.col_widths['sprinkler_sub'], self.row_height, fill=1, stroke=0)
-            c.setFillColor(COLORS['text_primary'])
-        sub_max_chars = int(self.col_widths['sprinkler_sub'] / 4.5)
-        if len(sprinkler_sub) > sub_max_chars:
-            sprinkler_sub = sprinkler_sub[:sub_max_chars-2] + '..'
-        c.drawString(x, text_y, sprinkler_sub)
-        x += self.col_widths['sprinkler_sub']
+        draw_combined_trade_cell(bfpe_sprinkler, sprinkler_sub, self.col_widths['sprinkler'], HexColor('#dbeafe'))
 
-        # VESDA Sub (purple highlight background)
+        # VESDA column (purple background)
+        bfpe_vesda = activity.get('bfpe_vesda_headcount', 0) or 0
         vesda_sub = activity.get('vesda_sub', '')
-        if vesda_sub:
-            c.setFillColor(HexColor('#e9d5ff'))  # Light purple
-            c.rect(x - 2, y_pos - self.row_height, self.col_widths['vesda_sub'], self.row_height, fill=1, stroke=0)
-            c.setFillColor(COLORS['text_primary'])
-        sub_max_chars = int(self.col_widths['vesda_sub'] / 4.5)
-        if len(vesda_sub) > sub_max_chars:
-            vesda_sub = vesda_sub[:sub_max_chars-2] + '..'
-        c.drawString(x, text_y, vesda_sub)
-        x += self.col_widths['vesda_sub']
+        draw_combined_trade_cell(bfpe_vesda, vesda_sub, self.col_widths['vesda'], HexColor('#e9d5ff'))
 
-        # Electrical Sub (yellow highlight background)
+        # Electrical column (yellow background)
+        bfpe_electrical = activity.get('bfpe_electrical_headcount', 0) or 0
         electrical_sub = activity.get('electrical_sub', '')
-        if electrical_sub:
-            c.setFillColor(HexColor('#fef08a'))  # Light yellow
-            c.rect(x - 2, y_pos - self.row_height, self.col_widths['electrical_sub'], self.row_height, fill=1, stroke=0)
-            c.setFillColor(COLORS['text_primary'])
-        sub_max_chars = int(self.col_widths['electrical_sub'] / 4.5)
-        if len(electrical_sub) > sub_max_chars:
-            electrical_sub = electrical_sub[:sub_max_chars-2] + '..'
-        c.drawString(x, text_y, electrical_sub)
-        x += self.col_widths['electrical_sub']
+        draw_combined_trade_cell(bfpe_electrical, electrical_sub, self.col_widths['electrical'], HexColor('#fef08a'))
 
         # Duration
         duration = activity.get('duration', 0)
@@ -434,6 +490,10 @@ class GanttChartPDF:
         if project_subcontractors is None:
             project_subcontractors = {}
 
+        # Show BFPE columns only on full company report (no subcontractor filter)
+        self.show_bfpe = (subcontractor_filter is None)
+        self._update_table_width()
+
         # Prepare activity data
         activities = []
         all_dates = []
@@ -480,6 +540,10 @@ class GanttChartPDF:
                 activities.append({
                     'activity_id': f'PROJ-{project.id}',
                     'name': project.name,
+                    'project_number': project.project_number,
+                    'bfpe_sprinkler_headcount': getattr(project, 'bfpe_sprinkler_headcount', 0) or 0,
+                    'bfpe_vesda_headcount': getattr(project, 'bfpe_vesda_headcount', 0) or 0,
+                    'bfpe_electrical_headcount': getattr(project, 'bfpe_electrical_headcount', 0) or 0,
                     'sprinkler_sub': sprinkler_sub,
                     'vesda_sub': vesda_sub,
                     'electrical_sub': electrical_sub,

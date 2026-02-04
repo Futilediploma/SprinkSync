@@ -24,6 +24,10 @@ class Project(Base):
     is_aws = Column(Boolean, default=False)
     is_out_of_town = Column(Boolean, default=False)
     sub_headcount = Column(Integer, default=0)  # Number of subcontractor workers required on site
+    # BFPE labor headcounts
+    bfpe_sprinkler_headcount = Column(Integer, default=0)
+    bfpe_vesda_headcount = Column(Integer, default=0)
+    bfpe_electrical_headcount = Column(Integer, default=0)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     

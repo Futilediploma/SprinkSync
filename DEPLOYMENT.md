@@ -77,8 +77,10 @@ tail -20 backend.log
 cd ~
 git pull origin main
 pkill -f uvicorn
+pkill -f "python main.py"
 source venv/bin/activate
-nohup uvicorn main:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
+cd ~/SprinkSync/manpower-forecast/backend
+nohup python main.py > backend.log 2>&1 &
 tail -10 backend.log
 ```
 

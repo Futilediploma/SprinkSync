@@ -95,6 +95,10 @@ export interface Project {
   is_aws: boolean;
   is_out_of_town: boolean;
   sub_headcount: number;
+  // BFPE labor headcounts
+  bfpe_sprinkler_headcount: number;
+  bfpe_vesda_headcount: number;
+  bfpe_electrical_headcount: number;
   total_scheduled_hours: number;
   subcontractors?: ProjectSubcontractorApi[];
   created_at: string;
@@ -116,6 +120,9 @@ export interface ProjectCreate {
   is_aws?: boolean;
   is_out_of_town?: boolean;
   sub_headcount?: number;
+  bfpe_sprinkler_headcount?: number;
+  bfpe_vesda_headcount?: number;
+  bfpe_electrical_headcount?: number;
   subcontractors?: ProjectSubcontractorApi[];
 }
 
@@ -134,6 +141,9 @@ export interface ProjectUpdate {
   is_aws?: boolean;
   is_out_of_town?: boolean;
   sub_headcount?: number;
+  bfpe_sprinkler_headcount?: number;
+  bfpe_vesda_headcount?: number;
+  bfpe_electrical_headcount?: number;
   subcontractors?: ProjectSubcontractorApi[];
 }
 

@@ -67,6 +67,10 @@ class ProjectBase(BaseModel):
     is_aws: bool = False
     is_out_of_town: bool = False
     sub_headcount: Optional[int] = None  # Number of subcontractor workers required on site
+    # BFPE labor headcounts
+    bfpe_sprinkler_headcount: int = 0
+    bfpe_vesda_headcount: int = 0
+    bfpe_electrical_headcount: int = 0
 
 
 class ProjectCreate(ProjectBase):
@@ -88,6 +92,9 @@ class ProjectUpdate(BaseModel):
     is_aws: Optional[bool] = None
     is_out_of_town: Optional[bool] = None
     sub_headcount: Optional[int] = None
+    bfpe_sprinkler_headcount: Optional[int] = None
+    bfpe_vesda_headcount: Optional[int] = None
+    bfpe_electrical_headcount: Optional[int] = None
     subcontractors: Optional[List[ProjectSubcontractorCreate]] = None
 
 

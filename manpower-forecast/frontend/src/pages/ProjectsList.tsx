@@ -10,7 +10,7 @@ export default function ProjectsList() {
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('active')
   const [typeFilter, setTypeFilter] = useState<string>('all') // all, mechanical, electrical, vesda, both
-  const [awsFilter, setAwsFilter] = useState<'all' | 'aws' | 'standard'>('standard')
+  const [awsFilter, setAwsFilter] = useState<'all' | 'aws' | 'standard'>('all')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
 
@@ -36,6 +36,9 @@ export default function ProjectsList() {
     is_vesda: boolean;
     is_aws: boolean;
     is_out_of_town: boolean;
+    bfpe_sprinkler_headcount: number;
+    bfpe_vesda_headcount: number;
+    bfpe_electrical_headcount: number;
     subcontractors: ProjectSubcontractor[];
   }>({
     name: '',
@@ -52,6 +55,9 @@ export default function ProjectsList() {
     is_vesda: false,
     is_aws: false,
     is_out_of_town: false,
+    bfpe_sprinkler_headcount: 0,
+    bfpe_vesda_headcount: 0,
+    bfpe_electrical_headcount: 0,
     subcontractors: [],
   })
 
@@ -123,6 +129,9 @@ export default function ProjectsList() {
       is_vesda: project.is_vesda || false,
       is_aws: project.is_aws || false,
       is_out_of_town: project.is_out_of_town || false,
+      bfpe_sprinkler_headcount: project.bfpe_sprinkler_headcount || 0,
+      bfpe_vesda_headcount: project.bfpe_vesda_headcount || 0,
+      bfpe_electrical_headcount: project.bfpe_electrical_headcount || 0,
       subcontractors: project.subcontractors ? apiSubsToUiSubs(project.subcontractors) : [],
     })
     setShowCreateForm(true)
@@ -144,6 +153,9 @@ export default function ProjectsList() {
       is_vesda: false,
       is_aws: false,
       is_out_of_town: false,
+      bfpe_sprinkler_headcount: 0,
+      bfpe_vesda_headcount: 0,
+      bfpe_electrical_headcount: 0,
       subcontractors: [],
     })
     setEditingId(null)
@@ -416,7 +428,47 @@ export default function ProjectsList() {
                 </label>
               </div>
 
-              {/* Row 5: Subcontractors - Compact grid */}
+              {/* Row 5: BFPE Labor */}
+              <div className="border rounded p-2 text-xs bg-blue-50">
+                <div className="font-medium text-blue-700 mb-2">BFPE Labor (Headcount)</div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-600">Sprinkler</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={newProject.bfpe_sprinkler_headcount || ''}
+                      onChange={e => setNewProject({ ...newProject, bfpe_sprinkler_headcount: parseInt(e.target.value) || 0 })}
+                      placeholder="0"
+                      className="w-full px-2 py-1 border rounded text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600">VESDA</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={newProject.bfpe_vesda_headcount || ''}
+                      onChange={e => setNewProject({ ...newProject, bfpe_vesda_headcount: parseInt(e.target.value) || 0 })}
+                      placeholder="0"
+                      className="w-full px-2 py-1 border rounded text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600">Electrical</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={newProject.bfpe_electrical_headcount || ''}
+                      onChange={e => setNewProject({ ...newProject, bfpe_electrical_headcount: parseInt(e.target.value) || 0 })}
+                      placeholder="0"
+                      className="w-full px-2 py-1 border rounded text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 6: Subcontractors - Compact grid */}
               <div className="grid grid-cols-2 gap-2">
                 {["Dynalectric", "Fuentes", "Power Solutions", "Power Plus"].map((subName) => {
                   const subIndex = newProject.subcontractors.findIndex(s => s.name === subName);
@@ -431,7 +483,7 @@ export default function ProjectsList() {
                           onChange={e => {
                             let updatedSubs = [...newProject.subcontractors];
                             if (e.target.checked) {
-                              updatedSubs.push({ name: subName, sprinkler: { enabled: true, headcount: 0 }, vesda: { enabled: false, headcount: 0 }, electrical: { enabled: false, headcount: 0 } });
+                              updatedSubs.push({ name: subName, sprinkler: { enabled: false, headcount: 0 }, vesda: { enabled: false, headcount: 0 }, electrical: { enabled: false, headcount: 0 } });
                             } else {
                               updatedSubs = updatedSubs.filter(s => s.name !== subName);
                             }

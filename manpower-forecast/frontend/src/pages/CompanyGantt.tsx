@@ -8,7 +8,7 @@ export default function CompanyGantt() {
     const [loading, setLoading] = useState(true)
     const [filterStatus, setFilterStatus] = useState<string>('all') // all, active, prospective
     const [filterType, setFilterType] = useState<string>('all') // all, mechanical, electrical, vesda
-    const [awsFilter, setAwsFilter] = useState<'all' | 'aws' | 'standard'>('standard')
+    const [awsFilter, setAwsFilter] = useState<'all' | 'aws' | 'standard'>('all')
 
     useEffect(() => {
         loadProjects()

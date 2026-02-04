@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react'
 import { API_BASE_URL, STORAGE_KEYS } from '../config'
 
 interface User {
@@ -25,14 +25,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)
   })
   const [isLoading, setIsLoading] = useState(true)
+  const userFetchedRef = useRef(false)
 
-  // Fetch user info when token exists
+  // Fetch user info on initial load if token exists
   useEffect(() => {
     async function fetchUser() {
       if (!token) {
         setIsLoading(false)
         return
       }
+
+      // Skip if user already fetched (prevents double fetch from StrictMode or login)
+      if (userFetchedRef.current) {
+        setIsLoading(false)
+        return
+      }
+      userFetchedRef.current = true
 
       try {
         const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
@@ -48,11 +56,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Token invalid, clear it
           localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN)
           setToken(null)
+          userFetchedRef.current = false
         }
       } catch (error) {
         console.error('Failed to fetch user:', error)
         localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN)
         setToken(null)
+        userFetchedRef.current = false
       } finally {
         setIsLoading(false)
       }
@@ -81,7 +91,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const data = await response.json()
     localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, data.access_token)
-    // Setting token triggers useEffect which fetches user info
+
+    // Fetch user immediately instead of waiting for useEffect
+    const userResponse = await fetch(`${API_BASE_URL}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${data.access_token}` },
+    })
+    if (userResponse.ok) {
+      const userData = await userResponse.json()
+      setUser(userData)
+      userFetchedRef.current = true  // Mark as fetched so useEffect skips
+    }
     setToken(data.access_token)
   }
 
@@ -89,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN)
     setToken(null)
     setUser(null)
+    userFetchedRef.current = false  // Reset so next login works
   }
 
   return (
