@@ -431,7 +431,7 @@ class GanttChartPDF:
     def draw_gantt_bar(self, y_pos: float, start_date: date, end_date: date,
                        min_date: date, max_date: date, bar_type: str,
                        percent_complete: float = 0, is_summary: bool = False):
-        """Draw a professional Gantt bar with gradient effect and shadow"""
+        """Draw a Gantt bar"""
         c = self.canvas
 
         total_days = (max_date - min_date).days
@@ -455,101 +455,49 @@ class GanttChartPDF:
         if bar_x + bar_width > self.gantt_start_x + self.gantt_width:
             bar_width = self.gantt_start_x + self.gantt_width - bar_x
 
-        # Skip if bar is too small
-        if bar_width < 2:
-            bar_width = 2
+        bar_height = 8
+        bar_y = y_pos - self.row_height + 4
 
-        bar_height = 10  # Slightly taller bars
-        bar_y = y_pos - self.row_height + 3
-        corner_radius = 3
-
-        # Color definitions with gradient pairs (main, highlight, shadow, border)
-        bar_colors = {
-            'actual': (HexColor('#38a169'), HexColor('#48bb78'), HexColor('#2f855a'), HexColor('#276749')),
-            'critical': (HexColor('#e53e3e'), HexColor('#fc8181'), HexColor('#c53030'), HexColor('#9b2c2c')),
-            'summary': (HexColor('#4a5568'), HexColor('#718096'), HexColor('#2d3748'), HexColor('#1a202c')),
-            'remaining': (HexColor('#3182ce'), HexColor('#63b3ed'), HexColor('#2b6cb0'), HexColor('#2c5282')),
-            'milestone': (HexColor('#805ad5'), HexColor('#b794f4'), HexColor('#6b46c1'), HexColor('#553c9a')),
-        }
-
-        colors = bar_colors.get(bar_type, bar_colors['remaining'])
-        main_color, highlight_color, shadow_color, border_color = colors
-
-        if bar_type == 'milestone':
-            # Draw diamond for milestone with shadow
-            diamond_size = 8
-            diamond_x = bar_x
-            diamond_y = bar_y + bar_height / 2
-
-            # Shadow
-            c.setFillColor(HexColor('#00000022'))
+        # Choose color based on type
+        if bar_type == 'actual':
+            color = COLORS['bar_actual']
+        elif bar_type == 'critical':
+            color = COLORS['bar_critical']
+        elif bar_type == 'summary':
+            color = COLORS['bar_summary']
+            bar_height = 6
+        elif bar_type == 'milestone':
+            # Draw diamond for milestone
+            c.setFillColor(COLORS['milestone'])
+            diamond_size = 6
             c.saveState()
-            c.translate(diamond_x + 1, diamond_y - 1)
+            c.translate(bar_x, bar_y + bar_height/2)
             c.rotate(45)
             c.rect(-diamond_size/2, -diamond_size/2, diamond_size, diamond_size, fill=1, stroke=0)
-            c.restoreState()
-
-            # Main diamond
-            c.setFillColor(main_color)
-            c.saveState()
-            c.translate(diamond_x, diamond_y)
-            c.rotate(45)
-            c.rect(-diamond_size/2, -diamond_size/2, diamond_size, diamond_size, fill=1, stroke=0)
-            c.restoreState()
-
-            # Highlight
-            c.setFillColor(highlight_color)
-            c.saveState()
-            c.translate(diamond_x, diamond_y)
-            c.rotate(45)
-            c.rect(-diamond_size/2, -diamond_size/2, diamond_size/2, diamond_size/2, fill=1, stroke=0)
             c.restoreState()
             return
+        else:
+            color = COLORS['bar_remaining']
+
+        # Draw the bar
+        c.setFillColor(color)
 
         if is_summary:
-            # Summary bar style (bracket-like) with better styling
-            c.setFillColor(main_color)
-            c.rect(bar_x, bar_y + bar_height - 3, bar_width, 3, fill=1, stroke=0)
-            c.rect(bar_x, bar_y, 3, bar_height, fill=1, stroke=0)
-            c.rect(bar_x + bar_width - 3, bar_y, 3, bar_height, fill=1, stroke=0)
+            # Summary bar style (bracket-like)
+            c.rect(bar_x, bar_y + bar_height - 2, bar_width, 2, fill=1, stroke=0)
+            # Left bracket
+            c.rect(bar_x, bar_y, 2, bar_height, fill=1, stroke=0)
+            # Right bracket
+            c.rect(bar_x + bar_width - 2, bar_y, 2, bar_height, fill=1, stroke=0)
         else:
-            # Professional bar with shadow and gradient effect
+            # Regular bar
+            c.roundRect(bar_x, bar_y, bar_width, bar_height, 2, fill=1, stroke=0)
 
-            # 1. Draw shadow (offset down-right)
-            c.setFillColor(HexColor('#00000015'))
-            c.roundRect(bar_x + 1, bar_y - 1, bar_width, bar_height, corner_radius, fill=1, stroke=0)
-
-            # 2. Draw main bar body
-            c.setFillColor(main_color)
-            c.roundRect(bar_x, bar_y, bar_width, bar_height, corner_radius, fill=1, stroke=0)
-
-            # 3. Draw highlight strip on top (gradient effect)
-            highlight_height = bar_height * 0.35
-            c.setFillColor(highlight_color)
-            # Clip to rounded rect area - draw smaller rect at top
-            if bar_width > 6:
-                c.roundRect(bar_x + 1, bar_y + bar_height - highlight_height - 1,
-                           bar_width - 2, highlight_height, corner_radius - 1, fill=1, stroke=0)
-
-            # 4. Draw subtle border
-            c.setStrokeColor(border_color)
-            c.setLineWidth(0.5)
-            c.roundRect(bar_x, bar_y, bar_width, bar_height, corner_radius, fill=0, stroke=1)
-
-            # 5. Draw progress overlay if applicable
+            # Draw actual progress overlay if applicable
             if percent_complete > 0 and bar_type == 'remaining':
-                progress_width = max(bar_width * (percent_complete / 100), 4)
-                progress_colors = bar_colors['actual']
-                c.setFillColor(progress_colors[0])
-                c.roundRect(bar_x, bar_y, progress_width, bar_height, corner_radius, fill=1, stroke=0)
-                # Progress highlight
-                c.setFillColor(progress_colors[1])
-                if progress_width > 6:
-                    c.roundRect(bar_x + 1, bar_y + bar_height - highlight_height - 1,
-                               progress_width - 2, highlight_height, corner_radius - 1, fill=1, stroke=0)
-                c.setStrokeColor(progress_colors[3])
-                c.setLineWidth(0.5)
-                c.roundRect(bar_x, bar_y, progress_width, bar_height, corner_radius, fill=0, stroke=1)
+                progress_width = bar_width * (percent_complete / 100)
+                c.setFillColor(COLORS['bar_actual'])
+                c.roundRect(bar_x, bar_y, progress_width, bar_height, 2, fill=1, stroke=0)
 
     def draw_legend(self, y_pos: float):
         """Draw the legend at the bottom of the page"""
