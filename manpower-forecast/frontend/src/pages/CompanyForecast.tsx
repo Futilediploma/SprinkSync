@@ -171,7 +171,11 @@ export default function CompanyForecast() {
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
       const link = document.createElement('a')
       link.href = url
-      link.setAttribute('download', `projects_gantt_${new Date().getTime()}.pdf`)
+      // Generate filename based on subcontractor selection
+      const filename = selectedSubcontractors.length > 0
+        ? `BFPE_Manpower_Forecast_(${selectedSubcontractors.join('_').replace(/ /g, '_')}).pdf`
+        : 'BFPE_Manpower_Forecast.pdf'
+      link.setAttribute('download', filename)
       document.body.appendChild(link)
       link.click()
       link.remove()
