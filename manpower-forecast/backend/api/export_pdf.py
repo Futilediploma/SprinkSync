@@ -533,6 +533,9 @@ class GanttChartPDF:
         if project_subcontractors is None:
             project_subcontractors = {}
 
+        # Sort projects alphabetically by name
+        projects = sorted(projects, key=lambda p: p.name.lower())
+
         # Show BFPE columns only on full company report (no subcontractor filter)
         self.show_bfpe = (subcontractor_filter is None)
         self._update_table_width()
