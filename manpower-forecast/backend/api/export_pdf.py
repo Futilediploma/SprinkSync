@@ -764,11 +764,19 @@ def export_pdf(
         project_subcontractors=project_subcontractors
     )
 
+    # Generate filename based on filter
+    if subcontractor_display:
+        # Replace spaces with underscores for filename
+        sub_name = subcontractor_display.replace(' ', '_').replace(',', '')
+        filename = f"BFPE_Manpower_Forecast_({sub_name}).pdf"
+    else:
+        filename = "BFPE_Manpower_Forecast.pdf"
+
     return Response(
         pdf_buffer.read(),
         media_type="application/pdf",
         headers={
-            "Content-Disposition": "attachment; filename=project_schedule.pdf"
+            "Content-Disposition": f"attachment; filename={filename}"
         }
     )
 
