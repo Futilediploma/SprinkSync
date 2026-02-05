@@ -299,35 +299,61 @@ class GanttChartPDF:
                 c.rect(x - 2, y_pos - self.row_height, col_width, self.row_height, fill=1, stroke=0)
                 c.setFillColor(COLORS['text_primary'])
 
-            c.setFont("Helvetica", 7)
+            c.setFont("Helvetica", 6)  # Smaller font to fit wrapped text
+            max_chars = int(col_width / 3.5)  # Characters per line
 
             # Draw BFPE count on top line (only on full company report)
             if self.show_bfpe and bfpe_count > 0:
-                c.drawString(x, text_y + 4, f"BFPE: {bfpe_count}")
+                c.drawString(x, text_y + 5, f"BFPE: {bfpe_count}")
 
-            # Draw Sub info on bottom line
+            # Draw Sub info - wrap text if needed
             if sub_text:
                 import re
                 match = re.match(r'^(.+?)\s*\((\d+)\)$', sub_text)
                 if match:
                     name_part = match.group(1)
                     hc_part = match.group(2)
-                    # Truncate name if needed
-                    max_name_chars = int(col_width / 4.5)
-                    if len(name_part) > max_name_chars:
-                        name_part = name_part[:max_name_chars-1] + '..'
-                    sub_display = f"{name_part} ({hc_part})"
                 else:
-                    max_chars = int(col_width / 4.5)
-                    if len(sub_text) > max_chars:
-                        sub_text = sub_text[:max_chars-1] + '..'
-                    sub_display = sub_text
+                    name_part = sub_text
+                    hc_part = None
 
-                # Position sub text based on whether BFPE is shown
+                # Calculate base Y position for sub text
                 if self.show_bfpe and bfpe_count > 0:
-                    c.drawString(x, text_y - 4, sub_display)
+                    sub_y = text_y - 3
                 else:
-                    c.drawString(x, text_y, sub_display)
+                    sub_y = text_y + 3
+
+                # Wrap the name if it's too long
+                if len(name_part) <= max_chars:
+                    # Single line - add headcount if present
+                    if hc_part:
+                        c.drawString(x, sub_y, f"{name_part} ({hc_part})")
+                    else:
+                        c.drawString(x, sub_y, name_part)
+                else:
+                    # Wrap text into two lines
+                    words = name_part.split()
+                    line1 = ""
+                    line2 = ""
+                    for word in words:
+                        test_line = line1 + " " + word if line1 else word
+                        if len(test_line) <= max_chars:
+                            line1 = test_line
+                        else:
+                            line2 = (line2 + " " + word if line2 else word)
+
+                    # Draw line 1
+                    c.drawString(x, sub_y, line1)
+                    # Draw line 2 with headcount
+                    if line2:
+                        if len(line2) > max_chars - 4:
+                            line2 = line2[:max_chars-5] + '..'
+                        if hc_part:
+                            c.drawString(x, sub_y - 6, f"{line2} ({hc_part})")
+                        else:
+                            c.drawString(x, sub_y - 6, line2)
+                    elif hc_part:
+                        c.drawString(x, sub_y - 6, f"({hc_part})")
 
             c.setFont("Helvetica", 8)
             x += col_width
