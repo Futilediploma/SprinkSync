@@ -309,13 +309,24 @@ class GanttChartPDF:
             # Draw Sub info - wrap text if needed
             if sub_text:
                 import re
+                # Get project status for headcount formatting
+                proj_status = activity.get('project_status', 'active')
+                use_parens = (proj_status == 'prospective')
+
+                # Try parentheses format first: "Name (5)"
                 match = re.match(r'^(.+?)\s*\((\d+)\)$', sub_text)
                 if match:
                     name_part = match.group(1)
                     hc_part = match.group(2)
                 else:
-                    name_part = sub_text
-                    hc_part = None
+                    # Try plain number format: "Name 5"
+                    match = re.match(r'^(.+?)\s+(\d+)$', sub_text)
+                    if match:
+                        name_part = match.group(1)
+                        hc_part = match.group(2)
+                    else:
+                        name_part = sub_text
+                        hc_part = None
 
                 # Calculate base Y position for sub text
                 if self.show_bfpe and bfpe_count > 0:
@@ -323,13 +334,19 @@ class GanttChartPDF:
                 else:
                     sub_y = text_y + 3
 
+                # Format headcount based on project status
+                def format_hc(name, hc):
+                    if hc:
+                        if use_parens:
+                            return f"{name} ({hc})"
+                        else:
+                            return f"{name} {hc}"
+                    return name
+
                 # Wrap the name if it's too long
                 if len(name_part) <= max_chars:
                     # Single line - add headcount if present
-                    if hc_part:
-                        c.drawString(x, sub_y, f"{name_part} ({hc_part})")
-                    else:
-                        c.drawString(x, sub_y, name_part)
+                    c.drawString(x, sub_y, format_hc(name_part, hc_part))
                 else:
                     # Wrap text into two lines
                     words = name_part.split()
@@ -348,12 +365,12 @@ class GanttChartPDF:
                     if line2:
                         if len(line2) > max_chars - 4:
                             line2 = line2[:max_chars-5] + '..'
-                        if hc_part:
-                            c.drawString(x, sub_y - 6, f"{line2} ({hc_part})")
-                        else:
-                            c.drawString(x, sub_y - 6, line2)
+                        c.drawString(x, sub_y - 6, format_hc(line2, hc_part))
                     elif hc_part:
-                        c.drawString(x, sub_y - 6, f"({hc_part})")
+                        if use_parens:
+                            c.drawString(x, sub_y - 6, f"({hc_part})")
+                        else:
+                            c.drawString(x, sub_y - 6, hc_part)
 
             c.setFont("Helvetica", 8)
             x += col_width
@@ -543,8 +560,8 @@ class GanttChartPDF:
             vesda_subs = [s for s in subs_info if s.get('labor_type') == 'vesda']
             electrical_subs = [s for s in subs_info if s.get('labor_type') == 'electrical']
 
-            # Format: "Name (HC)" or just "Name" if no headcount
-            def format_sub(subs):
+            # Format: "Name (HC)" for prospective, "Name HC" for active
+            def format_sub(subs, project_status):
                 if not subs:
                     return ''
                 parts = []
@@ -552,14 +569,17 @@ class GanttChartPDF:
                     name = s['name']
                     hc = s.get('headcount', 0)
                     if hc:
-                        parts.append(f"{name} ({hc})")
+                        if project_status == 'prospective':
+                            parts.append(f"{name} ({hc})")  # Parentheses for future/prospective
+                        else:
+                            parts.append(f"{name} {hc}")    # Plain number for active
                     else:
                         parts.append(name)
                 return ', '.join(parts)
 
-            sprinkler_sub = format_sub(sprinkler_subs)
-            vesda_sub = format_sub(vesda_subs)
-            electrical_sub = format_sub(electrical_subs)
+            sprinkler_sub = format_sub(sprinkler_subs, project.status)
+            vesda_sub = format_sub(vesda_subs, project.status)
+            electrical_sub = format_sub(electrical_subs, project.status)
 
             # Only add project-level row with single Gantt bar
             if project_start and project_end:
@@ -567,6 +587,7 @@ class GanttChartPDF:
                     'activity_id': f'PROJ-{project.id}',
                     'name': project.name,
                     'project_number': project.project_number,
+                    'project_status': project.status,  # For headcount formatting
                     'bfpe_sprinkler_headcount': getattr(project, 'bfpe_sprinkler_headcount', 0) or 0,
                     'bfpe_vesda_headcount': getattr(project, 'bfpe_vesda_headcount', 0) or 0,
                     'bfpe_electrical_headcount': getattr(project, 'bfpe_electrical_headcount', 0) or 0,
