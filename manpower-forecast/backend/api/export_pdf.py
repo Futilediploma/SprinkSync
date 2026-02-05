@@ -137,9 +137,9 @@ class GanttChartPDF:
         c.line(self.margin_left, y - 20, self.width - self.margin_right, y - 20)
 
     def draw_column_headers(self, y_pos: float, min_date: date, max_date: date):
-        """Draw the unified header row with column headers and clean timeline"""
+        """Draw the unified header row with column headers and timeline"""
         c = self.canvas
-        header_height = 36
+        header_height = 40
 
         # Draw unified header background spanning full width
         c.setFillColor(COLORS['header_bg'])
@@ -187,7 +187,7 @@ class GanttChartPDF:
             c.drawString(x, text_y, header)
             x += width
 
-        # Draw clean timeline with monthly markers
+        # Draw timeline with monthly markers
         total_days = (max_date - min_date).days
         if total_days <= 0:
             total_days = 30
@@ -198,58 +198,28 @@ class GanttChartPDF:
         while current <= max_date:
             if current >= min_date:
                 months.append(current)
+            # Move to next month
             if current.month == 12:
                 current = date(current.year + 1, 1, 1)
             else:
                 current = date(current.year, current.month + 1, 1)
 
-        # Calculate month widths and draw labels horizontally
-        c.setFont("Helvetica-Bold", 7)
+        # Draw month labels (rotated vertically)
+        c.setFont("Helvetica", 7)
         c.setFillColor(COLORS['header_text'])
 
-        for i, month_date in enumerate(months):
-            # Calculate start position for this month
+        for month_date in months:
             days_from_start = (month_date - min_date).days
-            x_start = self.gantt_start_x + (days_from_start / total_days) * self.gantt_width
+            x_pos = self.gantt_start_x + (days_from_start / total_days) * self.gantt_width
 
-            # Calculate end position (next month or max_date)
-            if i + 1 < len(months):
-                next_month = months[i + 1]
-            else:
-                next_month = max_date + timedelta(days=1)
-            days_to_next = (next_month - min_date).days
-            x_end = self.gantt_start_x + (days_to_next / total_days) * self.gantt_width
-
-            # Clamp to gantt area
-            x_start = max(x_start, self.gantt_start_x)
-            x_end = min(x_end, self.gantt_start_x + self.gantt_width)
-            month_width = x_end - x_start
-
-            if month_width > 5:  # Only draw if there's enough space
-                # Draw subtle separator line
-                c.setStrokeColor(HexColor('#ffffff40'))
-                c.setLineWidth(0.5)
-                c.line(x_start, y_pos - header_height + 2, x_start, y_pos - 2)
-
-                # Draw month label centered in its space
-                label = month_date.strftime("%b")
-                year_label = month_date.strftime("'%y")
-                label_width = c.stringWidth(label, "Helvetica-Bold", 7)
-
-                # Center the label in the month's space
-                label_x = x_start + (month_width - label_width) / 2
-
-                # Only draw if it fits
-                if month_width > label_width + 4:
-                    c.setFillColor(COLORS['header_text'])
-                    c.drawString(label_x, y_pos - 14, label)
-
-                    # Draw year below month (smaller font)
-                    c.setFont("Helvetica", 6)
-                    year_width = c.stringWidth(year_label, "Helvetica", 6)
-                    year_x = x_start + (month_width - year_width) / 2
-                    c.drawString(year_x, y_pos - 22, year_label)
-                    c.setFont("Helvetica-Bold", 7)
+            if x_pos >= self.gantt_start_x and x_pos <= self.gantt_start_x + self.gantt_width:
+                # Draw rotated month label
+                label = month_date.strftime("%b %y")
+                c.saveState()
+                c.translate(x_pos + 3, y_pos - header_height + 8)
+                c.rotate(90)
+                c.drawString(0, 0, label)
+                c.restoreState()
 
         # Draw thin line at bottom of header
         c.setStrokeColor(COLORS['grid_line'])
