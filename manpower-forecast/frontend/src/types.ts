@@ -87,6 +87,7 @@ export interface Project {
   status: 'active' | 'prospective' | 'completed' | 'archived';
   notes: string | null;
   budgeted_hours: number | null;
+  required_manpower: number;
   start_date: string | null;
   end_date: string | null;
   is_mechanical: boolean;
@@ -112,6 +113,7 @@ export interface ProjectCreate {
   status?: string;
   notes?: string;
   budgeted_hours?: number;
+  required_manpower?: number;
   start_date?: string;
   end_date?: string;
   is_mechanical?: boolean;
@@ -133,6 +135,7 @@ export interface ProjectUpdate {
   status?: string;
   notes?: string;
   budgeted_hours?: number;
+  required_manpower?: number;
   start_date?: string;
   end_date?: string;
   is_mechanical?: boolean;

@@ -16,6 +16,7 @@ class Project(Base):
     status = Column(String(50), default="active", index=True)  # active, completed, archived
     notes = Column(Text)
     budgeted_hours = Column(Numeric(10, 2))
+    required_manpower = Column(Integer, default=0)  # Total number of men needed for the project
     start_date = Column(Date)
     end_date = Column(Date)
     is_mechanical = Column(Boolean, default=False)

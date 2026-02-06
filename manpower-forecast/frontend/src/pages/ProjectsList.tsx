@@ -27,6 +27,7 @@ export default function ProjectsList() {
     project_number: string;
     notes: string;
     budgeted_hours: string;
+    required_manpower: string;
     sub_headcount: string;
     start_date: string;
     end_date: string;
@@ -46,6 +47,7 @@ export default function ProjectsList() {
     project_number: '',
     notes: '',
     budgeted_hours: '',
+    required_manpower: '',
     sub_headcount: '',
     start_date: '',
     end_date: '',
@@ -91,6 +93,7 @@ export default function ProjectsList() {
       const payload = {
         ...newProject,
         budgeted_hours: newProject.budgeted_hours?.trim() ? parseFloat(newProject.budgeted_hours) : undefined,
+        required_manpower: newProject.required_manpower?.trim() ? parseInt(newProject.required_manpower) : 0,
         sub_headcount: newProject.sub_headcount?.trim() ? parseInt(newProject.sub_headcount) : 0,
         subcontractors: uiSubsToApiSubs(newProject.subcontractors)
       }
@@ -120,6 +123,7 @@ export default function ProjectsList() {
       project_number: project.project_number || '',
       notes: project.notes || '',
       budgeted_hours: project.budgeted_hours?.toString() || '',
+      required_manpower: project.required_manpower?.toString() || '',
       sub_headcount: project.sub_headcount?.toString() || '',
       start_date: project.start_date || '',
       end_date: project.end_date || '',
@@ -144,6 +148,7 @@ export default function ProjectsList() {
       project_number: '',
       notes: '',
       budgeted_hours: '',
+      required_manpower: '',
       sub_headcount: '',
       start_date: '',
       end_date: '',
@@ -372,8 +377,19 @@ export default function ProjectsList() {
                 </div>
               </div>
 
-              {/* Row 3: Dates & Hours */}
+              {/* Row 3: Manpower & Dates */}
               <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">Manpower Required</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={newProject.required_manpower}
+                    onChange={(e) => setNewProject({ ...newProject, required_manpower: e.target.value })}
+                    placeholder="# of men"
+                    className="input py-1 text-sm w-full"
+                  />
+                </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700">Start Date</label>
                   <input
@@ -392,16 +408,19 @@ export default function ProjectsList() {
                     className="input py-1 text-sm w-full"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700">Budgeted Hrs</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={newProject.budgeted_hours}
-                    onChange={(e) => setNewProject({ ...newProject, budgeted_hours: e.target.value })}
-                    className="input py-1 text-sm w-full"
-                  />
-                </div>
+              </div>
+
+              {/* Budget Details (Secondary) */}
+              <div className="text-xs text-gray-500">
+                <label className="block font-medium text-gray-600">Budgeted Hours (optional)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={newProject.budgeted_hours}
+                  onChange={(e) => setNewProject({ ...newProject, budgeted_hours: e.target.value })}
+                  placeholder="For future budget tracking"
+                  className="input py-1 text-sm w-full max-w-xs"
+                />
               </div>
 
               {/* Row 4: Types & Flags - All inline */}
@@ -470,7 +489,7 @@ export default function ProjectsList() {
 
               {/* Row 6: Subcontractors - Compact grid */}
               <div className="grid grid-cols-2 gap-2">
-                {["Dynalectric", "Fuentes", "Power Solutions", "Power Plus"].map((subName) => {
+                {["Dynalectric", "Federal Fire", "Fuentes", "Power Solutions", "Power Plus"].map((subName) => {
                   const subIndex = newProject.subcontractors.findIndex(s => s.name === subName);
                   const isChecked = subIndex !== -1;
                   const sub = isChecked ? newProject.subcontractors[subIndex] : null;

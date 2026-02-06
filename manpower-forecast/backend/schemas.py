@@ -59,6 +59,7 @@ class ProjectBase(BaseModel):
     status: str = "active"
     notes: Optional[str] = None
     budgeted_hours: Optional[Decimal] = None
+    required_manpower: int = 0  # Total number of men needed for the project
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     is_mechanical: bool = False
@@ -84,6 +85,7 @@ class ProjectUpdate(BaseModel):
     status: Optional[str] = None
     notes: Optional[str] = None
     budgeted_hours: Optional[Decimal] = None
+    required_manpower: Optional[int] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     is_mechanical: Optional[bool] = None
