@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { subcontractorReportsApi, SubcontractorReport } from '../api'
 import { format } from 'date-fns'
 
-const SUBCONTRACTORS = ['Dynalectric', 'Fuentes', 'Power Solutions', 'Power Plus']
+const SUBCONTRACTORS = ['Dynalectric', 'Federal Fire', 'Fuentes', 'Power Solutions', 'Power Plus']
 
 export default function SubcontractorReports() {
   const [selectedSub, setSelectedSub] = useState<string>('')

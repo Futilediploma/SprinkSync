@@ -309,9 +309,12 @@ class GanttChartPDF:
             # Draw Sub info - wrap text if needed
             if sub_text:
                 import re
-                # Get project status for headcount formatting
+                # Get project status and start date for headcount formatting
                 proj_status = activity.get('project_status', 'active')
-                use_parens = (proj_status == 'prospective')
+                proj_start = activity.get('start_date')
+                # Use parentheses for prospective OR active projects that haven't started yet
+                use_parens = (proj_status == 'prospective' or
+                             (proj_status == 'active' and proj_start and proj_start > date.today()))
 
                 # Try parentheses format first: "Name (5)"
                 match = re.match(r'^(.+?)\s*\((\d+)\)$', sub_text)
@@ -563,26 +566,29 @@ class GanttChartPDF:
             vesda_subs = [s for s in subs_info if s.get('labor_type') == 'vesda']
             electrical_subs = [s for s in subs_info if s.get('labor_type') == 'electrical']
 
-            # Format: "Name (HC)" for prospective, "Name HC" for active
-            def format_sub(subs, project_status):
+            # Format: "Name (HC)" for prospective or not-yet-started active, "Name HC" for active on-site
+            def format_sub(subs, project_status, project_start_date):
                 if not subs:
                     return ''
+                # Use parentheses for prospective OR active projects that haven't started yet
+                use_parens = (project_status == 'prospective' or
+                             (project_status == 'active' and project_start_date and project_start_date > date.today()))
                 parts = []
                 for s in subs:
                     name = s['name']
                     hc = s.get('headcount', 0)
                     if hc:
-                        if project_status == 'prospective':
-                            parts.append(f"{name} ({hc})")  # Parentheses for future/prospective
+                        if use_parens:
+                            parts.append(f"{name} ({hc})")  # Parentheses for future manpower
                         else:
-                            parts.append(f"{name} {hc}")    # Plain number for active
+                            parts.append(f"{name} {hc}")    # Plain number for active on-site
                     else:
                         parts.append(name)
                 return ', '.join(parts)
 
-            sprinkler_sub = format_sub(sprinkler_subs, project.status)
-            vesda_sub = format_sub(vesda_subs, project.status)
-            electrical_sub = format_sub(electrical_subs, project.status)
+            sprinkler_sub = format_sub(sprinkler_subs, project.status, project_start)
+            vesda_sub = format_sub(vesda_subs, project.status, project_start)
+            electrical_sub = format_sub(electrical_subs, project.status, project_start)
 
             # Only add project-level row with single Gantt bar
             if project_start and project_end:

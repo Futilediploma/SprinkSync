@@ -13,7 +13,7 @@ from api.auth import get_current_active_user
 router = APIRouter(prefix="/api/reports", tags=["subcontractor-reports"])
 
 # Hardcoded list of valid subcontractors
-VALID_SUBCONTRACTORS = ["Dynalectric", "Fuentes", "Power Solutions", "Power Plus"]
+VALID_SUBCONTRACTORS = ["Dynalectric", "Federal Fire", "Fuentes", "Power Solutions", "Power Plus"]
 
 
 @router.get("/subcontractors")

@@ -28,10 +28,17 @@
 <!-- Add your planned features below -->
 
 - [ ] Add field supervisor per project
-- [ ] When user adds a sub to the project sprinkler is always checked.
-- [ ] Need to make sure All is selcted from the start not stardard or AWS
+- [x] add bfpe manpower numbers to bfpe sheet only
+- [x] When user adds a sub to the project sprinkler is always checked.
+- [x] Need to make sure All is selcted from the start not stardard or AWS
 - [ ] Add number of subs required for site (add these to site)
-- [ ] Keep breakdown of subs between sprinkler and vesda
+- [x] Keep breakdown of subs between sprinkler and vesda
+- [x] add job number to PDF
+- [ ] make PDF sortable in a senese 
+- [x] wrap text of job name so it can fully be seen
+- [ ] USA born project
+- [ ] If project is in future labor head county should be in " ( ) "
+- [ ] power solutions text wrap
 
 ---
 
