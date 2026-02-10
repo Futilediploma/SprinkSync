@@ -236,10 +236,10 @@ class GanttChartPDF:
         """Draw a single activity row with Gantt bar"""
         c = self.canvas
 
-        # Alternating row background (prospective projects get orange tint)
+        # Row background (prospective projects always get orange tint)
         is_prospective = activity.get('project_status') == 'prospective'
         if is_prospective:
-            bg_color = COLORS['row_prospective_alt'] if row_index % 2 == 0 else COLORS['row_prospective']
+            bg_color = COLORS['row_prospective_alt']
         else:
             bg_color = COLORS['row_alt'] if row_index % 2 == 0 else COLORS['row_normal']
         c.setFillColor(bg_color)
