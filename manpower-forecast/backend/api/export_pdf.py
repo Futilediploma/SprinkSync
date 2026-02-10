@@ -317,7 +317,7 @@ class GanttChartPDF:
         is_out_of_town = activity.get('is_out_of_town', False)
         col_width = self.col_widths['activity_name']
         name_font = "Helvetica-Bold" if is_out_of_town else "Helvetica"
-        max_chars_per_line = int(col_width / 4.5)
+        available_width = col_width - 8  # Usable width after padding
 
         # Build list of tags for this project
         tags = []
@@ -330,6 +330,13 @@ class GanttChartPDF:
         if activity.get('is_vesda'):
             tags.append(('V', '#db2777'))      # Pink
 
+        # Calculate total pixel width needed for all tags
+        tag_total_width = 0
+        if tags:
+            for tag_text, _ in tags:
+                tag_total_width += c.stringWidth(tag_text, "Helvetica-Bold", 5) + 6
+            tag_total_width += 1  # Initial gap before first tag
+
         def draw_tags(tag_x, tag_y):
             """Draw small colored tag badges"""
             for tag_text, tag_color in tags:
@@ -341,35 +348,59 @@ class GanttChartPDF:
                 c.drawString(tag_x + 2, tag_y + 0.5, tag_text)
                 tag_x += tag_w + 2
 
-        # Split name into lines if needed
-        if len(name) <= max_chars_per_line:
+        def truncate_to_fit(text, font, size, max_w):
+            """Truncate text with '..' to fit within max_w pixels"""
+            if c.stringWidth(text, font, size) <= max_w:
+                return text
+            while len(text) > 1 and c.stringWidth(text + '..', font, size) > max_w:
+                text = text[:-1]
+            return text + '..'
+
+        name_w = c.stringWidth(name, name_font, 8)
+
+        if name_w + tag_total_width <= available_width:
+            # Case 1: Name + tags fit on a single line
             c.setFont(name_font, 8)
             c.drawString(x, text_y, name)
             if tags:
-                tag_start_x = x + c.stringWidth(name, name_font, 8) + 3
-                draw_tags(tag_start_x, text_y)
+                draw_tags(x + name_w + 3, text_y)
+        elif name_w <= available_width and tags:
+            # Case 2: Name fits on line 1, tags wrap to line 2 below
+            c.setFont(name_font, 8)
+            c.drawString(x, text_y + 4, name)
+            draw_tags(x, text_y - 4)
         else:
-            # Wrap text into two lines
+            # Case 3: Name needs wrapping to two lines, tags after line 2
+            font_size = 7
             words = name.split()
             line1 = ""
-            line2 = ""
+            line2_words = []
             for word in words:
-                test_line = line1 + " " + word if line1 else word
-                if len(test_line) <= max_chars_per_line:
-                    line1 = test_line
+                test = (line1 + " " + word) if line1 else word
+                if c.stringWidth(test, name_font, font_size) <= available_width:
+                    line1 = test
                 else:
-                    line2 = (line2 + " " + word if line2 else word)
+                    line2_words.append(word)
+            line2 = " ".join(line2_words)
 
-            # Truncate line2 if needed
-            if len(line2) > max_chars_per_line:
-                line2 = line2[:max_chars_per_line-2] + '..'
+            # Truncate line2 to leave room for tags
+            if tags and line2:
+                max_line2_w = available_width - tag_total_width - 3
+                line2 = truncate_to_fit(line2, name_font, font_size, max(max_line2_w, 20))
+            elif line2:
+                line2 = truncate_to_fit(line2, name_font, font_size, available_width)
 
-            c.setFont(name_font, 7)  # Smaller font for wrapped text
+            c.setFont(name_font, font_size)
             c.drawString(x, text_y + 4, line1)
-            c.drawString(x, text_y - 4, line2)
+            if line2:
+                c.drawString(x, text_y - 4, line2)
             if tags:
-                tag_start_x = x + c.stringWidth(line2, name_font, 7) + 3
-                draw_tags(tag_start_x, text_y - 4)
+                if line2:
+                    tag_start_x = x + c.stringWidth(line2, name_font, font_size) + 3
+                    draw_tags(tag_start_x, text_y - 4)
+                else:
+                    tag_start_x = x + c.stringWidth(line1, name_font, font_size) + 3
+                    draw_tags(tag_start_x, text_y + 4)
 
         c.setFont("Helvetica", 8)  # Reset font
         c.setFillColor(COLORS['text_primary'])  # Reset color
