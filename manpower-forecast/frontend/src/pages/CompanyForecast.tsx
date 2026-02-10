@@ -161,7 +161,10 @@ export default function CompanyForecast() {
 
   const handleExportPdf = async () => {
     try {
-      const effectiveProjectIds = getEffectiveProjectIds()
+      // Only send project IDs when specific filters are active (AWS, type, or manual selection)
+      // Otherwise let the backend query all active/prospective projects directly
+      const hasProjectFilters = selectedProjects.length > 0 || awsFilter !== 'all' || typeFilter !== 'all'
+      const effectiveProjectIds = hasProjectFilters ? getEffectiveProjectIds() : []
       const response = await exportApi.pdf({
         start_date: startDate,
         end_date: endDate,

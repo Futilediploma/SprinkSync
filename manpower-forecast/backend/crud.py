@@ -10,7 +10,7 @@ import schemas
 # Project CRUD
 # ============================================
 
-def get_projects(db: Session, skip: int = 0, limit: int = 100, status: Optional[str] = None) -> List[models.Project]:
+def get_projects(db: Session, skip: int = 0, limit: int = 500, status: Optional[str] = None) -> List[models.Project]:
     """Get list of projects."""
     query = db.query(models.Project)
     if status:

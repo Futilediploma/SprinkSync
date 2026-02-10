@@ -39,6 +39,8 @@ COLORS = {
     'bar_summary': HexColor('#1a202c'),        # Black - summary bars
     'milestone': HexColor('#805ad5'),          # Purple - milestones
     'phase_header': HexColor('#667eea'),       # Purple gradient header
+    'row_prospective': HexColor('#fff7ed'),    # Light orange - prospective projects
+    'row_prospective_alt': HexColor('#ffedd5'), # Slightly darker orange alt row
 }
 
 
@@ -234,8 +236,12 @@ class GanttChartPDF:
         """Draw a single activity row with Gantt bar"""
         c = self.canvas
 
-        # Alternating row background
-        bg_color = COLORS['row_alt'] if row_index % 2 == 0 else COLORS['row_normal']
+        # Alternating row background (prospective projects get orange tint)
+        is_prospective = activity.get('project_status') == 'prospective'
+        if is_prospective:
+            bg_color = COLORS['row_prospective_alt'] if row_index % 2 == 0 else COLORS['row_prospective']
+        else:
+            bg_color = COLORS['row_alt'] if row_index % 2 == 0 else COLORS['row_normal']
         c.setFillColor(bg_color)
         c.rect(self.margin_left, y_pos - self.row_height,
                self.width - self.margin_left - self.margin_right,
@@ -497,11 +503,18 @@ class GanttChartPDF:
         x = self.margin_left
         y = y_pos
 
-        # Single legend item for project duration
+        # Project duration legend
         c.setFillColor(COLORS['bar_remaining'])
         c.roundRect(x, y + 1, 20, 8, 2, fill=1, stroke=0)
         c.setFillColor(COLORS['text_secondary'])
         c.drawString(x + 25, y + 2, "Project Duration")
+
+        # Prospective project legend
+        x += 120
+        c.setFillColor(COLORS['row_prospective_alt'])
+        c.rect(x, y + 1, 20, 8, fill=1, stroke=0)
+        c.setFillColor(COLORS['text_secondary'])
+        c.drawString(x + 25, y + 2, "Prospective")
 
     def draw_footer(self):
         """Draw the page footer"""
@@ -756,10 +769,17 @@ def export_pdf(
             models.ProjectSchedule.project_id.in_(project_ids_to_include)
         ).all()
     else:
-        # Get all projects
-        projects = crud.get_all_projects(db)
-        # Get all phases for Gantt
-        phases = crud.get_all_phases(db)
+        # Get all active/prospective projects
+        projects = db.query(models.Project).filter(
+            models.Project.status.in_(['active', 'prospective'])
+        ).all()
+        # Get phases for those projects
+        project_ids_to_include = [p.id for p in projects]
+        phases = db.query(models.SchedulePhase).join(
+            models.ProjectSchedule
+        ).filter(
+            models.ProjectSchedule.project_id.in_(project_ids_to_include)
+        ).all() if project_ids_to_include else []
 
     # Build subcontractor info dict for each project
     project_subcontractors = {}
