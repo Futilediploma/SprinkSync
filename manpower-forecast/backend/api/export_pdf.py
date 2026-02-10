@@ -668,9 +668,15 @@ class GanttChartPDF:
 
             # Only add project-level row with single Gantt bar
             if project_start and project_end:
+                # For prospective projects, append manpower estimate to name
+                display_name = project.name
+                req_manpower = getattr(project, 'required_manpower', 0) or 0
+                if project.status == 'prospective' and req_manpower > 0:
+                    display_name = f"{project.name} ({req_manpower})"
+
                 activities.append({
                     'activity_id': f'PROJ-{project.id}',
-                    'name': project.name,
+                    'name': display_name,
                     'project_number': project.project_number,
                     'project_status': project.status,  # For headcount formatting
                     'bfpe_sprinkler_headcount': getattr(project, 'bfpe_sprinkler_headcount', 0) or 0,
