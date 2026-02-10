@@ -139,91 +139,152 @@ class GanttChartPDF:
         c.line(self.margin_left, y - 20, self.width - self.margin_right, y - 20)
 
     def draw_column_headers(self, y_pos: float, min_date: date, max_date: date):
-        """Draw the unified header row with column headers and timeline"""
+        """Draw two-tier header: column labels + year/month timeline"""
         c = self.canvas
-        header_height = 40
+        year_row_height = 16
+        month_row_height = 16
+        col_header_height = year_row_height + month_row_height
+        header_height = col_header_height
 
-        # Draw unified header background spanning full width
+        # Draw unified header background for left-side columns
         c.setFillColor(COLORS['header_bg'])
         c.rect(self.margin_left, y_pos - header_height,
-               self.width - self.margin_left - self.margin_right, header_height, fill=1, stroke=0)
+               self.table_width, header_height, fill=1, stroke=0)
 
-        # Column header text
+        # Column header text (vertically centered across both rows)
         c.setFillColor(COLORS['header_text'])
         c.setFont("Helvetica-Bold", 9)
 
         x = self.margin_left + 8
         text_y = y_pos - header_height / 2 - 3
 
-        # Single-line headers
         single_headers = [
             ('Project Name', self.col_widths['activity_name']),
             ('Job #', self.col_widths['project_number']),
         ]
-
         for header, width in single_headers:
             c.drawString(x, text_y, header)
             x += width
 
-        # Combined trade columns (BFPE + Sub stacked)
         c.setFont("Helvetica-Bold", 8)
         trade_headers = [
             ('Sprinkler', self.col_widths['sprinkler']),
             ('VESDA', self.col_widths['vesda']),
             ('Electrical', self.col_widths['electrical']),
         ]
-
         for header, width in trade_headers:
             c.drawString(x, text_y, header)
             x += width
 
-        # Remaining single-line headers
         c.setFont("Helvetica-Bold", 9)
         remaining_headers = [
             ('Days', self.col_widths['duration']),
             ('Start', self.col_widths['start']),
             ('Finish', self.col_widths['finish']),
         ]
-
         for header, width in remaining_headers:
             c.drawString(x, text_y, header)
             x += width
 
-        # Draw timeline with monthly markers
+        # === Two-tier Gantt timeline ===
         total_days = (max_date - min_date).days
         if total_days <= 0:
             total_days = 30
 
-        # Generate list of first-of-month dates within range
+        gantt_right = self.gantt_start_x + self.gantt_width
+
+        # --- Top tier: Year labels ---
+        year_top = y_pos
+        year_bottom = y_pos - year_row_height
+
+        # Collect unique years in range
+        years = []
+        yr = min_date.year
+        while yr <= max_date.year:
+            year_start = date(yr, 1, 1)
+            year_end = date(yr, 12, 31)
+            # Clamp to data range
+            display_start = max(year_start, min_date)
+            display_end = min(year_end, max_date)
+            years.append((yr, display_start, display_end))
+            yr += 1
+
+        for year_val, y_start_date, y_end_date in years:
+            x_start = self.gantt_start_x + ((y_start_date - min_date).days / total_days) * self.gantt_width
+            x_end = self.gantt_start_x + ((y_end_date - min_date).days / total_days) * self.gantt_width
+            x_start = max(x_start, self.gantt_start_x)
+            x_end = min(x_end, gantt_right)
+
+            # Alternating year background
+            if year_val % 2 == 0:
+                c.setFillColor(COLORS['header_bg'])
+            else:
+                c.setFillColor(HexColor('#243b5e'))  # Slightly lighter navy
+            c.rect(x_start, year_bottom, x_end - x_start, year_row_height, fill=1, stroke=0)
+
+            # Year label centered
+            c.setFillColor(COLORS['header_text'])
+            c.setFont("Helvetica-Bold", 9)
+            label_x = (x_start + x_end) / 2
+            label_width = c.stringWidth(str(year_val), "Helvetica-Bold", 9)
+            if x_end - x_start > label_width + 4:  # Only draw if enough space
+                c.drawString(label_x - label_width / 2, year_bottom + 4, str(year_val))
+
+            # Year divider line
+            if x_start > self.gantt_start_x:
+                c.setStrokeColor(COLORS['header_text'])
+                c.setLineWidth(0.8)
+                c.line(x_start, year_top, x_start, year_bottom)
+
+        # --- Bottom tier: Month labels ---
+        month_top = year_bottom
+        month_bottom = year_bottom - month_row_height
+
+        # Slightly lighter background for month row
+        c.setFillColor(HexColor('#2a4a7f'))
+        c.rect(self.gantt_start_x, month_bottom, self.gantt_width, month_row_height, fill=1, stroke=0)
+
+        # Generate months
         months = []
         current = date(min_date.year, min_date.month, 1)
         while current <= max_date:
-            if current >= min_date:
-                months.append(current)
-            # Move to next month
+            if current >= min_date or (current.month == min_date.month and current.year == min_date.year):
+                # Calculate next month for width
+                if current.month == 12:
+                    next_month = date(current.year + 1, 1, 1)
+                else:
+                    next_month = date(current.year, current.month + 1, 1)
+                months.append((current, next_month))
             if current.month == 12:
                 current = date(current.year + 1, 1, 1)
             else:
                 current = date(current.year, current.month + 1, 1)
 
-        # Draw month labels (rotated vertically)
-        c.setFont("Helvetica", 7)
+        month_abbrevs = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
+
+        c.setFont("Helvetica-Bold", 7)
         c.setFillColor(COLORS['header_text'])
 
-        for month_date in months:
-            days_from_start = (month_date - min_date).days
-            x_pos = self.gantt_start_x + (days_from_start / total_days) * self.gantt_width
+        for month_start, month_end in months:
+            x_start = self.gantt_start_x + ((month_start - min_date).days / total_days) * self.gantt_width
+            x_end = self.gantt_start_x + ((min(month_end, max_date) - min_date).days / total_days) * self.gantt_width
+            x_start = max(x_start, self.gantt_start_x)
+            x_end = min(x_end, gantt_right)
 
-            if x_pos >= self.gantt_start_x and x_pos <= self.gantt_start_x + self.gantt_width:
-                # Draw rotated month label
-                label = month_date.strftime("%b %y")
-                c.saveState()
-                c.translate(x_pos + 3, y_pos - header_height + 8)
-                c.rotate(90)
-                c.drawString(0, 0, label)
-                c.restoreState()
+            cell_width = x_end - x_start
+            if cell_width > 6:  # Only draw label if cell is wide enough
+                label = month_abbrevs[month_start.month - 1]
+                label_w = c.stringWidth(label, "Helvetica-Bold", 7)
+                c.setFillColor(COLORS['header_text'])
+                c.drawString(x_start + (cell_width - label_w) / 2, month_bottom + 4, label)
 
-        # Draw thin line at bottom of header
+            # Quarter divider lines (Jan, Apr, Jul, Oct) in month row
+            if month_start.month in (1, 4, 7, 10) and x_start > self.gantt_start_x:
+                c.setStrokeColor(COLORS['header_text'])
+                c.setLineWidth(0.5 if month_start.month != 1 else 0.8)
+                c.line(x_start, month_top, x_start, month_bottom)
+
+        # Border around entire Gantt header
         c.setStrokeColor(COLORS['grid_line'])
         c.setLineWidth(1)
         c.line(self.margin_left, y_pos - header_height,
@@ -516,6 +577,17 @@ class GanttChartPDF:
         c.setFillColor(COLORS['text_secondary'])
         c.drawString(x + 25, y + 2, "Prospective")
 
+        # Today line legend
+        x += 100
+        c.setStrokeColor(COLORS['bar_critical'])
+        c.setLineWidth(1)
+        c.setDash(3, 2)
+        c.line(x, y + 1, x + 20, y + 1)
+        c.line(x, y + 9, x + 20, y + 9)
+        c.setDash()
+        c.setFillColor(COLORS['text_secondary'])
+        c.drawString(x + 25, y + 2, "Today")
+
     def draw_footer(self):
         """Draw the page footer"""
         c = self.canvas
@@ -694,7 +766,7 @@ class GanttChartPDF:
         return self.buffer
 
     def draw_gantt_grid(self, y_start: float, min_date: date, max_date: date, num_rows: int):
-        """Draw vertical grid lines in the Gantt chart area at monthly intervals"""
+        """Draw vertical grid lines with quarter and year emphasis"""
         c = self.canvas
 
         total_days = (max_date - min_date).days
@@ -711,8 +783,18 @@ class GanttChartPDF:
                 x = self.gantt_start_x + (days_from_start / total_days) * self.gantt_width
 
                 if x >= self.gantt_start_x and x <= self.gantt_start_x + self.gantt_width:
-                    c.setStrokeColor(COLORS['grid_line'])
-                    c.setLineWidth(0.5)
+                    if current.month == 1:
+                        # Year divider - bold dark line
+                        c.setStrokeColor(HexColor('#94a3b8'))
+                        c.setLineWidth(1.2)
+                    elif current.month in (4, 7, 10):
+                        # Quarter divider - medium line
+                        c.setStrokeColor(HexColor('#cbd5e1'))
+                        c.setLineWidth(0.8)
+                    else:
+                        # Regular month - light line
+                        c.setStrokeColor(COLORS['grid_line'])
+                        c.setLineWidth(0.3)
                     c.line(x, y_start, x, y_end)
 
             # Move to next month
@@ -720,6 +802,17 @@ class GanttChartPDF:
                 current = date(current.year + 1, 1, 1)
             else:
                 current = date(current.year, current.month + 1, 1)
+
+        # Today line - red dashed vertical line
+        today = date.today()
+        if min_date <= today <= max_date:
+            today_offset = (today - min_date).days
+            today_x = self.gantt_start_x + (today_offset / total_days) * self.gantt_width
+            c.setStrokeColor(COLORS['bar_critical'])  # Red
+            c.setLineWidth(1)
+            c.setDash(3, 2)  # Dashed line
+            c.line(today_x, y_start, today_x, y_end)
+            c.setDash()  # Reset to solid
 
 
 @router.get("/pdf")
