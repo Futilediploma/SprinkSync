@@ -141,17 +141,16 @@ class GanttChartPDF:
     def draw_column_headers(self, y_pos: float, min_date: date, max_date: date):
         """Draw two-tier header: column labels + year/month timeline"""
         c = self.canvas
-        year_row_height = 16
-        month_row_height = 16
-        col_header_height = year_row_height + month_row_height
-        header_height = col_header_height
+        year_row_height = 18
+        month_row_height = 14
+        header_height = year_row_height + month_row_height
 
         # Draw unified header background for left-side columns
         c.setFillColor(COLORS['header_bg'])
         c.rect(self.margin_left, y_pos - header_height,
                self.table_width, header_height, fill=1, stroke=0)
 
-        # Column header text (vertically centered across both rows)
+        # Column header text (vertically centered)
         c.setFillColor(COLORS['header_text'])
         c.setFont("Helvetica-Bold", 9)
 
@@ -167,22 +166,16 @@ class GanttChartPDF:
             x += width
 
         c.setFont("Helvetica-Bold", 8)
-        trade_headers = [
-            ('Sprinkler', self.col_widths['sprinkler']),
-            ('VESDA', self.col_widths['vesda']),
-            ('Electrical', self.col_widths['electrical']),
-        ]
-        for header, width in trade_headers:
+        for header, width in [('Sprinkler', self.col_widths['sprinkler']),
+                               ('VESDA', self.col_widths['vesda']),
+                               ('Electrical', self.col_widths['electrical'])]:
             c.drawString(x, text_y, header)
             x += width
 
         c.setFont("Helvetica-Bold", 9)
-        remaining_headers = [
-            ('Days', self.col_widths['duration']),
-            ('Start', self.col_widths['start']),
-            ('Finish', self.col_widths['finish']),
-        ]
-        for header, width in remaining_headers:
+        for header, width in [('Days', self.col_widths['duration']),
+                               ('Start', self.col_widths['start']),
+                               ('Finish', self.col_widths['finish'])]:
             c.drawString(x, text_y, header)
             x += width
 
@@ -192,20 +185,16 @@ class GanttChartPDF:
             total_days = 30
 
         gantt_right = self.gantt_start_x + self.gantt_width
-
-        # --- Top tier: Year labels ---
         year_top = y_pos
         year_bottom = y_pos - year_row_height
+        month_bottom = year_bottom - month_row_height
 
-        # Collect unique years in range
+        # --- Top tier: Year labels (dark background, white text) ---
         years = []
         yr = min_date.year
         while yr <= max_date.year:
-            year_start = date(yr, 1, 1)
-            year_end = date(yr, 12, 31)
-            # Clamp to data range
-            display_start = max(year_start, min_date)
-            display_end = min(year_end, max_date)
+            display_start = max(date(yr, 1, 1), min_date)
+            display_end = min(date(yr, 12, 31), max_date)
             years.append((yr, display_start, display_end))
             yr += 1
 
@@ -215,76 +204,78 @@ class GanttChartPDF:
             x_start = max(x_start, self.gantt_start_x)
             x_end = min(x_end, gantt_right)
 
-            # Alternating year background
-            if year_val % 2 == 0:
-                c.setFillColor(COLORS['header_bg'])
-            else:
-                c.setFillColor(HexColor('#243b5e'))  # Slightly lighter navy
+            # Alternating year backgrounds
+            c.setFillColor(COLORS['header_bg'] if year_val % 2 == 0 else HexColor('#1e3a5f'))
             c.rect(x_start, year_bottom, x_end - x_start, year_row_height, fill=1, stroke=0)
 
-            # Year label centered
+            # Year label
             c.setFillColor(COLORS['header_text'])
-            c.setFont("Helvetica-Bold", 9)
-            label_x = (x_start + x_end) / 2
-            label_width = c.stringWidth(str(year_val), "Helvetica-Bold", 9)
-            if x_end - x_start > label_width + 4:  # Only draw if enough space
-                c.drawString(label_x - label_width / 2, year_bottom + 4, str(year_val))
+            c.setFont("Helvetica-Bold", 10)
+            label_w = c.stringWidth(str(year_val), "Helvetica-Bold", 10)
+            if x_end - x_start > label_w + 4:
+                c.drawString((x_start + x_end) / 2 - label_w / 2, year_bottom + 5, str(year_val))
 
             # Year divider line
             if x_start > self.gantt_start_x:
-                c.setStrokeColor(COLORS['header_text'])
-                c.setLineWidth(0.8)
+                c.setStrokeColor(HexColor('#4a6fa5'))
+                c.setLineWidth(1)
                 c.line(x_start, year_top, x_start, year_bottom)
 
-        # --- Bottom tier: Month labels ---
-        month_top = year_bottom
-        month_bottom = year_bottom - month_row_height
-
-        # Slightly lighter background for month row
-        c.setFillColor(HexColor('#2a4a7f'))
+        # --- Bottom tier: Month labels (light background, dark text) ---
+        c.setFillColor(HexColor('#edf2f7'))  # Light gray background
         c.rect(self.gantt_start_x, month_bottom, self.gantt_width, month_row_height, fill=1, stroke=0)
 
         # Generate months
         months = []
         current = date(min_date.year, min_date.month, 1)
         while current <= max_date:
+            next_month = date(current.year + 1, 1, 1) if current.month == 12 else date(current.year, current.month + 1, 1)
             if current >= min_date or (current.month == min_date.month and current.year == min_date.year):
-                # Calculate next month for width
-                if current.month == 12:
-                    next_month = date(current.year + 1, 1, 1)
-                else:
-                    next_month = date(current.year, current.month + 1, 1)
                 months.append((current, next_month))
-            if current.month == 12:
-                current = date(current.year + 1, 1, 1)
-            else:
-                current = date(current.year, current.month + 1, 1)
+            current = next_month
 
-        month_abbrevs = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
-
-        c.setFont("Helvetica-Bold", 7)
-        c.setFillColor(COLORS['header_text'])
+        month_labels_short = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
+        month_labels_long = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
         for month_start, month_end in months:
             x_start = self.gantt_start_x + ((month_start - min_date).days / total_days) * self.gantt_width
             x_end = self.gantt_start_x + ((min(month_end, max_date) - min_date).days / total_days) * self.gantt_width
             x_start = max(x_start, self.gantt_start_x)
             x_end = min(x_end, gantt_right)
-
             cell_width = x_end - x_start
-            if cell_width > 6:  # Only draw label if cell is wide enough
-                label = month_abbrevs[month_start.month - 1]
-                label_w = c.stringWidth(label, "Helvetica-Bold", 7)
-                c.setFillColor(COLORS['header_text'])
-                c.drawString(x_start + (cell_width - label_w) / 2, month_bottom + 4, label)
 
-            # Quarter divider lines (Jan, Apr, Jul, Oct) in month row
-            if month_start.month in (1, 4, 7, 10) and x_start > self.gantt_start_x:
-                c.setStrokeColor(COLORS['header_text'])
-                c.setLineWidth(0.5 if month_start.month != 1 else 0.8)
-                c.line(x_start, month_top, x_start, month_bottom)
+            # Draw month cell divider
+            if x_start > self.gantt_start_x:
+                if month_start.month in (1, 4, 7, 10):
+                    # Quarter boundary - darker line
+                    c.setStrokeColor(HexColor('#94a3b8'))
+                    c.setLineWidth(0.8)
+                else:
+                    c.setStrokeColor(HexColor('#cbd5e1'))
+                    c.setLineWidth(0.3)
+                c.line(x_start, year_bottom, x_start, month_bottom)
 
-        # Border around entire Gantt header
+            # Choose label based on available space
+            c.setFillColor(COLORS['text_primary'])
+            if cell_width > 18:
+                # 3-letter abbreviation
+                c.setFont("Helvetica", 7)
+                label = month_labels_long[month_start.month - 1]
+            elif cell_width > 6:
+                # Single letter
+                c.setFont("Helvetica-Bold", 7)
+                label = month_labels_short[month_start.month - 1]
+            else:
+                continue
+            label_w = c.stringWidth(label, c._fontname, 7)
+            c.drawString(x_start + (cell_width - label_w) / 2, month_bottom + 3, label)
+
+        # Horizontal line between year and month tiers
+        c.setStrokeColor(HexColor('#94a3b8'))
+        c.setLineWidth(0.5)
+        c.line(self.gantt_start_x, year_bottom, gantt_right, year_bottom)
+
+        # Bottom border
         c.setStrokeColor(COLORS['grid_line'])
         c.setLineWidth(1)
         c.line(self.margin_left, y_pos - header_height,
