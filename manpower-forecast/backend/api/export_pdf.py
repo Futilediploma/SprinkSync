@@ -312,14 +312,42 @@ class GanttChartPDF:
         x = self.margin_left + 4
         text_y = y_pos - self.row_height + 5
 
-        # Project Name - with text wrapping
+        # Project Name - with text wrapping, bold for out-of-town, and trade tags
         name = activity.get('name', '')
+        is_out_of_town = activity.get('is_out_of_town', False)
         col_width = self.col_widths['activity_name']
+        name_font = "Helvetica-Bold" if is_out_of_town else "Helvetica"
         max_chars_per_line = int(col_width / 4.5)
+
+        # Build list of tags for this project
+        tags = []
+        if activity.get('is_aws'):
+            tags.append(('AWS', '#7c3aed'))   # Purple
+        if activity.get('is_mechanical'):
+            tags.append(('M', '#2563eb'))      # Blue
+        if activity.get('is_electrical'):
+            tags.append(('E', '#d97706'))      # Amber
+        if activity.get('is_vesda'):
+            tags.append(('V', '#db2777'))      # Pink
+
+        def draw_tags(tag_x, tag_y):
+            """Draw small colored tag badges"""
+            for tag_text, tag_color in tags:
+                tag_w = c.stringWidth(tag_text, "Helvetica-Bold", 5) + 4
+                c.setFillColor(HexColor(tag_color))
+                c.roundRect(tag_x, tag_y - 1, tag_w, 8, 2, fill=1, stroke=0)
+                c.setFillColor(white)
+                c.setFont("Helvetica-Bold", 5)
+                c.drawString(tag_x + 2, tag_y + 0.5, tag_text)
+                tag_x += tag_w + 2
 
         # Split name into lines if needed
         if len(name) <= max_chars_per_line:
+            c.setFont(name_font, 8)
             c.drawString(x, text_y, name)
+            if tags:
+                tag_start_x = x + c.stringWidth(name, name_font, 8) + 3
+                draw_tags(tag_start_x, text_y)
         else:
             # Wrap text into two lines
             words = name.split()
@@ -336,10 +364,15 @@ class GanttChartPDF:
             if len(line2) > max_chars_per_line:
                 line2 = line2[:max_chars_per_line-2] + '..'
 
-            c.setFont("Helvetica", 7)  # Smaller font for wrapped text
+            c.setFont(name_font, 7)  # Smaller font for wrapped text
             c.drawString(x, text_y + 4, line1)
             c.drawString(x, text_y - 4, line2)
-            c.setFont("Helvetica", 8)
+            if tags:
+                tag_start_x = x + c.stringWidth(line2, name_font, 7) + 3
+                draw_tags(tag_start_x, text_y - 4)
+
+        c.setFont("Helvetica", 8)  # Reset font
+        c.setFillColor(COLORS['text_primary'])  # Reset color
         x += self.col_widths['activity_name']
 
         # Project Number (Job #)
@@ -579,6 +612,27 @@ class GanttChartPDF:
         c.setFillColor(COLORS['text_secondary'])
         c.drawString(x + 25, y + 2, "Today")
 
+        # Out of town legend
+        x += 80
+        c.setFont("Helvetica-Bold", 8)
+        c.setFillColor(COLORS['text_primary'])
+        c.drawString(x, y + 2, "Bold")
+        c.setFont("Helvetica", 8)
+        c.setFillColor(COLORS['text_secondary'])
+        c.drawString(x + 24, y + 2, "= Out of Town")
+
+        # Tag legends
+        x += 110
+        tag_legends = [('AWS', '#7c3aed'), ('M', '#2563eb'), ('E', '#d97706'), ('V', '#db2777')]
+        for tag_text, tag_color in tag_legends:
+            tag_w = c.stringWidth(tag_text, "Helvetica-Bold", 6) + 4
+            c.setFillColor(HexColor(tag_color))
+            c.roundRect(x, y + 1, tag_w, 8, 2, fill=1, stroke=0)
+            c.setFillColor(white)
+            c.setFont("Helvetica-Bold", 6)
+            c.drawString(x + 2, y + 2.5, tag_text)
+            x += tag_w + 3
+
     def draw_footer(self):
         """Draw the page footer"""
         c = self.canvas
@@ -690,7 +744,12 @@ class GanttChartPDF:
                     'end_date': project_end,
                     'bar_type': 'remaining',
                     'indent_level': 0,
-                    'is_summary': False
+                    'is_summary': False,
+                    'is_aws': getattr(project, 'is_aws', False) or False,
+                    'is_mechanical': getattr(project, 'is_mechanical', False) or False,
+                    'is_electrical': getattr(project, 'is_electrical', False) or False,
+                    'is_vesda': getattr(project, 'is_vesda', False) or False,
+                    'is_out_of_town': getattr(project, 'is_out_of_town', False) or False,
                 })
                 all_dates.extend([project_start, project_end])
 
