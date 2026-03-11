@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 @router.get("/", response_model=List[schemas.Project])
 def list_projects(
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 250,
     status: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
