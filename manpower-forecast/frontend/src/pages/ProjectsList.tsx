@@ -10,6 +10,7 @@ export default function ProjectsList() {
   const [statusFilter, setStatusFilter] = useState<string>('active')
   const [typeFilter, setTypeFilter] = useState<string>('all') // all, mechanical, electrical, vesda, both
   const [awsFilter, setAwsFilter] = useState<'all' | 'aws' | 'standard'>('all')
+  const [manpowerStatusFilter, setManpowerStatusFilter] = useState<'all' | 'active' | 'prospective'>('all')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
 
@@ -223,6 +224,8 @@ export default function ProjectsList() {
         if (!(['active', 'prospective'].includes(p.status) && (p.required_manpower || 0) > 0 && !p.manpower_allocated)) return false
         if (awsFilter === 'aws' && !p.is_aws) return false
         if (awsFilter === 'standard' && p.is_aws) return false
+        if (manpowerStatusFilter === 'active' && p.status !== 'active') return false
+        if (manpowerStatusFilter === 'prospective' && p.status !== 'prospective') return false
         if (typeFilter === 'mechanical') return p.is_mechanical
         if (typeFilter === 'electrical') return p.is_electrical
         if (typeFilter === 'vesda') return p.is_vesda
@@ -646,14 +649,29 @@ export default function ProjectsList() {
       )}
 
       {/* Needs Manpower export button */}
-      {statusFilter === 'needs_manpower' && sortedProjects.length > 0 && (
+      {statusFilter === 'needs_manpower' && (
         <div className="flex justify-between items-center">
-          <p className="text-sm text-orange-700 font-medium">
-            {sortedProjects.length} project{sortedProjects.length !== 1 ? 's' : ''} need manpower assigned
-          </p>
-          <button onClick={handleExportUnallocatedPdf} className="btn btn-secondary">
-            Export PDF Report
-          </button>
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-orange-700 font-medium">
+              {sortedProjects.length} project{sortedProjects.length !== 1 ? 's' : ''} need manpower assigned
+            </p>
+            <div className="flex bg-gray-100 rounded-lg p-0.5">
+              {(['all', 'active', 'prospective'] as const).map(s => (
+                <button
+                  key={s}
+                  onClick={() => setManpowerStatusFilter(s)}
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${manpowerStatusFilter === s ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                >
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+          {sortedProjects.length > 0 && (
+            <button onClick={handleExportUnallocatedPdf} className="btn btn-secondary">
+              Export PDF Report
+            </button>
+          )}
         </div>
       )}
 
