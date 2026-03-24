@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { projectsApi } from '../api'
+import { projectsApi, manpowerNeedsApi } from '../api'
 import type { Project, ProjectSubcontractor } from '../types'
 import { apiSubsToUiSubs, uiSubsToApiSubs } from '../types'
 import { validateProject, ValidationError, getFieldError } from '../utils/validation'
@@ -26,7 +25,6 @@ export default function ProjectsList() {
     customer_name: string;
     project_number: string;
     notes: string;
-    budgeted_hours: string;
     required_manpower: string;
     sub_headcount: string;
     start_date: string;
@@ -46,7 +44,6 @@ export default function ProjectsList() {
     customer_name: '',
     project_number: '',
     notes: '',
-    budgeted_hours: '',
     required_manpower: '',
     sub_headcount: '',
     start_date: '',
@@ -72,12 +69,38 @@ export default function ProjectsList() {
   const loadProjects = async () => {
     try {
       setLoading(true)
-      const response = await projectsApi.list(statusFilter)
+      // 'needs_manpower' requires fetching active+prospective across all statuses
+      const response = await projectsApi.list(statusFilter === 'needs_manpower' ? undefined : statusFilter)
       setProjects(response.data)
     } catch (error) {
       console.error('Failed to load projects:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleToggleAllocated = async (project: Project) => {
+    try {
+      await projectsApi.update(project.id, { manpower_allocated: !project.manpower_allocated })
+      loadProjects()
+    } catch (error) {
+      console.error('Failed to update allocation status:', error)
+    }
+  }
+
+  const handleExportUnallocatedPdf = async () => {
+    try {
+      const response = await manpowerNeedsApi.exportPdf()
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', 'Unallocated_Manpower_Report.pdf')
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+    } catch (error) {
+      console.error('Failed to export PDF:', error)
+      alert('Failed to export PDF')
     }
   }
 
@@ -92,7 +115,6 @@ export default function ProjectsList() {
     try {
       const payload = {
         ...newProject,
-        budgeted_hours: newProject.budgeted_hours?.trim() ? parseFloat(newProject.budgeted_hours) : undefined,
         required_manpower: newProject.required_manpower?.trim() ? parseInt(newProject.required_manpower) : 0,
         sub_headcount: newProject.sub_headcount?.trim() ? parseInt(newProject.sub_headcount) : 0,
         subcontractors: uiSubsToApiSubs(newProject.subcontractors)
@@ -122,7 +144,6 @@ export default function ProjectsList() {
       customer_name: project.customer_name || '',
       project_number: project.project_number || '',
       notes: project.notes || '',
-      budgeted_hours: project.budgeted_hours?.toString() || '',
       required_manpower: project.required_manpower?.toString() || '',
       sub_headcount: project.sub_headcount?.toString() || '',
       start_date: project.start_date || '',
@@ -147,7 +168,6 @@ export default function ProjectsList() {
       customer_name: '',
       project_number: '',
       notes: '',
-      budgeted_hours: '',
       required_manpower: '',
       sub_headcount: '',
       start_date: '',
@@ -198,14 +218,19 @@ export default function ProjectsList() {
 
   const sortedProjects = [...projects]
     .filter(p => {
+      // Needs Manpower tab: active/prospective with required_manpower > 0 and not yet allocated
+      if (statusFilter === 'needs_manpower') {
+        if (!(['active', 'prospective'].includes(p.status) && (p.required_manpower || 0) > 0 && !p.manpower_allocated)) return false
+        if (typeFilter === 'mechanical') return p.is_mechanical
+        if (typeFilter === 'electrical') return p.is_electrical
+        if (typeFilter === 'vesda') return p.is_vesda
+        if (typeFilter === 'both') return p.is_mechanical && p.is_electrical
+        return true
+      }
+
       // Filter by AWS
-      if (awsFilter === 'aws') {
-        if (!p.is_aws) return false
-      }
-      if (awsFilter === 'standard') {
-        if (p.is_aws) return false
-      }
-      // 'all' passes through
+      if (awsFilter === 'aws' && !p.is_aws) return false
+      if (awsFilter === 'standard' && p.is_aws) return false
 
       if (typeFilter === 'all') return true
       if (typeFilter === 'mechanical') return p.is_mechanical
@@ -281,7 +306,7 @@ export default function ProjectsList() {
       </div>
 
       {/* Status Filter */}
-      <div className="flex space-x-2">
+      <div className="flex flex-wrap gap-2">
         {['active', 'prospective', 'completed', 'archived'].map((status) => (
           <button
             key={status}
@@ -294,6 +319,15 @@ export default function ProjectsList() {
             {status.charAt(0).toUpperCase() + status.slice(1)}
           </button>
         ))}
+        <button
+          onClick={() => setStatusFilter('needs_manpower')}
+          className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${statusFilter === 'needs_manpower'
+            ? 'bg-orange-500 text-white'
+            : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+            }`}
+        >
+          ⚠ Needs Manpower
+        </button>
 
         <div className="w-px bg-gray-300 mx-2 h-8 self-center" />
 
@@ -408,19 +442,6 @@ export default function ProjectsList() {
                     className="input py-1 text-sm w-full"
                   />
                 </div>
-              </div>
-
-              {/* Budget Details (Secondary) */}
-              <div className="text-xs text-gray-500">
-                <label className="block font-medium text-gray-600">Budgeted Hours (optional)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={newProject.budgeted_hours}
-                  onChange={(e) => setNewProject({ ...newProject, budgeted_hours: e.target.value })}
-                  placeholder="For future budget tracking"
-                  className="input py-1 text-sm w-full max-w-xs"
-                />
               </div>
 
               {/* Row 4: Types & Flags - All inline */}
@@ -622,14 +643,30 @@ export default function ProjectsList() {
         </div>
       )}
 
+      {/* Needs Manpower export button */}
+      {statusFilter === 'needs_manpower' && sortedProjects.length > 0 && (
+        <div className="flex justify-between items-center">
+          <p className="text-sm text-orange-700 font-medium">
+            {sortedProjects.length} project{sortedProjects.length !== 1 ? 's' : ''} need manpower assigned
+          </p>
+          <button onClick={handleExportUnallocatedPdf} className="btn btn-secondary">
+            Export PDF Report
+          </button>
+        </div>
+      )}
+
       {/* Projects Table */}
       <div className="card">
-        {projects.length === 0 ? (
+        {sortedProjects.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-500">No {statusFilter} projects found.</p>
-            <p className="text-sm text-gray-400 mt-2">
-              Create a new project to get started.
+            <p className="text-gray-500">
+              {statusFilter === 'needs_manpower'
+                ? 'All projects have manpower assigned.'
+                : `No ${statusFilter} projects found.`}
             </p>
+            {statusFilter !== 'needs_manpower' && (
+              <p className="text-sm text-gray-400 mt-2">Create a new project to get started.</p>
+            )}
           </div>
         ) : (
           <table className="table">
@@ -644,16 +681,15 @@ export default function ProjectsList() {
                 <th className="cursor-pointer hover:bg-gray-50" onClick={() => handleSort('project_number')}>
                   Project # {sortConfig?.key === 'project_number' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
-                <th className="text-right cursor-pointer hover:bg-gray-50" onClick={() => handleSort('budgeted_hours')}>
-                  Budgeted {sortConfig?.key === 'budgeted_hours' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th className="text-right cursor-pointer hover:bg-gray-50" onClick={() => handleSort('total_scheduled_hours')}>
-                  Scheduled {sortConfig?.key === 'total_scheduled_hours' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                <th className="text-right cursor-pointer hover:bg-gray-50" onClick={() => handleSort('required_manpower')}>
+                  Men Required {sortConfig?.key === 'required_manpower' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
                 <th className="cursor-pointer hover:bg-gray-50" onClick={() => handleSort('status')}>
                   Status {sortConfig?.key === 'status' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
-                <th>Subcontractors</th>
+                {statusFilter !== 'needs_manpower' && <th>Subcontractors</th>}
+                {statusFilter === 'needs_manpower' && <th className="cursor-pointer hover:bg-gray-50" onClick={() => handleSort('start_date')}>Start Date {sortConfig?.key === 'start_date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</th>}
+                {statusFilter === 'needs_manpower' && <th className="text-center">Allocated</th>}
                 <th>Actions</th>
               </tr>
             </thead>
@@ -664,16 +700,7 @@ export default function ProjectsList() {
                   <td className="text-gray-600">{project.customer_name || '—'}</td>
                   <td className="text-gray-600">{project.project_number || '—'}</td>
                   <td className="text-right font-medium">
-                    {project.budgeted_hours ? project.budgeted_hours.toLocaleString() : '—'}
-                  </td>
-                  <td className="text-right font-medium">
-                    <span className={
-                      (project.budgeted_hours && project.total_scheduled_hours > project.budgeted_hours)
-                        ? 'text-red-600'
-                        : 'text-gray-900'
-                    }>
-                      {project.total_scheduled_hours ? project.total_scheduled_hours.toLocaleString() : '0'}
-                    </span>
+                    {project.required_manpower || '—'}
                   </td>
                   <td>
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${project.status === 'active'
@@ -693,36 +720,42 @@ export default function ProjectsList() {
                       {project.is_vesda && <span className="text-[10px] uppercase bg-red-100 text-red-800 px-1 rounded">VESDA</span>}
                     </div>
                   </td>
-                  <td>
-                    {project.subcontractors && project.subcontractors.length > 0 ? (
-                      <div className="space-y-1">
-                        {project.subcontractors.map((sub, idx) => (
-                          <div key={idx} className="text-xs">
-                            <span className="font-medium text-gray-700">{sub.subcontractor_name}</span>
-                            <span className={`ml-1 px-1 rounded ${sub.labor_type === 'sprinkler' ? 'bg-blue-100 text-blue-700' : sub.labor_type === 'electrical' ? 'bg-yellow-100 text-yellow-700' : 'bg-purple-100 text-purple-700'}`}>
-                              {sub.labor_type}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-gray-400 text-xs">—</span>
-                    )}
-                  </td>
+                  {statusFilter !== 'needs_manpower' && (
+                    <td>
+                      {project.subcontractors && project.subcontractors.length > 0 ? (
+                        <div className="space-y-1">
+                          {project.subcontractors.map((sub, idx) => (
+                            <div key={idx} className="text-xs">
+                              <span className="font-medium text-gray-700">{sub.subcontractor_name}</span>
+                              <span className={`ml-1 px-1 rounded ${sub.labor_type === 'sprinkler' ? 'bg-blue-100 text-blue-700' : sub.labor_type === 'electrical' ? 'bg-yellow-100 text-yellow-700' : 'bg-purple-100 text-purple-700'}`}>
+                                {sub.labor_type}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-xs">—</span>
+                      )}
+                    </td>
+                  )}
+                  {statusFilter === 'needs_manpower' && (
+                    <td className="text-gray-600 text-sm">
+                      {project.start_date ? new Date(project.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                    </td>
+                  )}
+                  {statusFilter === 'needs_manpower' && (
+                    <td className="text-center">
+                      <input
+                        type="checkbox"
+                        checked={project.manpower_allocated}
+                        onChange={() => handleToggleAllocated(project)}
+                        className="w-4 h-4 rounded text-green-600 cursor-pointer"
+                        title="Check to mark manpower as covered"
+                      />
+                    </td>
+                  )}
                   <td>
                     <div className="flex space-x-2">
-                      <Link
-                        to={`/projects/${project.id}/schedule`}
-                        className="text-primary-600 hover:text-primary-800 text-sm font-medium"
-                      >
-                        Schedule
-                      </Link>
-                      <Link
-                        to={`/projects/${project.id}/forecast`}
-                        className="text-primary-600 hover:text-primary-800 text-sm font-medium"
-                      >
-                        Forecast
-                      </Link>
                       <button
                         onClick={() => handleEditClick(project)}
                         className="text-blue-600 hover:text-blue-800 text-sm font-medium"

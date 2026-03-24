@@ -6,16 +6,10 @@ import type {
   Project,
   ProjectCreate,
   ProjectUpdate,
-  ProjectSchedule,
-  ProjectScheduleCreate,
-  ProjectScheduleUpdate,
-  SchedulePhase,
-  SchedulePhaseCreate,
-  SchedulePhaseUpdate,
   CrewType,
   CrewTypeCreate,
   ManpowerForecast,
-  ForecastFilters
+  ForecastFilters,
 } from './types';
 import { API_BASE_URL, STORAGE_KEYS } from './config';
 
@@ -55,44 +49,6 @@ export const projectsApi = {
   delete: (id: number) => 
     api.delete(`/api/projects/${id}`),
   
-  getSchedule: (id: number) => 
-    api.get<ProjectSchedule>(`/api/projects/${id}/schedule`),
-  
-  createSchedule: (id: number, data: ProjectScheduleCreate) => 
-    api.post<ProjectSchedule>(`/api/projects/${id}/schedule`, data),
-  
-  deleteSchedule: (id: number) => 
-    api.delete(`/api/projects/${id}/schedule`),
-};
-
-// ============================================
-// Schedules
-// ============================================
-
-export const schedulesApi = {
-  update: (id: number, data: ProjectScheduleUpdate) => 
-    api.put<ProjectSchedule>(`/api/schedules/${id}`, data),
-  
-  listPhases: (scheduleId: number) => 
-    api.get<SchedulePhase[]>(`/api/schedules/${scheduleId}/phases`),
-  
-  createPhase: (scheduleId: number, data: SchedulePhaseCreate) => 
-    api.post<SchedulePhase>(`/api/schedules/${scheduleId}/phases`, data),
-};
-
-// ============================================
-// Phases
-// ============================================
-
-export const phasesApi = {
-  get: (id: number) => 
-    api.get<SchedulePhase>(`/api/phases/${id}`),
-  
-  update: (id: number, data: SchedulePhaseUpdate) => 
-    api.put<SchedulePhase>(`/api/phases/${id}`, data),
-  
-  delete: (id: number) => 
-    api.delete(`/api/phases/${id}`),
 };
 
 // ============================================
@@ -168,6 +124,11 @@ export const forecastsApi = {
 // ============================================
 // PDF Export
 // ============================================
+
+export const manpowerNeedsApi = {
+  exportPdf: () =>
+    api.get('/api/export/pdf/manpower-needs', { responseType: 'blob' })
+};
 
 export const exportApi = {
   pdf: (filters?: ForecastFilters) => {

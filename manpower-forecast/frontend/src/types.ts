@@ -95,12 +95,12 @@ export interface Project {
   is_vesda: boolean;
   is_aws: boolean;
   is_out_of_town: boolean;
+  manpower_allocated: boolean;
   sub_headcount: number;
   // BFPE labor headcounts
   bfpe_sprinkler_headcount: number;
   bfpe_vesda_headcount: number;
   bfpe_electrical_headcount: number;
-  total_scheduled_hours: number;
   subcontractors?: ProjectSubcontractorApi[];
   created_at: string;
   updated_at: string;
@@ -121,6 +121,7 @@ export interface ProjectCreate {
   is_vesda?: boolean;
   is_aws?: boolean;
   is_out_of_town?: boolean;
+  manpower_allocated?: boolean;
   sub_headcount?: number;
   bfpe_sprinkler_headcount?: number;
   bfpe_vesda_headcount?: number;
@@ -143,6 +144,7 @@ export interface ProjectUpdate {
   is_vesda?: boolean;
   is_aws?: boolean;
   is_out_of_town?: boolean;
+  manpower_allocated?: boolean;
   sub_headcount?: number;
   bfpe_sprinkler_headcount?: number;
   bfpe_vesda_headcount?: number;
@@ -151,81 +153,7 @@ export interface ProjectUpdate {
 }
 
 // ============================================
-// Schedule Phases
-// ============================================
-
-export interface SchedulePhase {
-  id: number;
-  schedule_id: number;
-  phase_name: string;
-  start_date: string;
-  end_date: string;
-  estimated_man_hours: number | null;
-  crew_size: number | null;
-  crew_type_id: number | null;
-  crew_type: CrewType | null;
-  notes: string | null;
-  sort_order: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface SchedulePhaseCreate {
-  phase_name: string;
-  start_date: string;
-  end_date: string;
-  estimated_man_hours?: number;
-  crew_size?: number;
-  crew_type_id?: number;
-  notes?: string;
-  sort_order?: number;
-}
-
-export interface SchedulePhaseUpdate {
-  phase_name?: string;
-  start_date?: string;
-  end_date?: string;
-  estimated_man_hours?: number;
-  crew_size?: number;
-  crew_type_id?: number;
-  notes?: string;
-  sort_order?: number;
-}
-
-// ============================================
-// Project Schedules
-// ============================================
-
-export interface ProjectSchedule {
-  id: number;
-  project_id: number;
-  schedule_name: string;
-  start_date: string;
-  end_date: string;
-  total_estimated_hours: number | null;
-  is_active: boolean;
-  phases: SchedulePhase[];
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ProjectScheduleCreate {
-  schedule_name?: string;
-  start_date: string;
-  end_date: string;
-  is_active?: boolean;
-  phases?: SchedulePhaseCreate[];
-}
-
-export interface ProjectScheduleUpdate {
-  schedule_name?: string;
-  start_date?: string;
-  end_date?: string;
-  is_active?: boolean;
-}
-
-// ============================================
-// Forecasts
+// Forecasts (used by CompanyForecast/Reports page)
 // ============================================
 
 export interface WeeklyForecast {

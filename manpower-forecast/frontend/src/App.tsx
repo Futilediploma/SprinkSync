@@ -1,10 +1,7 @@
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import ProjectsList from './pages/ProjectsList'
-import ScheduleEditor from './pages/ScheduleEditor'
-import ProjectForecast from './pages/ProjectForecast'
 import CompanyForecast from './pages/CompanyForecast'
-import CompanyGantt from './pages/CompanyGantt'
 import SubcontractorReports from './pages/SubcontractorReports'
 import Login from './pages/Login'
 
@@ -82,16 +79,7 @@ function App() {
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                     }`}
                 >
-                  Company Forecast
-                </Link>
-                <Link
-                  to="/gantt"
-                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${location.pathname === '/gantt'
-                    ? 'border-primary-500 text-gray-900'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                    }`}
-                >
-                  Gantt Chart
+                  Reports
                 </Link>
                 <Link
                   to="/subcontractor-reports"
@@ -125,10 +113,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<ProtectedRoute><ProjectsList /></ProtectedRoute>} />
-          <Route path="/projects/:id/schedule" element={<ProtectedRoute><ScheduleEditor /></ProtectedRoute>} />
-          <Route path="/projects/:id/forecast" element={<ProtectedRoute><ProjectForecast /></ProtectedRoute>} />
           <Route path="/forecasts" element={<ProtectedRoute><CompanyForecast /></ProtectedRoute>} />
-          <Route path="/gantt" element={<ProtectedRoute><CompanyGantt /></ProtectedRoute>} />
           <Route path="/subcontractor-reports" element={<ProtectedRoute><SubcontractorReports /></ProtectedRoute>} />
         </Routes>
       </main>

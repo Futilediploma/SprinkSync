@@ -67,6 +67,7 @@ class ProjectBase(BaseModel):
     is_vesda: bool = False
     is_aws: bool = False
     is_out_of_town: bool = False
+    manpower_allocated: bool = False
     sub_headcount: Optional[int] = None  # Number of subcontractor workers required on site
     # BFPE labor headcounts
     bfpe_sprinkler_headcount: int = 0
@@ -93,6 +94,7 @@ class ProjectUpdate(BaseModel):
     is_vesda: Optional[bool] = None
     is_aws: Optional[bool] = None
     is_out_of_town: Optional[bool] = None
+    manpower_allocated: Optional[bool] = None
     sub_headcount: Optional[int] = None
     bfpe_sprinkler_headcount: Optional[int] = None
     bfpe_vesda_headcount: Optional[int] = None

@@ -24,6 +24,7 @@ class Project(Base):
     is_vesda = Column(Boolean, default=False)
     is_aws = Column(Boolean, default=False)
     is_out_of_town = Column(Boolean, default=False)
+    manpower_allocated = Column(Boolean, default=False)  # True when manpower has been confirmed/covered
     sub_headcount = Column(Integer, default=0)  # Number of subcontractor workers required on site
     # BFPE labor headcounts
     bfpe_sprinkler_headcount = Column(Integer, default=0)
