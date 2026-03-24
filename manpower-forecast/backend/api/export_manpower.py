@@ -42,7 +42,7 @@ class ManpowerNeedsPDF:
             'end': 0.8 * inch,
             'men_required': 0.75 * inch,
             'status': 0.75 * inch,
-            'out_of_town': 0.65 * inch,
+            'out_of_town': 0.85 * inch,
         }
 
         self.row_height = 18
@@ -76,8 +76,7 @@ class ManpowerNeedsPDF:
         c.setFillColor(COLORS['text_secondary'])
         c.drawRightString(self.width - self.margin_right, y, f"Page {self.page_number} of {self.total_pages}")
         c.drawRightString(self.width - self.margin_right, y - 12, f"Run Date: {run_date}")
-        c.drawString(self.margin_left + logo_width, y - 15,
-                     "Projects requiring manpower assignment — active and prospective jobs only")
+        c.drawString(self.margin_left + logo_width, y - 15, self.subtitle)
 
         c.setStrokeColor(COLORS['grid_line'])
         c.setLineWidth(1)
@@ -188,7 +187,8 @@ class ManpowerNeedsPDF:
         c.setFillColor(COLORS['text_secondary'])
         c.drawCentredString(self.width / 2, y, "BFPE International — Unallocated Manpower Report")
 
-    def generate(self, projects: list):
+    def generate(self, projects: list, subtitle: str = "Projects requiring manpower assignment"):
+        self.subtitle = subtitle
         run_date = datetime.now().strftime('%B %d, %Y')
         logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
                                  'frontend', 'bfpe_logo.png')
@@ -226,6 +226,7 @@ class ManpowerNeedsPDF:
 @router.get("/pdf/manpower-needs")
 def export_manpower_needs_pdf(
     project_ids: str = None,
+    status_filter: str = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
@@ -241,8 +242,15 @@ def export_manpower_needs_pdf(
             query = query.filter(models.Project.id.in_(ids))
     projects = query.order_by(models.Project.status, models.Project.name).all()
 
+    if status_filter == 'active':
+        subtitle = "Projects requiring manpower assignment — active jobs only"
+    elif status_filter == 'prospective':
+        subtitle = "Projects requiring manpower assignment — prospective jobs only"
+    else:
+        subtitle = "Projects requiring manpower assignment — active and prospective jobs"
+
     pdf_generator = ManpowerNeedsPDF(page_size=letter)
-    pdf_buffer = pdf_generator.generate(projects=projects)
+    pdf_buffer = pdf_generator.generate(projects=projects, subtitle=subtitle)
 
     return Response(
         pdf_buffer.read(),
