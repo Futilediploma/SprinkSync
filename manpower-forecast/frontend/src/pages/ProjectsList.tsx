@@ -90,7 +90,7 @@ export default function ProjectsList() {
 
   const handleExportUnallocatedPdf = async () => {
     try {
-      const response = await manpowerNeedsApi.exportPdf()
+      const response = await manpowerNeedsApi.exportPdf(sortedProjects.map(p => p.id))
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
       const link = document.createElement('a')
       link.href = url
@@ -221,6 +221,8 @@ export default function ProjectsList() {
       // Needs Manpower tab: active/prospective with required_manpower > 0 and not yet allocated
       if (statusFilter === 'needs_manpower') {
         if (!(['active', 'prospective'].includes(p.status) && (p.required_manpower || 0) > 0 && !p.manpower_allocated)) return false
+        if (awsFilter === 'aws' && !p.is_aws) return false
+        if (awsFilter === 'standard' && p.is_aws) return false
         if (typeFilter === 'mechanical') return p.is_mechanical
         if (typeFilter === 'electrical') return p.is_electrical
         if (typeFilter === 'vesda') return p.is_vesda

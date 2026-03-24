@@ -126,8 +126,13 @@ export const forecastsApi = {
 // ============================================
 
 export const manpowerNeedsApi = {
-  exportPdf: () =>
-    api.get('/api/export/pdf/manpower-needs', { responseType: 'blob' })
+  exportPdf: (projectIds?: number[]) => {
+    const params: any = {};
+    if (projectIds && projectIds.length > 0) {
+      params.project_ids = projectIds.join(',');
+    }
+    return api.get('/api/export/pdf/manpower-needs', { params, responseType: 'blob' });
+  }
 };
 
 export const exportApi = {

@@ -225,15 +225,21 @@ class ManpowerNeedsPDF:
 
 @router.get("/pdf/manpower-needs")
 def export_manpower_needs_pdf(
+    project_ids: str = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
     """Export unallocated manpower report as a professional PDF."""
-    projects = db.query(models.Project).filter(
+    query = db.query(models.Project).filter(
         models.Project.status.in_(['active', 'prospective']),
         models.Project.required_manpower > 0,
         models.Project.manpower_allocated == False
-    ).order_by(models.Project.status, models.Project.name).all()
+    )
+    if project_ids:
+        ids = [int(i) for i in project_ids.split(',') if i.strip().isdigit()]
+        if ids:
+            query = query.filter(models.Project.id.in_(ids))
+    projects = query.order_by(models.Project.status, models.Project.name).all()
 
     pdf_generator = ManpowerNeedsPDF(page_size=letter)
     pdf_buffer = pdf_generator.generate(projects=projects)
