@@ -95,7 +95,11 @@ export default function ProjectsList() {
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
       const link = document.createElement('a')
       link.href = url
-      link.setAttribute('download', 'Unallocated_Manpower_Report.pdf')
+      const parts = ['Unallocated_Manpower']
+      if (manpowerStatusFilter !== 'all') parts.push(manpowerStatusFilter.charAt(0).toUpperCase() + manpowerStatusFilter.slice(1))
+      if (awsFilter !== 'all') parts.push(awsFilter.toUpperCase())
+      if (typeFilter !== 'all') parts.push(typeFilter.charAt(0).toUpperCase() + typeFilter.slice(1))
+      link.setAttribute('download', parts.join('_') + '.pdf')
       document.body.appendChild(link)
       link.click()
       link.remove()

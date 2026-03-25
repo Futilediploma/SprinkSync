@@ -101,9 +101,11 @@ export default function CompanyForecast() {
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
       const link = document.createElement('a')
       link.href = url
-      const filename = selectedSubcontractors.length > 0
-        ? `BFPE_Manpower_Forecast_(${selectedSubcontractors.join('_').replace(/ /g, '_')}).pdf`
-        : 'BFPE_Manpower_Forecast.pdf'
+      const parts = ['BFPE_Manpower_Forecast']
+      if (awsFilter !== 'all') parts.push(awsFilter.toUpperCase())
+      if (typeFilter !== 'all') parts.push(typeFilter.charAt(0).toUpperCase() + typeFilter.slice(1))
+      if (selectedSubcontractors.length > 0) parts.push(selectedSubcontractors.join('_').replace(/ /g, '_'))
+      const filename = parts.join('_') + '.pdf'
       link.setAttribute('download', filename)
       document.body.appendChild(link)
       link.click()
