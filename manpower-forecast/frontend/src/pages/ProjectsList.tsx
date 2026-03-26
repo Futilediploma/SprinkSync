@@ -93,25 +93,6 @@ export default function ProjectsList() {
     }
   }
 
-  const handleExportUnallocatedPdf = async () => {
-    try {
-      const response = await manpowerNeedsApi.exportPdf(sortedProjects.map(p => p.id), manpowerStatusFilter)
-      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
-      const link = document.createElement('a')
-      link.href = url
-      const parts = ['Unallocated_Manpower']
-      if (manpowerStatusFilter !== 'all') parts.push(manpowerStatusFilter.charAt(0).toUpperCase() + manpowerStatusFilter.slice(1))
-      if (awsFilter !== 'all') parts.push(awsFilter.toUpperCase())
-      if (typeFilter !== 'all') parts.push(typeFilter.charAt(0).toUpperCase() + typeFilter.slice(1))
-      link.setAttribute('download', parts.join('_') + '.pdf')
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-    } catch (error) {
-      console.error('Failed to export PDF:', error)
-      alert('Failed to export PDF')
-    }
-  }
 
   const buildFilename = (ext: string) => {
     const parts = ['Unallocated_Manpower']
