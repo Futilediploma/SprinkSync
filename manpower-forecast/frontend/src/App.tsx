@@ -3,6 +3,7 @@ import { useAuth } from './context/AuthContext'
 import ProjectsList from './pages/ProjectsList'
 import CompanyForecast from './pages/CompanyForecast'
 import SubcontractorReports from './pages/SubcontractorReports'
+import SharePointSync from './pages/SharePointSync'
 import Login from './pages/Login'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -90,6 +91,15 @@ function App() {
                 >
                   Sub Reports
                 </Link>
+                <Link
+                  to="/sharepoint-sync"
+                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${location.pathname === '/sharepoint-sync'
+                    ? 'border-primary-500 text-gray-900'
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                    }`}
+                >
+                  Import
+                </Link>
               </div>
             </div>
             {/* User info and logout */}
@@ -115,6 +125,7 @@ function App() {
           <Route path="/" element={<ProtectedRoute><ProjectsList /></ProtectedRoute>} />
           <Route path="/forecasts" element={<ProtectedRoute><CompanyForecast /></ProtectedRoute>} />
           <Route path="/subcontractor-reports" element={<ProtectedRoute><SubcontractorReports /></ProtectedRoute>} />
+          <Route path="/sharepoint-sync" element={<ProtectedRoute><SharePointSync /></ProtectedRoute>} />
         </Routes>
       </main>
     </div>

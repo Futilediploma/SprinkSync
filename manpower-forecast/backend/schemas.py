@@ -73,6 +73,15 @@ class ProjectBase(BaseModel):
     bfpe_sprinkler_headcount: int = 0
     bfpe_vesda_headcount: int = 0
     bfpe_electrical_headcount: int = 0
+    # SharePoint import fields
+    external_id: Optional[str] = None
+    source: str = "manual"
+    square_footage: Optional[Decimal] = None
+    estimated_value: Optional[Decimal] = None
+    probability: Optional[int] = None
+    bid_stage: Optional[str] = None
+    us_citizen_required: bool = False
+    last_synced_at: Optional[datetime] = None
 
 
 class ProjectCreate(ProjectBase):
@@ -277,3 +286,41 @@ class SubcontractorReport(BaseModel):
     subcontractor_name: str
     total_man_hours: Decimal
     projects: List[SubcontractorProjectInfo] = []
+
+
+# ============================================
+# SharePoint Sync Schemas
+# ============================================
+
+class SyncLogResponse(BaseModel):
+    id: int
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+    status: str
+    trigger: str
+    triggered_by: Optional[str] = None
+    projects_created: int
+    projects_updated: int
+    projects_skipped: int
+    rows_processed: int
+    error_message: Optional[str] = None
+    details: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class SyncStatusResponse(BaseModel):
+    configured: bool
+    enabled: bool
+    last_sync: Optional[SyncLogResponse] = None
+    next_sync_in_seconds: Optional[int] = None
+    rclone_remote: str
+    file_path: str
+    sync_interval_minutes: int
+    min_probability: int
+
+
+class SyncTriggerResponse(BaseModel):
+    message: str
+    sync_log_id: int

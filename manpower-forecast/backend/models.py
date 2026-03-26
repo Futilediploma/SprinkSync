@@ -32,7 +32,17 @@ class Project(Base):
     bfpe_electrical_headcount = Column(Integer, default=0)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-    
+
+    # SharePoint import fields
+    external_id = Column(String(50), unique=True, nullable=True, index=True)
+    source = Column(String(50), default="manual")
+    square_footage = Column(Numeric(10, 2), nullable=True)
+    estimated_value = Column(Numeric(15, 2), nullable=True)
+    probability = Column(Integer, nullable=True)
+    bid_stage = Column(String(100), nullable=True)
+    us_citizen_required = Column(Boolean, default=False)
+    last_synced_at = Column(DateTime, nullable=True)
+
     # Relationships
     schedules = relationship("ProjectSchedule", back_populates="project", cascade="all, delete-orphan")
     subcontractors = relationship("ProjectSubcontractor", back_populates="project", cascade="all, delete-orphan")
@@ -153,3 +163,21 @@ class ProjectSubcontractor(Base):
 
     # Relationships
     project = relationship("Project", back_populates="subcontractors")
+
+
+class SyncLog(Base):
+    """Sync log model for tracking SharePoint import history."""
+    __tablename__ = "sync_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    started_at = Column(DateTime, server_default=func.now())
+    completed_at = Column(DateTime, nullable=True)
+    status = Column(String(50))  # "success", "error", "running"
+    trigger = Column(String(50))  # "manual", "scheduled"
+    triggered_by = Column(String(255), nullable=True)
+    projects_created = Column(Integer, default=0)
+    projects_updated = Column(Integer, default=0)
+    projects_skipped = Column(Integer, default=0)
+    rows_processed = Column(Integer, default=0)
+    error_message = Column(Text, nullable=True)
+    details = Column(Text, nullable=True)

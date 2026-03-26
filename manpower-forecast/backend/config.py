@@ -18,7 +18,15 @@ class Settings(BaseSettings):
 
     # CORS
     frontend_url: str = "http://localhost:3000"
-    
+
+    # SharePoint / rclone sync
+    rclone_remote: str = "onedrive"
+    sharepoint_file_remote_path: str = ""
+    sharepoint_local_path: str = "./data/pipeline_tracker.xlsx"
+    sharepoint_sync_enabled: bool = False
+    sharepoint_sync_interval_minutes: int = 60
+    sharepoint_min_probability: int = 90
+
     @property
     def cors_origins(self) -> List[str]:
         """Get list of allowed CORS origins."""
