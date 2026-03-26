@@ -1,5 +1,5 @@
 """
-Unallocated Manpower Report PDF Export
+Unallocated Manpower Report PDF/DOCX/Excel Export
 Generates a report of projects with required manpower not yet allocated.
 """
 
@@ -256,4 +256,250 @@ def export_manpower_needs_pdf(
         pdf_buffer.read(),
         media_type="application/pdf",
         headers={"Content-Disposition": "attachment; filename=Unallocated_Manpower_Report.pdf"}
+    )
+
+
+def _get_manpower_projects(db: Session, project_ids: str = None):
+    query = db.query(models.Project).filter(
+        models.Project.status.in_(['active', 'prospective']),
+        models.Project.required_manpower > 0,
+        models.Project.manpower_allocated == False
+    )
+    if project_ids:
+        ids = [int(i) for i in project_ids.split(',') if i.strip().isdigit()]
+        if ids:
+            query = query.filter(models.Project.id.in_(ids))
+    return query.order_by(models.Project.status, models.Project.name).all()
+
+
+@router.get("/docx/manpower-needs")
+def export_manpower_needs_docx(
+    project_ids: str = None,
+    status_filter: str = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Export unallocated manpower report as a Word document."""
+    from docx import Document
+    from docx.shared import Inches, Pt, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.enum.table import WD_ALIGN_VERTICAL
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
+
+    projects = _get_manpower_projects(db, project_ids)
+
+    if status_filter == 'active':
+        subtitle = "Projects requiring manpower assignment — active jobs only"
+    elif status_filter == 'prospective':
+        subtitle = "Projects requiring manpower assignment — prospective jobs only"
+    else:
+        subtitle = "Projects requiring manpower assignment — active and prospective jobs"
+
+    doc = Document()
+
+    # Page margins
+    for section in doc.sections:
+        section.top_margin = Inches(0.6)
+        section.bottom_margin = Inches(0.6)
+        section.left_margin = Inches(0.5)
+        section.right_margin = Inches(0.5)
+
+    # Title
+    title_para = doc.add_paragraph()
+    title_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    run = title_para.add_run("Unallocated Manpower Report")
+    run.bold = True
+    run.font.size = Pt(16)
+    run.font.color.rgb = RGBColor(0x1e, 0x3a, 0x5f)
+
+    # Subtitle
+    sub_para = doc.add_paragraph()
+    sub_run = sub_para.add_run(subtitle)
+    sub_run.font.size = Pt(9)
+    sub_run.font.color.rgb = RGBColor(0x6b, 0x72, 0x80)
+
+    # Run date
+    date_para = doc.add_paragraph()
+    date_run = date_para.add_run(f"Run Date: {datetime.now().strftime('%B %d, %Y')}")
+    date_run.font.size = Pt(9)
+    date_run.font.color.rgb = RGBColor(0x6b, 0x72, 0x80)
+
+    doc.add_paragraph()
+
+    # Table
+    headers = ['Project Name', 'Project #', 'Customer', 'Start', 'End', 'Men Req.', 'Status', 'Out of Town']
+    table = doc.add_table(rows=1, cols=len(headers))
+    table.style = 'Table Grid'
+
+    # Header row
+    hdr_cells = table.rows[0].cells
+    for i, h in enumerate(headers):
+        hdr_cells[i].text = h
+        hdr_cells[i].paragraphs[0].runs[0].bold = True
+        hdr_cells[i].paragraphs[0].runs[0].font.size = Pt(9)
+        hdr_cells[i].paragraphs[0].runs[0].font.color.rgb = RGBColor(0xff, 0xff, 0xff)
+        tc = hdr_cells[i]._tc
+        tcPr = tc.get_or_add_tcPr()
+        shd = OxmlElement('w:shd')
+        shd.set(qn('w:val'), 'clear')
+        shd.set(qn('w:color'), 'auto')
+        shd.set(qn('w:fill'), '1e3a5f')
+        tcPr.append(shd)
+
+    # Data rows
+    total_men = 0
+    for i, project in enumerate(projects):
+        row_cells = table.add_row().cells
+        total_men += project.required_manpower or 0
+        values = [
+            project.name or '',
+            project.project_number or '—',
+            project.customer_name or '—',
+            project.start_date.strftime('%d-%b-%y') if project.start_date else '—',
+            project.end_date.strftime('%d-%b-%y') if project.end_date else '—',
+            str(project.required_manpower or 0),
+            project.status.capitalize(),
+            'Yes' if project.is_out_of_town else '',
+        ]
+        fill = 'f0f4f8' if i % 2 == 0 else 'ffffff'
+        for j, val in enumerate(values):
+            row_cells[j].text = val
+            row_cells[j].paragraphs[0].runs[0].font.size = Pt(9)
+            tc = row_cells[j]._tc
+            tcPr = tc.get_or_add_tcPr()
+            shd = OxmlElement('w:shd')
+            shd.set(qn('w:val'), 'clear')
+            shd.set(qn('w:color'), 'auto')
+            shd.set(qn('w:fill'), fill)
+            tcPr.append(shd)
+
+    # Summary row
+    summary_row = table.add_row().cells
+    summary_row[0].merge(summary_row[-1])
+    summary_row[0].text = f"TOTAL — {total_men} men required across {len(projects)} projects"
+    summary_row[0].paragraphs[0].runs[0].bold = True
+    summary_row[0].paragraphs[0].runs[0].font.size = Pt(10)
+    summary_row[0].paragraphs[0].runs[0].font.color.rgb = RGBColor(0xff, 0xff, 0xff)
+    tc = summary_row[0]._tc
+    tcPr = tc.get_or_add_tcPr()
+    shd = OxmlElement('w:shd')
+    shd.set(qn('w:val'), 'clear')
+    shd.set(qn('w:color'), 'auto')
+    shd.set(qn('w:fill'), '1e3a5f')
+    tcPr.append(shd)
+
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+
+    return Response(
+        buffer.read(),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": "attachment; filename=Unallocated_Manpower_Report.docx"}
+    )
+
+
+@router.get("/excel/manpower-needs")
+def export_manpower_needs_excel(
+    project_ids: str = None,
+    status_filter: str = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Export unallocated manpower report as an Excel spreadsheet."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    projects = _get_manpower_projects(db, project_ids)
+
+    if status_filter == 'active':
+        subtitle = "Active jobs only"
+    elif status_filter == 'prospective':
+        subtitle = "Prospective jobs only"
+    else:
+        subtitle = "Active and prospective jobs"
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Unallocated Manpower"
+
+    # Title rows
+    ws.merge_cells('A1:H1')
+    ws['A1'] = "Unallocated Manpower Report"
+    ws['A1'].font = Font(bold=True, size=14, color='1e3a5f')
+
+    ws.merge_cells('A2:H2')
+    ws['A2'] = f"Projects requiring manpower assignment — {subtitle}"
+    ws['A2'].font = Font(size=9, color='6b7280')
+
+    ws.merge_cells('A3:H3')
+    ws['A3'] = f"Run Date: {datetime.now().strftime('%B %d, %Y')}"
+    ws['A3'].font = Font(size=9, color='6b7280')
+
+    # Header row
+    headers = ['Project Name', 'Project #', 'Customer', 'Start Date', 'End Date', 'Men Required', 'Status', 'Out of Town']
+    header_fill = PatternFill(start_color='1e3a5f', end_color='1e3a5f', fill_type='solid')
+    header_font = Font(bold=True, color='FFFFFF', size=10)
+    thin = Side(style='thin', color='d1d5db')
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=5, column=col, value=h)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = border
+
+    ws.row_dimensions[5].height = 20
+
+    # Data rows
+    alt_fill = PatternFill(start_color='f0f4f8', end_color='f0f4f8', fill_type='solid')
+    total_men = 0
+
+    for i, project in enumerate(projects):
+        row = 6 + i
+        total_men += project.required_manpower or 0
+        values = [
+            project.name,
+            project.project_number or '',
+            project.customer_name or '',
+            project.start_date.strftime('%d-%b-%y') if project.start_date else '',
+            project.end_date.strftime('%d-%b-%y') if project.end_date else '',
+            project.required_manpower or 0,
+            project.status.capitalize(),
+            'Yes' if project.is_out_of_town else '',
+        ]
+        fill = alt_fill if i % 2 == 0 else None
+        for col, val in enumerate(values, 1):
+            cell = ws.cell(row=row, column=col, value=val)
+            cell.font = Font(size=9)
+            cell.border = border
+            cell.alignment = Alignment(vertical='center')
+            if fill:
+                cell.fill = fill
+
+    # Summary row
+    summary_row = 6 + len(projects)
+    ws.merge_cells(f'A{summary_row}:H{summary_row}')
+    ws[f'A{summary_row}'] = f"TOTAL — {total_men} men required across {len(projects)} projects"
+    ws[f'A{summary_row}'].font = Font(bold=True, color='FFFFFF', size=10)
+    ws[f'A{summary_row}'].fill = PatternFill(start_color='1e3a5f', end_color='1e3a5f', fill_type='solid')
+    ws[f'A{summary_row}'].alignment = Alignment(vertical='center')
+    ws.row_dimensions[summary_row].height = 20
+
+    # Column widths
+    col_widths = [35, 12, 22, 12, 12, 14, 12, 12]
+    for i, w in enumerate(col_widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    return Response(
+        buffer.read(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=Unallocated_Manpower_Report.xlsx"}
     )

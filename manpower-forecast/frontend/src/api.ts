@@ -10,6 +10,8 @@ import type {
   CrewTypeCreate,
   ManpowerForecast,
   ForecastFilters,
+  SyncLog,
+  SyncStatus,
 } from './types';
 import { API_BASE_URL, STORAGE_KEYS } from './config';
 
@@ -128,14 +130,22 @@ export const forecastsApi = {
 export const manpowerNeedsApi = {
   exportPdf: (projectIds?: number[], statusFilter?: string) => {
     const params: any = {};
-    if (projectIds && projectIds.length > 0) {
-      params.project_ids = projectIds.join(',');
-    }
-    if (statusFilter && statusFilter !== 'all') {
-      params.status_filter = statusFilter;
-    }
+    if (projectIds && projectIds.length > 0) params.project_ids = projectIds.join(',');
+    if (statusFilter && statusFilter !== 'all') params.status_filter = statusFilter;
     return api.get('/api/export/pdf/manpower-needs', { params, responseType: 'blob' });
-  }
+  },
+  exportDocx: (projectIds?: number[], statusFilter?: string) => {
+    const params: any = {};
+    if (projectIds && projectIds.length > 0) params.project_ids = projectIds.join(',');
+    if (statusFilter && statusFilter !== 'all') params.status_filter = statusFilter;
+    return api.get('/api/export/docx/manpower-needs', { params, responseType: 'blob' });
+  },
+  exportExcel: (projectIds?: number[], statusFilter?: string) => {
+    const params: any = {};
+    if (projectIds && projectIds.length > 0) params.project_ids = projectIds.join(',');
+    if (statusFilter && statusFilter !== 'all') params.status_filter = statusFilter;
+    return api.get('/api/export/excel/manpower-needs', { params, responseType: 'blob' });
+  },
 };
 
 export const exportApi = {
@@ -201,6 +211,16 @@ export const subcontractorReportsApi = {
       responseType: 'blob'
     });
   }
+};
+
+// ============================================
+// SharePoint Sync
+// ============================================
+
+export const sharepointSyncApi = {
+  getStatus: () => api.get<SyncStatus>('/api/sharepoint-sync/status'),
+  triggerSync: () => api.post<{ message: string; sync_log_id: number }>('/api/sharepoint-sync/trigger'),
+  getLogs: () => api.get<SyncLog[]>('/api/sharepoint-sync/logs'),
 };
 
 export default api;

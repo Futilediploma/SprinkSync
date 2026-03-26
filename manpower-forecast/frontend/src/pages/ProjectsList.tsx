@@ -14,6 +14,10 @@ export default function ProjectsList() {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
 
+  // Export Modal State
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [exporting, setExporting] = useState<'pdf' | 'docx' | 'excel' | null>(null)
+
   // Delete Modal State
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
@@ -106,6 +110,52 @@ export default function ProjectsList() {
     } catch (error) {
       console.error('Failed to export PDF:', error)
       alert('Failed to export PDF')
+    }
+  }
+
+  const buildFilename = (ext: string) => {
+    const parts = ['Unallocated_Manpower']
+    if (manpowerStatusFilter !== 'all') parts.push(manpowerStatusFilter.charAt(0).toUpperCase() + manpowerStatusFilter.slice(1))
+    if (awsFilter !== 'all') parts.push(awsFilter.toUpperCase())
+    if (typeFilter !== 'all') parts.push(typeFilter.charAt(0).toUpperCase() + typeFilter.slice(1))
+    return parts.join('_') + '.' + ext
+  }
+
+  const handleExport = async (format: 'pdf' | 'docx' | 'excel') => {
+    setExporting(format)
+    try {
+      const ids = sortedProjects.map(p => p.id)
+      let response: any
+      let mimeType: string
+      let ext: string
+
+      if (format === 'pdf') {
+        response = await manpowerNeedsApi.exportPdf(ids, manpowerStatusFilter)
+        mimeType = 'application/pdf'
+        ext = 'pdf'
+      } else if (format === 'docx') {
+        response = await manpowerNeedsApi.exportDocx(ids, manpowerStatusFilter)
+        mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ext = 'docx'
+      } else {
+        response = await manpowerNeedsApi.exportExcel(ids, manpowerStatusFilter)
+        mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        ext = 'xlsx'
+      }
+
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: mimeType }))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', buildFilename(ext))
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      setShowExportModal(false)
+    } catch (error) {
+      console.error(`Failed to export ${format}:`, error)
+      alert(`Failed to export ${format.toUpperCase()}`)
+    } finally {
+      setExporting(null)
     }
   }
 
@@ -624,6 +674,60 @@ export default function ProjectsList() {
         </div>
       )}
 
+      {/* Export Format Modal */}
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Export Report</h3>
+            <p className="text-sm text-gray-500 mb-5">Choose a format to download the Unallocated Manpower Report</p>
+            <div className="space-y-3">
+              <button
+                onClick={() => handleExport('pdf')}
+                disabled={exporting !== null}
+                className="w-full flex items-center gap-3 px-4 py-3 border border-gray-200 rounded-lg hover:bg-red-50 hover:border-red-300 transition-colors disabled:opacity-50"
+              >
+                <span className="text-2xl">📄</span>
+                <div className="text-left">
+                  <div className="font-medium text-gray-900">PDF</div>
+                  <div className="text-xs text-gray-500">Professional formatted report</div>
+                </div>
+                {exporting === 'pdf' && <span className="ml-auto text-sm text-gray-400">Downloading...</span>}
+              </button>
+              <button
+                onClick={() => handleExport('docx')}
+                disabled={exporting !== null}
+                className="w-full flex items-center gap-3 px-4 py-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors disabled:opacity-50"
+              >
+                <span className="text-2xl">📝</span>
+                <div className="text-left">
+                  <div className="font-medium text-gray-900">Word Document (.docx)</div>
+                  <div className="text-xs text-gray-500">Editable Word format</div>
+                </div>
+                {exporting === 'docx' && <span className="ml-auto text-sm text-gray-400">Downloading...</span>}
+              </button>
+              <button
+                onClick={() => handleExport('excel')}
+                disabled={exporting !== null}
+                className="w-full flex items-center gap-3 px-4 py-3 border border-gray-200 rounded-lg hover:bg-green-50 hover:border-green-300 transition-colors disabled:opacity-50"
+              >
+                <span className="text-2xl">📊</span>
+                <div className="text-left">
+                  <div className="font-medium text-gray-900">Excel Spreadsheet (.xlsx)</div>
+                  <div className="text-xs text-gray-500">Sortable spreadsheet format</div>
+                </div>
+                {exporting === 'excel' && <span className="ml-auto text-sm text-gray-400">Downloading...</span>}
+              </button>
+            </div>
+            <button
+              onClick={() => setShowExportModal(false)}
+              className="mt-4 w-full text-sm text-gray-500 hover:text-gray-700 py-2"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {showDeleteModal && projectToDelete && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -672,8 +776,8 @@ export default function ProjectsList() {
             </div>
           </div>
           {sortedProjects.length > 0 && (
-            <button onClick={handleExportUnallocatedPdf} className="btn btn-secondary">
-              Export PDF Report
+            <button onClick={() => setShowExportModal(true)} className="btn btn-secondary">
+              Export Report
             </button>
           )}
         </div>
@@ -720,7 +824,16 @@ export default function ProjectsList() {
             <tbody>
               {sortedProjects.map((project) => (
                 <tr key={project.id}>
-                  <td className="font-medium text-gray-900">{project.name}</td>
+                  <td className="font-medium text-gray-900">
+                    <span className="inline-flex items-center gap-1.5">
+                      {project.name}
+                      {project.source === 'sharepoint' && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 leading-none">
+                          SP
+                        </span>
+                      )}
+                    </span>
+                  </td>
                   <td className="text-gray-600">{project.customer_name || '—'}</td>
                   <td className="text-gray-600">{project.project_number || '—'}</td>
                   <td className="text-right font-medium">
