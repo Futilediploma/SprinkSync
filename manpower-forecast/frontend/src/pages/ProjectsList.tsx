@@ -229,6 +229,7 @@ export default function ProjectsList() {
       bfpe_electrical_headcount: 0,
       foreman: '',
       po_number: '',
+      manpower_allocated: false,
       subcontractors: [],
     })
     setEditingId(null)
