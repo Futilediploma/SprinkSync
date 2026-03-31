@@ -517,6 +517,46 @@ class GanttChartPDF:
 
         return y_pos - self.row_height
 
+    def draw_detail_row(self, y_pos: float, activity: dict, row_index: int):
+        """Draw a subtle sub-row showing foreman, PO number, and budgeted hours."""
+        c = self.canvas
+        detail_height = 13
+
+        is_prospective = activity.get('project_status') == 'prospective'
+        if is_prospective:
+            bg_color = HexColor('#fef3cd')
+        else:
+            bg_color = HexColor('#f0f4f8') if row_index % 2 == 0 else HexColor('#f8fafc')
+
+        c.setFillColor(bg_color)
+        c.rect(self.margin_left, y_pos - detail_height,
+               self.width - self.margin_left - self.margin_right,
+               detail_height, fill=1, stroke=0)
+
+        c.setStrokeColor(COLORS['grid_line'])
+        c.setLineWidth(0.3)
+        c.line(self.margin_left, y_pos - detail_height,
+               self.width - self.margin_right, y_pos - detail_height)
+
+        c.setFont("Helvetica-Oblique", 7)
+        c.setFillColor(COLORS['text_secondary'])
+
+        parts = []
+        foreman = activity.get('foreman')
+        po_number = activity.get('po_number')
+        budgeted_hours = activity.get('budgeted_hours')
+        if foreman:
+            parts.append(f"Foreman: {foreman}")
+        if po_number:
+            parts.append(f"PO #: {po_number}")
+        if budgeted_hours:
+            parts.append(f"Budgeted: {int(float(budgeted_hours))} hrs")
+
+        text = "    " + "     |     ".join(parts) if parts else "    No additional details"
+        c.drawString(self.margin_left + 8, y_pos - detail_height + 3, text)
+
+        return y_pos - detail_height
+
     def draw_gantt_bar(self, y_pos: float, start_date: date, end_date: date,
                        min_date: date, max_date: date, bar_type: str,
                        percent_complete: float = 0, is_summary: bool = False):
@@ -765,6 +805,9 @@ class GanttChartPDF:
                     'is_electrical': getattr(project, 'is_electrical', False) or False,
                     'is_vesda': getattr(project, 'is_vesda', False) or False,
                     'is_out_of_town': getattr(project, 'is_out_of_town', False) or False,
+                    'foreman': getattr(project, 'foreman', None),
+                    'po_number': getattr(project, 'po_number', None),
+                    'budgeted_hours': getattr(project, 'budgeted_hours', None),
                 })
                 all_dates.extend([project_start, project_end])
 
@@ -779,7 +822,10 @@ class GanttChartPDF:
         max_date = max_date + date_buffer
 
         usable_height = self.height - self.margin_top - self.margin_bottom - 95
-        rows_per_page = int(usable_height / self.row_height)
+        # Each activity may have a detail sub-row (13px) below it
+        activities_with_details = sum(1 for a in activities if any([a.get('foreman'), a.get('po_number'), a.get('budgeted_hours')]))
+        avg_row_height = self.row_height + (13 * activities_with_details / max(len(activities), 1))
+        rows_per_page = max(1, int(usable_height / avg_row_height))
         self.total_pages = max(1, math.ceil(len(activities) / rows_per_page))
 
         run_date = datetime.now().strftime('%d-%b-%y %H:%M')
@@ -806,11 +852,14 @@ class GanttChartPDF:
             row_count = 0
             while activity_index < len(activities) and row_count < rows_per_page:
                 activity = activities[activity_index]
+                has_details = any([activity.get('foreman'), activity.get('po_number'), activity.get('budgeted_hours')])
                 y_pos = self.draw_activity_row(
                     y_pos, activity, row_count,
                     min_date, max_date,
                     activity.get('is_summary', False)
                 )
+                if has_details:
+                    y_pos = self.draw_detail_row(y_pos, activity, row_count)
                 activity_index += 1
                 row_count += 1
 

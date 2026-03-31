@@ -104,6 +104,9 @@ export interface Project {
   subcontractors?: ProjectSubcontractorApi[];
   created_at: string;
   updated_at: string;
+  // Tracking fields
+  foreman: string | null;
+  po_number: string | null;
   // SharePoint import fields
   external_id: string | null;
   source: string;

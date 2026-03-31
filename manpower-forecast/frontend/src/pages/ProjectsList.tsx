@@ -17,6 +17,7 @@ export default function ProjectsList() {
   // Export Modal State
   const [showExportModal, setShowExportModal] = useState(false)
   const [exporting, setExporting] = useState<'pdf' | 'docx' | 'excel' | null>(null)
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
 
   // Delete Modal State
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -43,6 +44,8 @@ export default function ProjectsList() {
     bfpe_sprinkler_headcount: number;
     bfpe_vesda_headcount: number;
     bfpe_electrical_headcount: number;
+    foreman: string;
+    po_number: string;
     subcontractors: ProjectSubcontractor[];
   }>({
     name: '',
@@ -62,6 +65,8 @@ export default function ProjectsList() {
     bfpe_sprinkler_headcount: 0,
     bfpe_vesda_headcount: 0,
     bfpe_electrical_headcount: 0,
+    foreman: '',
+    po_number: '',
     subcontractors: [],
   })
 
@@ -193,6 +198,8 @@ export default function ProjectsList() {
       bfpe_sprinkler_headcount: project.bfpe_sprinkler_headcount || 0,
       bfpe_vesda_headcount: project.bfpe_vesda_headcount || 0,
       bfpe_electrical_headcount: project.bfpe_electrical_headcount || 0,
+      foreman: project.foreman || '',
+      po_number: project.po_number || '',
       subcontractors: project.subcontractors ? apiSubsToUiSubs(project.subcontractors) : [],
     })
     setShowCreateForm(true)
@@ -217,6 +224,8 @@ export default function ProjectsList() {
       bfpe_sprinkler_headcount: 0,
       bfpe_vesda_headcount: 0,
       bfpe_electrical_headcount: 0,
+      foreman: '',
+      po_number: '',
       subcontractors: [],
     })
     setEditingId(null)
@@ -627,6 +636,30 @@ export default function ProjectsList() {
                 })}
               </div>
 
+              {/* Foreman / PO Number */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">Foreman</label>
+                  <input
+                    type="text"
+                    value={newProject.foreman}
+                    onChange={(e) => setNewProject({ ...newProject, foreman: e.target.value })}
+                    className="input py-1 text-sm"
+                    placeholder="Assigned foreman..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">PO Number</label>
+                  <input
+                    type="text"
+                    value={newProject.po_number}
+                    onChange={(e) => setNewProject({ ...newProject, po_number: e.target.value })}
+                    className="input py-1 text-sm"
+                    placeholder="PO #..."
+                  />
+                </div>
+              </div>
+
               {/* Notes */}
               <div>
                 <label className="block text-xs font-medium text-gray-700">Notes</label>
@@ -804,9 +837,11 @@ export default function ProjectsList() {
             </thead>
             <tbody>
               {sortedProjects.map((project) => (
-                <tr key={project.id}>
+                <>
+                <tr key={project.id} className="cursor-pointer hover:bg-gray-50" onClick={() => setExpandedRows(prev => { const s = new Set(prev); s.has(project.id) ? s.delete(project.id) : s.add(project.id); return s; })}>
                   <td className="font-medium text-gray-900">
                     <span className="inline-flex items-center gap-1.5">
+                      <span className="text-gray-400 text-xs">{expandedRows.has(project.id) ? '▼' : '▶'}</span>
                       {project.name}
                       {project.source === 'sharepoint' && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 leading-none">
@@ -873,7 +908,7 @@ export default function ProjectsList() {
                     </td>
                   )}
                   <td>
-                    <div className="flex space-x-2">
+                    <div className="flex space-x-2" onClick={e => e.stopPropagation()}>
                       <button
                         onClick={() => handleEditClick(project)}
                         className="text-blue-600 hover:text-blue-800 text-sm font-medium"
@@ -889,6 +924,27 @@ export default function ProjectsList() {
                     </div>
                   </td>
                 </tr>
+                {expandedRows.has(project.id) && (
+                  <tr key={`${project.id}-detail`} className="bg-blue-50 border-t border-blue-100">
+                    <td colSpan={99} className="px-6 py-3">
+                      <div className="flex gap-8 text-sm">
+                        <div>
+                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Foreman</span>
+                          <p className="text-gray-900 font-medium">{project.foreman || <span className="text-gray-400 italic">Not assigned</span>}</p>
+                        </div>
+                        <div>
+                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">PO Number</span>
+                          <p className="text-gray-900 font-medium">{project.po_number || <span className="text-gray-400 italic">None</span>}</p>
+                        </div>
+                        <div>
+                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Budgeted Hours</span>
+                          <p className="text-gray-900 font-medium">{project.budgeted_hours ? `${project.budgeted_hours} hrs` : <span className="text-gray-400 italic">Not set</span>}</p>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </>
               ))}
             </tbody>
           </table>

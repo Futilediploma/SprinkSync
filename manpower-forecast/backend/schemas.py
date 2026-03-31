@@ -73,6 +73,9 @@ class ProjectBase(BaseModel):
     bfpe_sprinkler_headcount: int = 0
     bfpe_vesda_headcount: int = 0
     bfpe_electrical_headcount: int = 0
+    # Tracking fields
+    foreman: Optional[str] = None
+    po_number: Optional[str] = None
     # SharePoint import fields
     external_id: Optional[str] = None
     source: str = "manual"
@@ -108,6 +111,8 @@ class ProjectUpdate(BaseModel):
     bfpe_sprinkler_headcount: Optional[int] = None
     bfpe_vesda_headcount: Optional[int] = None
     bfpe_electrical_headcount: Optional[int] = None
+    foreman: Optional[str] = None
+    po_number: Optional[str] = None
     subcontractors: Optional[List[ProjectSubcontractorCreate]] = None
 
 
