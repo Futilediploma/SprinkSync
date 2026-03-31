@@ -46,6 +46,7 @@ export default function ProjectsList() {
     bfpe_electrical_headcount: number;
     foreman: string;
     po_number: string;
+    manpower_allocated: boolean;
     subcontractors: ProjectSubcontractor[];
   }>({
     name: '',
@@ -67,6 +68,7 @@ export default function ProjectsList() {
     bfpe_electrical_headcount: 0,
     foreman: '',
     po_number: '',
+    manpower_allocated: false,
     subcontractors: [],
   })
 
@@ -200,6 +202,7 @@ export default function ProjectsList() {
       bfpe_electrical_headcount: project.bfpe_electrical_headcount || 0,
       foreman: project.foreman || '',
       po_number: project.po_number || '',
+      manpower_allocated: project.manpower_allocated || false,
       subcontractors: project.subcontractors ? apiSubsToUiSubs(project.subcontractors) : [],
     })
     setShowCreateForm(true)
@@ -514,6 +517,10 @@ export default function ProjectsList() {
                 <label className="flex items-center gap-1">
                   <input type="checkbox" checked={newProject.is_out_of_town} onChange={e => setNewProject({ ...newProject, is_out_of_town: e.target.checked })} className="rounded text-purple-600" />
                   <span className="text-purple-700 font-medium">Out of Town</span>
+                </label>
+                <label className="flex items-center gap-1">
+                  <input type="checkbox" checked={newProject.manpower_allocated} onChange={e => setNewProject({ ...newProject, manpower_allocated: e.target.checked })} className="rounded text-green-600" />
+                  <span className="text-green-700 font-medium">Manpower Allocated</span>
                 </label>
               </div>
 
