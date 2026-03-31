@@ -821,12 +821,12 @@ class GanttChartPDF:
         min_date = min_date - date_buffer
         max_date = max_date + date_buffer
 
-        usable_height = self.height - self.margin_top - self.margin_bottom - 95
+        usable_height = self.height - self.margin_top - self.margin_bottom - 115
         # Each activity may have a detail sub-row (13px) below it
         activities_with_details = sum(1 for a in activities if any([a.get('foreman'), a.get('po_number'), a.get('budgeted_hours')]))
-        avg_row_height = self.row_height + (13 * activities_with_details / max(len(activities), 1))
-        rows_per_page = max(1, int(usable_height / avg_row_height))
-        self.total_pages = max(1, math.ceil(len(activities) / rows_per_page))
+        total_height_needed = (len(activities) * self.row_height) + (activities_with_details * 13)
+        rows_per_page = max(1, int(usable_height / self.row_height))
+        self.total_pages = max(1, math.ceil(total_height_needed / usable_height))
 
         run_date = datetime.now().strftime('%d-%b-%y %H:%M')
 
@@ -849,16 +849,20 @@ class GanttChartPDF:
             actual_rows = min(remaining, rows_per_page)
             self.draw_gantt_grid(y_pos, min_date, max_date, actual_rows)
 
+            min_y = self.margin_bottom + 55  # Reserve space for legend + footer
             row_count = 0
-            while activity_index < len(activities) and row_count < rows_per_page:
+            while activity_index < len(activities):
                 activity = activities[activity_index]
                 has_details = any([activity.get('foreman'), activity.get('po_number'), activity.get('budgeted_hours')])
+                needed = self.row_height + (13 if has_details else 0)
+                if y_pos - needed < min_y:
+                    break
                 y_pos = self.draw_activity_row(
                     y_pos, activity, row_count,
                     min_date, max_date,
                     activity.get('is_summary', False)
                 )
-                if has_details:
+                if has_details and y_pos - 13 >= min_y:
                     y_pos = self.draw_detail_row(y_pos, activity, row_count)
                 activity_index += 1
                 row_count += 1
