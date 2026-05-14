@@ -14,7 +14,7 @@ from constants import TOKEN_EXPIRE_MINUTES, UserRole
 import models
 
 # Configuration
-SECRET_KEY = settings.secret_key
+SECRET_KEY = settings.auth_secret_key
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = TOKEN_EXPIRE_MINUTES
 

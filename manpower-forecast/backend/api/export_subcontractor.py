@@ -10,6 +10,7 @@ from typing import Optional
 import io
 from database import get_db
 from api.auth import get_current_active_user
+from config import settings
 import crud
 import models
 
@@ -214,7 +215,7 @@ class SubcontractorReportPDF:
 
         c.setFont("Helvetica", 8)
         c.setFillColor(COLORS['text_secondary'])
-        c.drawCentredString(self.width / 2, y, "BFPE International - Subcontractor Labor Report")
+        c.drawCentredString(self.width / 2, y, f"{settings.export_company_name} - Subcontractor Labor Report")
 
     def generate(self, subcontractor_name: str, projects_data: list, total_hours: float,
                  start_date: date = None, end_date: date = None):

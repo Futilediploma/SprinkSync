@@ -9,6 +9,7 @@ from datetime import datetime
 import io
 from database import get_db
 from api.auth import get_current_active_user
+from config import settings
 import models
 
 from reportlab.lib.pagesizes import letter
@@ -185,7 +186,7 @@ class ManpowerNeedsPDF:
         c.line(self.margin_left, y + 15, self.width - self.margin_right, y + 15)
         c.setFont("Helvetica", 8)
         c.setFillColor(COLORS['text_secondary'])
-        c.drawCentredString(self.width / 2, y, "BFPE International — Unallocated Manpower Report")
+        c.drawCentredString(self.width / 2, y, f"{settings.export_company_name} - Unallocated Manpower Report")
 
     def generate(self, projects: list, subtitle: str = "Projects requiring manpower assignment"):
         self.subtitle = subtitle

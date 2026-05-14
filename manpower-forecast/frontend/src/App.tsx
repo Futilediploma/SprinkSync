@@ -4,7 +4,9 @@ import ProjectsList from './pages/ProjectsList'
 import CompanyForecast from './pages/CompanyForecast'
 import SubcontractorReports from './pages/SubcontractorReports'
 import SharePointSync from './pages/SharePointSync'
+import ManpowerRequests from './pages/ManpowerRequests'
 import Login from './pages/Login'
+import { APP_BRAND } from './config'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth()
@@ -60,7 +62,7 @@ function App() {
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
                 <h1 className="text-xl font-bold text-primary-600">
-                  Manpower Forecast
+                  {APP_BRAND}
                 </h1>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
@@ -90,6 +92,15 @@ function App() {
                     }`}
                 >
                   Sub Reports
+                </Link>
+                <Link
+                  to="/manpower"
+                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${location.pathname === '/manpower'
+                    ? 'border-primary-500 text-gray-900'
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                    }`}
+                >
+                  Manpower
                 </Link>
                 <Link
                   to="/sharepoint-sync"
@@ -125,6 +136,7 @@ function App() {
           <Route path="/" element={<ProtectedRoute><ProjectsList /></ProtectedRoute>} />
           <Route path="/forecasts" element={<ProtectedRoute><CompanyForecast /></ProtectedRoute>} />
           <Route path="/subcontractor-reports" element={<ProtectedRoute><SubcontractorReports /></ProtectedRoute>} />
+          <Route path="/manpower" element={<ProtectedRoute><ManpowerRequests /></ProtectedRoute>} />
           <Route path="/sharepoint-sync" element={<ProtectedRoute><SharePointSync /></ProtectedRoute>} />
         </Routes>
       </main>

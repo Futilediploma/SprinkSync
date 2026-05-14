@@ -10,6 +10,7 @@ from typing import Optional
 import io
 from database import get_db
 from api.auth import get_current_active_user
+from config import settings
 import crud
 import models
 
@@ -676,7 +677,7 @@ class GanttChartPDF:
 
         c.setFont("Helvetica", 8)
         c.setFillColor(COLORS['text_secondary'])
-        c.drawCentredString(self.width / 2, y, "BFPE International - Project Schedule")
+        c.drawCentredString(self.width / 2, y, f"{settings.export_company_name} - Project Schedule")
 
     def draw_gantt_grid(self, y_start: float, min_date: date, max_date: date, num_rows: int):
         """Draw vertical grid lines with quarter and year emphasis"""
@@ -945,7 +946,7 @@ def export_pdf(
         projects=projects,
         phases=phases,
         project_name="Fire Protection Schedule",
-        company_name="BFPE International",
+        company_name=settings.export_company_name,
         subcontractor_filter=subcontractor_display,
         project_subcontractors=project_subcontractors
     )
@@ -993,7 +994,7 @@ def export_project_pdf(
         projects=[project],
         phases=project_phases,
         project_name=project.name,
-        company_name="BFPE International",
+        company_name=settings.export_company_name,
         project_subcontractors=project_subcontractors
     )
 
