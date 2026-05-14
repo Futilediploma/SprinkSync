@@ -4,7 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from database import init_db, SessionLocal
 from api import projects, schedules, crew_types, forecasts, auth
-from api import export_pdf, subcontractor_reports
+from api import export_gantt, export_subcontractor, export_manpower, subcontractor_reports
+from api import sharepoint_sync as sharepoint_sync_router
+from services.scheduler import start_scheduler, stop_scheduler
 import models
 import logger
 
@@ -33,8 +35,11 @@ app.include_router(schedules.router)
 app.include_router(crew_types.router)
 app.include_router(forecasts.router)
 app.include_router(auth.router)
-app.include_router(export_pdf.router)
+app.include_router(export_gantt.router)
+app.include_router(export_subcontractor.router)
+app.include_router(export_manpower.router)
 app.include_router(subcontractor_reports.router)
+app.include_router(sharepoint_sync_router.router)
 
 
 @app.on_event("startup")
@@ -63,6 +68,14 @@ def startup_event():
             logger.info("Seeded default crew types")
     finally:
         db.close()
+
+    start_scheduler()
+
+
+@app.on_event("shutdown")
+def shutdown_event():
+    """Gracefully stop the background scheduler on shutdown."""
+    stop_scheduler()
 
 
 @app.get("/")

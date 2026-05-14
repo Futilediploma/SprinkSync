@@ -95,15 +95,27 @@ export interface Project {
   is_vesda: boolean;
   is_aws: boolean;
   is_out_of_town: boolean;
+  manpower_allocated: boolean;
   sub_headcount: number;
   // BFPE labor headcounts
   bfpe_sprinkler_headcount: number;
   bfpe_vesda_headcount: number;
   bfpe_electrical_headcount: number;
-  total_scheduled_hours: number;
   subcontractors?: ProjectSubcontractorApi[];
   created_at: string;
   updated_at: string;
+  // Tracking fields
+  foreman: string | null;
+  po_number: string | null;
+  // SharePoint import fields
+  external_id: string | null;
+  source: string;
+  square_footage: number | null;
+  estimated_value: number | null;
+  probability: number | null;
+  bid_stage: string | null;
+  us_citizen_required: boolean;
+  last_synced_at: string | null;
 }
 
 export interface ProjectCreate {
@@ -121,6 +133,7 @@ export interface ProjectCreate {
   is_vesda?: boolean;
   is_aws?: boolean;
   is_out_of_town?: boolean;
+  manpower_allocated?: boolean;
   sub_headcount?: number;
   bfpe_sprinkler_headcount?: number;
   bfpe_vesda_headcount?: number;
@@ -143,6 +156,7 @@ export interface ProjectUpdate {
   is_vesda?: boolean;
   is_aws?: boolean;
   is_out_of_town?: boolean;
+  manpower_allocated?: boolean;
   sub_headcount?: number;
   bfpe_sprinkler_headcount?: number;
   bfpe_vesda_headcount?: number;
@@ -151,81 +165,7 @@ export interface ProjectUpdate {
 }
 
 // ============================================
-// Schedule Phases
-// ============================================
-
-export interface SchedulePhase {
-  id: number;
-  schedule_id: number;
-  phase_name: string;
-  start_date: string;
-  end_date: string;
-  estimated_man_hours: number | null;
-  crew_size: number | null;
-  crew_type_id: number | null;
-  crew_type: CrewType | null;
-  notes: string | null;
-  sort_order: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface SchedulePhaseCreate {
-  phase_name: string;
-  start_date: string;
-  end_date: string;
-  estimated_man_hours?: number;
-  crew_size?: number;
-  crew_type_id?: number;
-  notes?: string;
-  sort_order?: number;
-}
-
-export interface SchedulePhaseUpdate {
-  phase_name?: string;
-  start_date?: string;
-  end_date?: string;
-  estimated_man_hours?: number;
-  crew_size?: number;
-  crew_type_id?: number;
-  notes?: string;
-  sort_order?: number;
-}
-
-// ============================================
-// Project Schedules
-// ============================================
-
-export interface ProjectSchedule {
-  id: number;
-  project_id: number;
-  schedule_name: string;
-  start_date: string;
-  end_date: string;
-  total_estimated_hours: number | null;
-  is_active: boolean;
-  phases: SchedulePhase[];
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ProjectScheduleCreate {
-  schedule_name?: string;
-  start_date: string;
-  end_date: string;
-  is_active?: boolean;
-  phases?: SchedulePhaseCreate[];
-}
-
-export interface ProjectScheduleUpdate {
-  schedule_name?: string;
-  start_date?: string;
-  end_date?: string;
-  is_active?: boolean;
-}
-
-// ============================================
-// Forecasts
+// Forecasts (used by CompanyForecast/Reports page)
 // ============================================
 
 export interface WeeklyForecast {
@@ -318,6 +258,36 @@ export function isApiError(error: unknown): error is { response: { data: ApiErro
     'response' in error &&
     typeof (error as any).response?.data?.detail === 'string'
   );
+}
+
+// ============================================
+// SharePoint Sync Types
+// ============================================
+
+export interface SyncLog {
+  id: number;
+  started_at: string;
+  completed_at: string | null;
+  status: 'success' | 'error' | 'running';
+  trigger: string;
+  triggered_by: string | null;
+  projects_created: number;
+  projects_updated: number;
+  projects_skipped: number;
+  rows_processed: number;
+  error_message: string | null;
+  details: string | null;
+}
+
+export interface SyncStatus {
+  configured: boolean;
+  enabled: boolean;
+  last_sync: SyncLog | null;
+  next_sync_in_seconds: number | null;
+  rclone_remote: string;
+  file_path: string;
+  sync_interval_minutes: number;
+  min_probability: number;
 }
 
 /**

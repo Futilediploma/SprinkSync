@@ -67,11 +67,24 @@ class ProjectBase(BaseModel):
     is_vesda: bool = False
     is_aws: bool = False
     is_out_of_town: bool = False
+    manpower_allocated: bool = False
     sub_headcount: Optional[int] = None  # Number of subcontractor workers required on site
     # BFPE labor headcounts
     bfpe_sprinkler_headcount: int = 0
     bfpe_vesda_headcount: int = 0
     bfpe_electrical_headcount: int = 0
+    # Tracking fields
+    foreman: Optional[str] = None
+    po_number: Optional[str] = None
+    # SharePoint import fields
+    external_id: Optional[str] = None
+    source: str = "manual"
+    square_footage: Optional[Decimal] = None
+    estimated_value: Optional[Decimal] = None
+    probability: Optional[int] = None
+    bid_stage: Optional[str] = None
+    us_citizen_required: bool = False
+    last_synced_at: Optional[datetime] = None
 
 
 class ProjectCreate(ProjectBase):
@@ -93,10 +106,13 @@ class ProjectUpdate(BaseModel):
     is_vesda: Optional[bool] = None
     is_aws: Optional[bool] = None
     is_out_of_town: Optional[bool] = None
+    manpower_allocated: Optional[bool] = None
     sub_headcount: Optional[int] = None
     bfpe_sprinkler_headcount: Optional[int] = None
     bfpe_vesda_headcount: Optional[int] = None
     bfpe_electrical_headcount: Optional[int] = None
+    foreman: Optional[str] = None
+    po_number: Optional[str] = None
     subcontractors: Optional[List[ProjectSubcontractorCreate]] = None
 
 
@@ -275,3 +291,41 @@ class SubcontractorReport(BaseModel):
     subcontractor_name: str
     total_man_hours: Decimal
     projects: List[SubcontractorProjectInfo] = []
+
+
+# ============================================
+# SharePoint Sync Schemas
+# ============================================
+
+class SyncLogResponse(BaseModel):
+    id: int
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+    status: str
+    trigger: str
+    triggered_by: Optional[str] = None
+    projects_created: int
+    projects_updated: int
+    projects_skipped: int
+    rows_processed: int
+    error_message: Optional[str] = None
+    details: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class SyncStatusResponse(BaseModel):
+    configured: bool
+    enabled: bool
+    last_sync: Optional[SyncLogResponse] = None
+    next_sync_in_seconds: Optional[int] = None
+    rclone_remote: str
+    file_path: str
+    sync_interval_minutes: int
+    min_probability: int
+
+
+class SyncTriggerResponse(BaseModel):
+    message: str
+    sync_log_id: int

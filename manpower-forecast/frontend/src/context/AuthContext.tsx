@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       userFetchedRef.current = true
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+        const response = await fetch(`${API_BASE_URL}/auth/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     formData.append('username', email)
     formData.append('password', password)
 
-    const response = await fetch(`${API_BASE_URL}/api/auth/token`, {
+    const response = await fetch(`${API_BASE_URL}/auth/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -93,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, data.access_token)
 
     // Fetch user immediately instead of waiting for useEffect
-    const userResponse = await fetch(`${API_BASE_URL}/api/auth/me`, {
+    const userResponse = await fetch(`${API_BASE_URL}/auth/me`, {
       headers: { Authorization: `Bearer ${data.access_token}` },
     })
     if (userResponse.ok) {

@@ -1,6 +1,7 @@
 import { useState, FormEvent, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { APP_BRAND } from '../config'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -37,7 +38,7 @@ export default function Login() {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            SprinkSync
+            {APP_BRAND}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             Manpower Forecast

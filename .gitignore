@@ -1,5 +1,11 @@
-# Ignore environment and secret files
+# Ignore environment and secret files.
+# Real env files are never committed; only *.env.example templates are tracked.
 .env
+.env.*
+*.env
+*.env.*
+!.env.example
+!*.env.example
 
 # Windows reserved names (can't be deleted easily)
 nul
