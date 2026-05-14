@@ -6,9 +6,7 @@ import { getErrorMessage } from '../types'
 type FormState = {
   id: number | null
   project_id: string
-  superintendent_id: string
-  pm_id: string
-  foreman_id: string
+  recipient_ids: string[]
   manpower_required: string
   requested_trades: string
   start_datetime: string
@@ -19,9 +17,7 @@ type FormState = {
 const emptyForm: FormState = {
   id: null,
   project_id: '',
-  superintendent_id: '',
-  pm_id: '',
-  foreman_id: '',
+  recipient_ids: [],
   manpower_required: '',
   requested_trades: '',
   start_datetime: '',
@@ -67,12 +63,14 @@ export default function ManpowerRequests() {
     }
   }
 
-  const superintendents = useMemo(
-    () => employees.filter(e => e.role === 'superintendent' || e.role === 'pm' || e.role === 'foreman' || e.role === 'other'),
+  const notificationRecipients = useMemo(
+    () => employees.filter(e => e.active !== false && e.email && ['superintendent', 'pm', 'foreman', 'office', 'other'].includes(e.role)),
     [employees]
   )
-  const pms = useMemo(() => employees.filter(e => e.role === 'pm' || e.role === 'other'), [employees])
-  const foremen = useMemo(() => employees.filter(e => e.role === 'foreman' || e.role === 'other'), [employees])
+  const selectableRecipientIds = useMemo(
+    () => new Set(notificationRecipients.map(employee => employee.id.toString())),
+    [notificationRecipients]
+  )
 
   const selectedProject = projects.find(p => p.id === Number(form.project_id))
 
@@ -81,9 +79,18 @@ export default function ManpowerRequests() {
     setForm({
       ...form,
       project_id: projectId,
-      superintendent_id: project?.superintendent_id?.toString() || '',
-      pm_id: project?.pm_id?.toString() || '',
+      recipient_ids: getProjectDefaultRecipientIds(project).filter(id => selectableRecipientIds.has(id)),
     })
+  }
+
+  const toggleRecipient = (employeeId: number) => {
+    const value = employeeId.toString()
+    setForm(current => ({
+      ...current,
+      recipient_ids: current.recipient_ids.includes(value)
+        ? current.recipient_ids.filter(id => id !== value)
+        : [...current.recipient_ids, value],
+    }))
   }
 
   const resetForm = () => setForm(emptyForm)
@@ -113,9 +120,7 @@ export default function ManpowerRequests() {
 
     const payload = {
       project_id: Number(form.project_id),
-      superintendent_id: form.superintendent_id ? Number(form.superintendent_id) : null,
-      pm_id: form.pm_id ? Number(form.pm_id) : null,
-      foreman_id: form.foreman_id ? Number(form.foreman_id) : null,
+      recipient_ids: form.recipient_ids.map(Number),
       manpower_required: form.manpower_required,
       requested_trades: form.requested_trades,
       start_datetime: toApiDatetime(form.start_datetime),
@@ -143,9 +148,7 @@ export default function ManpowerRequests() {
     setForm({
       id: request.id,
       project_id: request.project_id.toString(),
-      superintendent_id: project?.superintendent_id?.toString() || '',
-      pm_id: project?.pm_id?.toString() || '',
-      foreman_id: request.foreman_id?.toString() || '',
+      recipient_ids: getRequestRecipientIds(request, project, employees).filter(id => selectableRecipientIds.has(id)),
       manpower_required: request.manpower_required,
       requested_trades: request.requested_trades,
       start_datetime: toDateInput(request.start_datetime),
@@ -197,39 +200,6 @@ export default function ManpowerRequests() {
                 ))}
               </select>
             </label>
-
-            <label className="block">
-              <span className="block text-sm font-medium text-gray-700 mb-1">Superintendent</span>
-              <select
-                value={form.superintendent_id}
-                onChange={(e) => setForm({ ...form, superintendent_id: e.target.value })}
-                className="input"
-                required
-              >
-                <option value="">Select superintendent...</option>
-                {superintendents.map(employee => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.name} ({employee.email})
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block">
-              <span className="block text-sm font-medium text-gray-700 mb-1">PM</span>
-              <select
-                value={form.pm_id}
-                onChange={(e) => setForm({ ...form, pm_id: e.target.value })}
-                className="input"
-              >
-                <option value="">No PM notification</option>
-                {pms.map(employee => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.name} ({employee.email})
-                  </option>
-                ))}
-              </select>
-            </label>
           </div>
 
           {selectedProject && (
@@ -239,6 +209,42 @@ export default function ManpowerRequests() {
               <span className="font-medium">Address:</span> {selectedProject.address || 'Not set'}
             </div>
           )}
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="block text-sm font-medium text-gray-700">Email Recipients</span>
+              <span className="text-xs text-gray-500">{form.recipient_ids.length} selected</span>
+            </div>
+            {notificationRecipients.length === 0 ? (
+              <div className="border border-dashed border-gray-300 rounded p-4 text-sm text-gray-500">
+                Add an employee contact with an email address before sending notifications.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                {notificationRecipients.map(employee => (
+                  <label
+                    key={employee.id}
+                    className={`flex items-start gap-3 border rounded p-3 cursor-pointer ${
+                      form.recipient_ids.includes(employee.id.toString())
+                        ? 'border-blue-300 bg-blue-50'
+                        : 'border-gray-200 bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={form.recipient_ids.includes(employee.id.toString())}
+                      onChange={() => toggleRecipient(employee.id)}
+                      className="mt-1"
+                    />
+                    <span>
+                      <span className="block text-sm font-medium text-gray-900">{employee.name}</span>
+                      <span className="block text-xs text-gray-500">{formatRole(employee.role)} - {employee.email}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <label className="block">
@@ -286,24 +292,8 @@ export default function ManpowerRequests() {
             </label>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <label className="block">
-              <span className="block text-sm font-medium text-gray-700 mb-1">Foreman</span>
-              <select
-                value={form.foreman_id}
-                onChange={(e) => setForm({ ...form, foreman_id: e.target.value })}
-                className="input"
-              >
-                <option value="">No foreman notification</option>
-                {foremen.map(employee => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.name} ({employee.email})
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block md:col-span-2">
               <span className="block text-sm font-medium text-gray-700 mb-1">Notes / Comments</span>
               <input
                 value={form.notes}
@@ -315,7 +305,7 @@ export default function ManpowerRequests() {
           </div>
 
           <div className="flex gap-3">
-            <button type="submit" disabled={saving} className="btn btn-primary">
+            <button type="submit" disabled={saving || form.recipient_ids.length === 0} className="btn btn-primary">
               {saving ? 'Saving...' : form.id ? 'Update and Notify' : 'Create and Notify'}
             </button>
             {form.id && (
@@ -379,7 +369,7 @@ export default function ManpowerRequests() {
           <div className="mt-4 flex flex-wrap gap-2">
             {employees.map(employee => (
               <span key={employee.id} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
-                {employee.name} - {employee.role}
+                {employee.name} - {formatRole(employee.role)}
               </span>
             ))}
           </div>
@@ -456,6 +446,33 @@ export default function ManpowerRequests() {
   )
 }
 
+function getProjectDefaultRecipientIds(project?: Project | null) {
+  return [project?.superintendent_id, project?.pm_id]
+    .filter((id): id is number => typeof id === 'number')
+    .map(id => id.toString())
+}
+
+function getRequestRecipientIds(
+  request: ManpowerRequest,
+  project: Project | undefined,
+  employees: Employee[]
+) {
+  const idsFromNotifications = (request.notifications || [])
+    .map(notification => {
+      const email = notification.recipient_email?.trim().toLowerCase()
+      return employees.find(employee => employee.email.trim().toLowerCase() === email)?.id
+    })
+    .filter((id): id is number => typeof id === 'number')
+    .map(id => id.toString())
+
+  const fallbackIds = [
+    ...getProjectDefaultRecipientIds(project),
+    ...(request.foreman_id ? [request.foreman_id.toString()] : []),
+  ]
+
+  return Array.from(new Set(idsFromNotifications.length > 0 ? idsFromNotifications : fallbackIds))
+}
+
 function toDateInput(value: string) {
   if (!value) return ''
   return value.slice(0, 10)
@@ -488,4 +505,9 @@ function statusClass(status: string) {
   if (status === 'sent') return 'bg-green-100 text-green-800'
   if (status === 'failed') return 'bg-red-100 text-red-800'
   return 'bg-yellow-100 text-yellow-800'
+}
+
+function formatRole(role: string) {
+  if (role === 'pm') return 'PM'
+  return role.charAt(0).toUpperCase() + role.slice(1)
 }

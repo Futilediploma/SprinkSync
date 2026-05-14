@@ -29,6 +29,7 @@ export default function ProjectsList() {
   const [newProject, setNewProject] = useState<{
     name: string;
     customer_name: string;
+    address: string;
     project_number: string;
     notes: string;
     required_manpower: string;
@@ -51,6 +52,7 @@ export default function ProjectsList() {
   }>({
     name: '',
     customer_name: '',
+    address: '',
     project_number: '',
     notes: '',
     required_manpower: '',
@@ -185,6 +187,7 @@ export default function ProjectsList() {
     setNewProject({
       name: project.name,
       customer_name: project.customer_name || '',
+      address: project.address || '',
       project_number: project.project_number || '',
       notes: project.notes || '',
       required_manpower: project.required_manpower?.toString() || '',
@@ -212,6 +215,7 @@ export default function ProjectsList() {
     setNewProject({
       name: '',
       customer_name: '',
+      address: '',
       project_number: '',
       notes: '',
       required_manpower: '',
@@ -462,6 +466,18 @@ export default function ProjectsList() {
                     className="input py-1 text-sm"
                   />
                 </div>
+              </div>
+
+              {/* Row 2b: Address */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700">Address</label>
+                <input
+                  type="text"
+                  value={newProject.address}
+                  onChange={(e) => setNewProject({ ...newProject, address: e.target.value })}
+                  className="input py-1 text-sm"
+                  placeholder="Job site address..."
+                />
               </div>
 
               {/* Row 3: Manpower & Dates */}

@@ -39,12 +39,17 @@ class NotificationService:
         manpower_request: models.ManpowerRequest,
         notification_type: str,
         actor_user_id: Optional[int] = None,
+        recipient_emails: Optional[Iterable[str]] = None,
     ) -> list[models.Notification]:
         project = manpower_request.project
         if not project:
             project = db.query(models.Project).filter(models.Project.id == manpower_request.project_id).first()
 
-        recipients = NotificationService._resolve_recipients(project, manpower_request)
+        recipients = (
+            NotificationService._normalize_recipient_emails(recipient_emails)
+            if recipient_emails is not None
+            else NotificationService._resolve_recipients(project, manpower_request)
+        )
         notifications: list[models.Notification] = []
         for email in recipients:
             notification = models.Notification(
@@ -164,17 +169,22 @@ class NotificationService:
         project: Optional[models.Project],
         manpower_request: models.ManpowerRequest,
     ) -> list[str]:
-        recipients: list[str] = []
         employees: Iterable[Optional[models.Employee]] = (
             project.superintendent if project else None,
             project.pm if project else None,
             manpower_request.foreman,
         )
-        for employee in employees:
-            if employee and employee.active and employee.email:
-                normalized = employee.email.strip().lower()
-                if normalized and normalized not in recipients:
-                    recipients.append(normalized)
+        return NotificationService._normalize_recipient_emails(
+            employee.email for employee in employees if employee and employee.active and employee.email
+        )
+
+    @staticmethod
+    def _normalize_recipient_emails(recipient_emails: Iterable[str]) -> list[str]:
+        recipients: list[str] = []
+        for email in recipient_emails:
+            normalized = email.strip().lower()
+            if normalized and normalized not in recipients:
+                recipients.append(normalized)
         return recipients
 
 

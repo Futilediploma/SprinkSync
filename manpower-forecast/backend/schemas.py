@@ -401,6 +401,7 @@ class ManpowerRequestBase(BaseModel):
     foreman_id: Optional[int] = None
     superintendent_id: Optional[int] = None
     pm_id: Optional[int] = None
+    recipient_ids: Optional[List[int]] = None
 
 
 class ManpowerRequestCreate(ManpowerRequestBase):
@@ -417,6 +418,7 @@ class ManpowerRequestUpdate(BaseModel):
     foreman_id: Optional[int] = None
     superintendent_id: Optional[int] = None
     pm_id: Optional[int] = None
+    recipient_ids: Optional[List[int]] = None
 
 
 class ManpowerRequestResponse(BaseModel):

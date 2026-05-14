@@ -45,9 +45,15 @@ def create_manpower_request(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    _apply_project_recipients(db, project, payload.superintendent_id, payload.pm_id)
+    if "superintendent_id" in payload.model_fields_set or "pm_id" in payload.model_fields_set:
+        _apply_project_recipients(db, project, payload.superintendent_id, payload.pm_id)
     _validate_employee(db, payload.foreman_id, "Foreman")
-    _require_notification_recipient(project, payload.foreman_id)
+    recipient_emails = (
+        _resolve_selected_recipient_emails(db, payload.recipient_ids)
+        if payload.recipient_ids is not None
+        else None
+    )
+    _require_notification_recipient(project, payload.foreman_id, recipient_emails)
 
     manpower_request = models.ManpowerRequest(
         project_id=payload.project_id,
@@ -74,6 +80,7 @@ def create_manpower_request(
         manpower_request,
         notification_type="manpower_request_created",
         actor_user_id=current_user.id,
+        recipient_emails=recipient_emails,
     )
     db.commit()
     return _get_request_or_404(db, manpower_request.id)
@@ -105,9 +112,15 @@ def update_manpower_request(
 
     if "foreman_id" in update_data:
         _validate_employee(db, update_data["foreman_id"], "Foreman")
+    recipient_emails = (
+        _resolve_selected_recipient_emails(db, update_data["recipient_ids"])
+        if "recipient_ids" in update_data
+        else None
+    )
     _require_notification_recipient(
         project,
         update_data.get("foreman_id", manpower_request.foreman_id),
+        recipient_emails,
     )
 
     for field in [
@@ -136,6 +149,7 @@ def update_manpower_request(
         manpower_request,
         notification_type="manpower_request_updated",
         actor_user_id=current_user.id,
+        recipient_emails=recipient_emails,
     )
     db.commit()
     return _get_request_or_404(db, manpower_request.id)
@@ -198,10 +212,44 @@ def _validate_employee(db: Session, employee_id: int | None, label: str) -> None
         raise HTTPException(status_code=400, detail=f"{label} is inactive")
 
 
-def _require_notification_recipient(project: models.Project, foreman_id: int | None) -> None:
+def _resolve_selected_recipient_emails(db: Session, recipient_ids: list[int] | None) -> list[str]:
+    if not recipient_ids:
+        raise HTTPException(status_code=400, detail="Select at least one email recipient")
+
+    unique_ids = list(dict.fromkeys(recipient_ids))
+    employees = db.query(models.Employee).filter(models.Employee.id.in_(unique_ids)).all()
+    employees_by_id = {employee.id: employee for employee in employees}
+
+    missing_ids = [employee_id for employee_id in unique_ids if employee_id not in employees_by_id]
+    if missing_ids:
+        raise HTTPException(status_code=404, detail=f"Employee recipient not found: {missing_ids[0]}")
+
+    recipient_emails: list[str] = []
+    for employee_id in unique_ids:
+        employee = employees_by_id[employee_id]
+        if not employee.active:
+            raise HTTPException(status_code=400, detail=f"{employee.name} is inactive")
+        if not employee.email:
+            raise HTTPException(status_code=400, detail=f"{employee.name} does not have an email address")
+        normalized = employee.email.strip().lower()
+        if normalized and normalized not in recipient_emails:
+            recipient_emails.append(normalized)
+
+    if not recipient_emails:
+        raise HTTPException(status_code=400, detail="Select at least one email recipient")
+    return recipient_emails
+
+
+def _require_notification_recipient(
+    project: models.Project,
+    foreman_id: int | None,
+    recipient_emails: list[str] | None = None,
+) -> None:
+    if recipient_emails:
+        return
     if project.superintendent_id or project.pm_id or foreman_id:
         return
     raise HTTPException(
         status_code=400,
-        detail="Select at least one notification recipient: superintendent, PM, or foreman",
+        detail="Select at least one email recipient",
     )

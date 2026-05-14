@@ -375,6 +375,7 @@ export interface ManpowerRequestCreate {
   foreman_id?: number | null;
   superintendent_id?: number | null;
   pm_id?: number | null;
+  recipient_ids?: number[];
 }
 
 export interface ManpowerRequestUpdate {
@@ -387,6 +388,7 @@ export interface ManpowerRequestUpdate {
   foreman_id?: number | null;
   superintendent_id?: number | null;
   pm_id?: number | null;
+  recipient_ids?: number[];
 }
 
 /**
