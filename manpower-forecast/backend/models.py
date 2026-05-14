@@ -5,6 +5,36 @@ from sqlalchemy.sql import func
 from database import Base
 
 
+class Employee(Base):
+    """Internal employee directory used for superintendent/PM/foreman notifications."""
+    __tablename__ = "employees"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    phone = Column(String(50), nullable=True)
+    role = Column(String(50), nullable=False, index=True)  # superintendent, pm, foreman, office, other
+    active = Column(Boolean, default=True, index=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    superintendent_projects = relationship(
+        "Project",
+        foreign_keys="Project.superintendent_id",
+        back_populates="superintendent",
+    )
+    pm_projects = relationship(
+        "Project",
+        foreign_keys="Project.pm_id",
+        back_populates="pm",
+    )
+    foreman_manpower_requests = relationship(
+        "ManpowerRequest",
+        foreign_keys="ManpowerRequest.foreman_id",
+        back_populates="foreman",
+    )
+
+
 class Project(Base):
     """Project model."""
     __tablename__ = "projects"
@@ -24,6 +54,10 @@ class Project(Base):
     is_vesda = Column(Boolean, default=False)
     is_aws = Column(Boolean, default=False)
     is_out_of_town = Column(Boolean, default=False)
+    address = Column(String(500), nullable=True)
+    superintendent_id = Column(Integer, ForeignKey("employees.id", ondelete="SET NULL"), nullable=True, index=True)
+    pm_id = Column(Integer, ForeignKey("employees.id", ondelete="SET NULL"), nullable=True, index=True)
+    active = Column(Boolean, default=True, index=True)
     manpower_allocated = Column(Boolean, default=False)  # True when manpower has been confirmed/covered
     sub_headcount = Column(Integer, default=0)  # Number of subcontractor workers required on site
     # BFPE labor headcounts
@@ -49,6 +83,17 @@ class Project(Base):
     # Relationships
     schedules = relationship("ProjectSchedule", back_populates="project", cascade="all, delete-orphan")
     subcontractors = relationship("ProjectSubcontractor", back_populates="project", cascade="all, delete-orphan")
+    superintendent = relationship(
+        "Employee",
+        foreign_keys=[superintendent_id],
+        back_populates="superintendent_projects",
+    )
+    pm = relationship(
+        "Employee",
+        foreign_keys=[pm_id],
+        back_populates="pm_projects",
+    )
+    manpower_requests = relationship("ManpowerRequest", back_populates="project", cascade="all, delete-orphan")
 
     @property
     def total_scheduled_hours(self):
@@ -184,3 +229,65 @@ class SyncLog(Base):
     rows_processed = Column(Integer, default=0)
     error_message = Column(Text, nullable=True)
     details = Column(Text, nullable=True)
+
+
+class ManpowerRequest(Base):
+    """Internal manpower request that triggers superintendent notifications."""
+    __tablename__ = "manpower_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    requested_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    foreman_id = Column(Integer, ForeignKey("employees.id", ondelete="SET NULL"), nullable=True, index=True)
+    manpower_required = Column(String(255), nullable=False)
+    requested_trades = Column(String(255), nullable=False)
+    start_datetime = Column(DateTime, nullable=False, index=True)
+    expected_duration = Column(String(255), nullable=False)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    project = relationship("Project", back_populates="manpower_requests")
+    requester = relationship("User", foreign_keys=[requested_by])
+    foreman = relationship(
+        "Employee",
+        foreign_keys=[foreman_id],
+        back_populates="foreman_manpower_requests",
+    )
+    notifications = relationship("Notification", back_populates="manpower_request", cascade="all, delete-orphan")
+
+
+class Notification(Base):
+    """Queued/sent email notification status for a manpower request."""
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    manpower_request_id = Column(Integer, ForeignKey("manpower_requests.id", ondelete="CASCADE"), nullable=False, index=True)
+    recipient_email = Column(String(255), nullable=False, index=True)
+    notification_type = Column(String(50), nullable=False, default="manpower_request_created")
+    provider = Column(String(50), nullable=False, default="postmark")
+    status = Column(String(50), nullable=False, default="queued", index=True)  # queued, sent, failed
+    provider_message_id = Column(String(255), nullable=True)
+    sent_at = Column(DateTime, nullable=True)
+    error_message = Column(Text, nullable=True)
+    attempt_count = Column(Integer, nullable=False, default=0)
+    next_attempt_at = Column(DateTime, nullable=True, index=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    manpower_request = relationship("ManpowerRequest", back_populates="notifications")
+
+
+class AuditLog(Base):
+    """Small internal audit trail for manpower notification actions."""
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    actor_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    action = Column(String(100), nullable=False, index=True)
+    entity_type = Column(String(100), nullable=False)
+    entity_id = Column(Integer, nullable=True)
+    message = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    actor = relationship("User", foreign_keys=[actor_user_id])

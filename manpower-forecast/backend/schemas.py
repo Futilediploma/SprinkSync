@@ -67,6 +67,10 @@ class ProjectBase(BaseModel):
     is_vesda: bool = False
     is_aws: bool = False
     is_out_of_town: bool = False
+    address: Optional[str] = None
+    superintendent_id: Optional[int] = None
+    pm_id: Optional[int] = None
+    active: bool = True
     manpower_allocated: bool = False
     sub_headcount: Optional[int] = None  # Number of subcontractor workers required on site
     # BFPE labor headcounts
@@ -106,6 +110,10 @@ class ProjectUpdate(BaseModel):
     is_vesda: Optional[bool] = None
     is_aws: Optional[bool] = None
     is_out_of_town: Optional[bool] = None
+    address: Optional[str] = None
+    superintendent_id: Optional[int] = None
+    pm_id: Optional[int] = None
+    active: Optional[bool] = None
     manpower_allocated: Optional[bool] = None
     sub_headcount: Optional[int] = None
     bfpe_sprinkler_headcount: Optional[int] = None
@@ -329,3 +337,102 @@ class SyncStatusResponse(BaseModel):
 class SyncTriggerResponse(BaseModel):
     message: str
     sync_log_id: int
+
+
+# ============================================
+# Superintendent Notification Schemas
+# ============================================
+
+class EmployeeBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    email: str = Field(..., min_length=3, max_length=255)
+    phone: Optional[str] = None
+    role: str = Field(..., min_length=1, max_length=50)
+    active: bool = True
+
+
+class EmployeeCreate(EmployeeBase):
+    pass
+
+
+class EmployeeUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    email: Optional[str] = Field(None, min_length=3, max_length=255)
+    phone: Optional[str] = None
+    role: Optional[str] = Field(None, min_length=1, max_length=50)
+    active: Optional[bool] = None
+
+
+class Employee(EmployeeBase):
+    id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationResponse(BaseModel):
+    id: int
+    manpower_request_id: int
+    recipient_email: str
+    notification_type: str
+    provider: str
+    status: str
+    provider_message_id: Optional[str] = None
+    sent_at: Optional[datetime] = None
+    error_message: Optional[str] = None
+    attempt_count: int = 0
+    next_attempt_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ManpowerRequestBase(BaseModel):
+    project_id: int
+    manpower_required: str = Field(..., min_length=1, max_length=255)
+    requested_trades: str = Field(..., min_length=1, max_length=255)
+    start_datetime: datetime
+    expected_duration: str = Field(..., min_length=1, max_length=255)
+    notes: Optional[str] = None
+    foreman_id: Optional[int] = None
+    superintendent_id: Optional[int] = None
+    pm_id: Optional[int] = None
+
+
+class ManpowerRequestCreate(ManpowerRequestBase):
+    pass
+
+
+class ManpowerRequestUpdate(BaseModel):
+    project_id: Optional[int] = None
+    manpower_required: Optional[str] = Field(None, min_length=1, max_length=255)
+    requested_trades: Optional[str] = Field(None, min_length=1, max_length=255)
+    start_datetime: Optional[datetime] = None
+    expected_duration: Optional[str] = Field(None, min_length=1, max_length=255)
+    notes: Optional[str] = None
+    foreman_id: Optional[int] = None
+    superintendent_id: Optional[int] = None
+    pm_id: Optional[int] = None
+
+
+class ManpowerRequestResponse(BaseModel):
+    id: int
+    project_id: int
+    requested_by: Optional[int] = None
+    foreman_id: Optional[int] = None
+    manpower_required: str
+    requested_trades: str
+    start_datetime: datetime
+    expected_duration: str
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    project: Optional[Project] = None
+    notifications: List[NotificationResponse] = []
+
+    class Config:
+        from_attributes = True

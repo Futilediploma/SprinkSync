@@ -95,6 +95,10 @@ export interface Project {
   is_vesda: boolean;
   is_aws: boolean;
   is_out_of_town: boolean;
+  address: string | null;
+  superintendent_id: number | null;
+  pm_id: number | null;
+  active: boolean;
   manpower_allocated: boolean;
   sub_headcount: number;
   // BFPE labor headcounts
@@ -133,6 +137,10 @@ export interface ProjectCreate {
   is_vesda?: boolean;
   is_aws?: boolean;
   is_out_of_town?: boolean;
+  address?: string;
+  superintendent_id?: number | null;
+  pm_id?: number | null;
+  active?: boolean;
   manpower_allocated?: boolean;
   sub_headcount?: number;
   bfpe_sprinkler_headcount?: number;
@@ -156,6 +164,10 @@ export interface ProjectUpdate {
   is_vesda?: boolean;
   is_aws?: boolean;
   is_out_of_town?: boolean;
+  address?: string;
+  superintendent_id?: number | null;
+  pm_id?: number | null;
+  active?: boolean;
   manpower_allocated?: boolean;
   sub_headcount?: number;
   bfpe_sprinkler_headcount?: number;
@@ -288,6 +300,93 @@ export interface SyncStatus {
   file_path: string;
   sync_interval_minutes: number;
   min_probability: number;
+}
+
+// ============================================
+// Manpower Notification Types
+// ============================================
+
+export interface Employee {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  role: 'superintendent' | 'pm' | 'foreman' | 'office' | 'other' | string;
+  active: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface EmployeeCreate {
+  name: string;
+  email: string;
+  phone?: string;
+  role: string;
+  active?: boolean;
+}
+
+export interface EmployeeUpdate {
+  name?: string;
+  email?: string;
+  phone?: string;
+  role?: string;
+  active?: boolean;
+}
+
+export interface NotificationRecord {
+  id: number;
+  manpower_request_id: number;
+  recipient_email: string;
+  notification_type: string;
+  provider: string;
+  status: 'queued' | 'sent' | 'failed' | string;
+  provider_message_id: string | null;
+  sent_at: string | null;
+  error_message: string | null;
+  attempt_count: number;
+  next_attempt_at: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface ManpowerRequest {
+  id: number;
+  project_id: number;
+  requested_by: number | null;
+  foreman_id: number | null;
+  manpower_required: string;
+  requested_trades: string;
+  start_datetime: string;
+  expected_duration: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string | null;
+  project?: Project | null;
+  notifications: NotificationRecord[];
+}
+
+export interface ManpowerRequestCreate {
+  project_id: number;
+  manpower_required: string;
+  requested_trades: string;
+  start_datetime: string;
+  expected_duration: string;
+  notes?: string;
+  foreman_id?: number | null;
+  superintendent_id?: number | null;
+  pm_id?: number | null;
+}
+
+export interface ManpowerRequestUpdate {
+  project_id?: number;
+  manpower_required?: string;
+  requested_trades?: string;
+  start_datetime?: string;
+  expected_duration?: string;
+  notes?: string;
+  foreman_id?: number | null;
+  superintendent_id?: number | null;
+  pm_id?: number | null;
 }
 
 /**
