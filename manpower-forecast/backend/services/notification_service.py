@@ -56,7 +56,7 @@ class NotificationService:
                 manpower_request_id=manpower_request.id,
                 recipient_email=email,
                 notification_type=notification_type,
-                provider="postmark",
+                provider=settings.email_provider.lower(),
                 status="queued",
                 attempt_count=0,
                 next_attempt_at=datetime.utcnow(),

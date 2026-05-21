@@ -9,10 +9,10 @@ cd manpower-forecast/backend
 .\venv\Scripts\activate
 
 # Run the server
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 8001
 ```
 
-The API will be available at `http://localhost:8000`
+The API will be available at `http://localhost:8001`
 
 ## Frontend (React + Vite)
 
@@ -26,4 +26,4 @@ npm install
 npm run dev
 ```
 
-The frontend will be available at `http://localhost:5173`
+The frontend will be available at `http://localhost:3000`

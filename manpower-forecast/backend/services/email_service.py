@@ -9,6 +9,7 @@ from config import settings
 
 
 POSTMARK_URL = "https://api.postmarkapp.com/email"
+RESEND_URL = "https://api.resend.com/emails"
 
 
 @dataclass
@@ -76,7 +77,57 @@ class PostmarkEmailProvider(EmailProvider):
         return EmailResult(provider_message_id=data.get("MessageID"))
 
 
-def get_email_provider() -> EmailProvider:
-    """Factory kept small for now; useful for tests and future provider swaps."""
+class ResendEmailProvider(EmailProvider):
+    """Resend implementation for internal transactional notifications."""
 
+    def send_email(self, to_email: str, subject: str, html_body: str, text_body: str) -> EmailResult:
+        if not settings.resend_api_key:
+            raise RuntimeError("RESEND_API_KEY is not configured")
+        if not settings.email_from:
+            raise RuntimeError("EMAIL_FROM is not configured")
+
+        headers = {
+            "Accept": "application/json",
+            "Authorization": f"Bearer {settings.resend_api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": "manpower-forecast/1.0",
+        }
+        payload = {
+            "from": settings.email_from,
+            "to": [to_email],
+            "subject": subject,
+            "html": html_body,
+            "text": text_body,
+        }
+
+        encoded_payload = json.dumps(payload).encode("utf-8")
+        resend_request = request.Request(
+            RESEND_URL,
+            data=encoded_payload,
+            headers=headers,
+            method="POST",
+        )
+
+        try:
+            with request.urlopen(resend_request, timeout=15) as response:
+                data = json.loads(response.read().decode("utf-8"))
+        except error.HTTPError as exc:
+            body = exc.read().decode("utf-8")
+            try:
+                data = json.loads(body)
+                message = data.get("message") or data.get("name") or body
+            except json.JSONDecodeError:
+                message = body or str(exc)
+            raise RuntimeError(message) from exc
+        except error.URLError as exc:
+            raise RuntimeError(str(exc.reason)) from exc
+
+        return EmailResult(provider_message_id=data.get("id"))
+
+
+def get_email_provider() -> EmailProvider:
+    """Factory kept small for tests and provider swaps."""
+
+    if settings.email_provider.lower() == "resend":
+        return ResendEmailProvider()
     return PostmarkEmailProvider()

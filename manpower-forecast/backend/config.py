@@ -27,7 +27,9 @@ class Settings(BaseSettings):
     cookie_name: str = "sprinksync_session"
 
     # Email notifications
+    email_provider: str = "postmark"
     postmark_api_key: str = ""
+    resend_api_key: str = ""
     email_from: str = ""
     notification_max_attempts: int = 3
     notification_poll_interval_seconds: int = 60

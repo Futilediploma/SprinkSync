@@ -4,6 +4,7 @@ Generates a report of projects with required manpower not yet allocated.
 """
 
 from fastapi import APIRouter, Depends, Response
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from datetime import datetime
 import io
@@ -232,16 +233,7 @@ def export_manpower_needs_pdf(
     current_user: models.User = Depends(get_current_active_user)
 ):
     """Export unallocated manpower report as a professional PDF."""
-    query = db.query(models.Project).filter(
-        models.Project.status.in_(['active', 'prospective']),
-        models.Project.required_manpower > 0,
-        models.Project.manpower_allocated == False
-    )
-    if project_ids:
-        ids = [int(i) for i in project_ids.split(',') if i.strip().isdigit()]
-        if ids:
-            query = query.filter(models.Project.id.in_(ids))
-    projects = query.order_by(models.Project.status, models.Project.name).all()
+    projects = _get_manpower_projects(db, project_ids, status_filter)
 
     if status_filter == 'active':
         subtitle = "Projects requiring manpower assignment — active jobs only"
@@ -260,11 +252,18 @@ def export_manpower_needs_pdf(
     )
 
 
-def _get_manpower_projects(db: Session, project_ids: str = None):
+def _get_manpower_projects(db: Session, project_ids: str = None, status_filter: str = None):
+    statuses = ['active', 'prospective']
+    if status_filter in statuses:
+        statuses = [status_filter]
+
     query = db.query(models.Project).filter(
-        models.Project.status.in_(['active', 'prospective']),
+        models.Project.status.in_(statuses),
         models.Project.required_manpower > 0,
-        models.Project.manpower_allocated == False
+        or_(
+            models.Project.manpower_allocated.is_(False),
+            models.Project.manpower_allocated.is_(None)
+        )
     )
     if project_ids:
         ids = [int(i) for i in project_ids.split(',') if i.strip().isdigit()]
@@ -288,7 +287,7 @@ def export_manpower_needs_docx(
     from docx.oxml.ns import qn
     from docx.oxml import OxmlElement
 
-    projects = _get_manpower_projects(db, project_ids)
+    projects = _get_manpower_projects(db, project_ids, status_filter)
 
     if status_filter == 'active':
         subtitle = "Projects requiring manpower assignment — active jobs only"
@@ -413,7 +412,7 @@ def export_manpower_needs_excel(
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
 
-    projects = _get_manpower_projects(db, project_ids)
+    projects = _get_manpower_projects(db, project_ids, status_filter)
 
     if status_filter == 'active':
         subtitle = "Active jobs only"
