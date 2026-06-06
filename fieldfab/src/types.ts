@@ -1,5 +1,5 @@
 export interface LooseMaterial {
-    id: string;
+    id: number;
     qty: number;
     part: string;
     size: string;
@@ -17,6 +17,8 @@ export interface Outlet {
 }
 
 export interface Piece {
+    id?: number;
+    qty: number;
     feet: string;
     inches: string;
     pipeType: string;
@@ -28,7 +30,7 @@ export interface Piece {
 }
 
 export interface Project {
-    id: string;
+    id: number;
     name: string;
     companyName: string;
     streetNumber: string;

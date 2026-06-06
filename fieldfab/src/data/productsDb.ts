@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // IndexedDB for Victaulic Products
 import { openDB } from 'idb';
 import type { DBSchema, IDBPDatabase } from 'idb';

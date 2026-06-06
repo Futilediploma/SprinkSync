@@ -191,6 +191,7 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
 
     const debounceTimer = setTimeout(performSearch, 150);
     return () => clearTimeout(debounceTimer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, productTypeFilter, manufacturerFilter]);
 
   const handleSelectProduct = (product: Product) => {
@@ -410,7 +411,7 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
     }
 
     // Build options array including material type for threaded fittings
-    let finalOptions = [...selectedOptions];
+    const finalOptions = [...selectedOptions];
     if (type === 'Threaded Fitting' && selectedMaterialType && !finalOptions.includes(selectedMaterialType)) {
       finalOptions.push(selectedMaterialType);
     }

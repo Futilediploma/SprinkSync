@@ -1,6 +1,9 @@
 import csv
+import argparse
+import unicodedata
 import time
 import re
+from pathlib import Path
 from urllib.parse import urljoin
 from urllib.robotparser import RobotFileParser
 import xml.etree.ElementTree as ET
@@ -18,25 +21,53 @@ HEADERS = {
 }
 
 REQUEST_DELAY_SEC = 0.6  # adjust up if you want to be extra gentle
+DEFAULT_RETRIES = 4
+DEFAULT_BACKOFF_SEC = 8.0
+
+CSV_FIELDS = [
+    "sku",
+    "product_name",
+    "category",
+    "size_range",
+    "short_description",
+    "product_url",
+]
 
 
 def clean_text(s: str) -> str:
-    s = re.sub(r"\s+", " ", (s or "").strip())
+    s = unicodedata.normalize("NFKC", s or "")
+    s = re.sub(r"\s+", " ", s.strip())
     return s
 
 
-def get_soup(session: requests.Session, url: str) -> BeautifulSoup:
-    resp = session.get(url, headers=HEADERS, timeout=30)
-    resp.raise_for_status()
-    return BeautifulSoup(resp.text, "lxml")
+def get_soup(
+    session: requests.Session,
+    url: str,
+    timeout: int,
+    retries: int,
+    backoff_sec: float,
+) -> BeautifulSoup:
+    for attempt in range(retries + 1):
+        resp = session.get(url, headers=HEADERS, timeout=timeout)
+        if resp.status_code == 429 and attempt < retries:
+            retry_after = resp.headers.get("Retry-After")
+            wait_sec = float(retry_after) if retry_after and retry_after.isdigit() else backoff_sec * (attempt + 1)
+            print(f"RATE LIMITED: waiting {wait_sec:.1f}s before retrying {url}")
+            time.sleep(wait_sec)
+            continue
+
+        resp.raise_for_status()
+        return BeautifulSoup(resp.content, "lxml")
+
+    raise RuntimeError(f"Unable to fetch after {retries + 1} attempts: {url}")
 
 
-def get_robots_parser(session: requests.Session) -> RobotFileParser:
+def get_robots_parser(session: requests.Session, timeout: int) -> RobotFileParser:
     robots_url = urljoin(BASE, "/robots.txt")
     rp = RobotFileParser()
     # RobotFileParser can't use requests directly, so we fetch manually
     try:
-        r = session.get(robots_url, headers=HEADERS, timeout=30)
+        r = session.get(robots_url, headers=HEADERS, timeout=timeout)
         if r.status_code == 200:
             rp.parse(r.text.splitlines())
         else:
@@ -167,10 +198,10 @@ def extract_category(soup: BeautifulSoup) -> str:
     return "Fire Protection"
 
 
-def get_all_product_urls_from_sitemap(session: requests.Session) -> list:
+def get_all_product_urls_from_sitemap(session: requests.Session, timeout: int) -> list:
     """Fetch all product URLs from the sitemap.xml"""
     print(f"Fetching sitemap from {SITEMAP_URL}...")
-    resp = session.get(SITEMAP_URL, headers=HEADERS, timeout=30)
+    resp = session.get(SITEMAP_URL, headers=HEADERS, timeout=timeout)
     resp.raise_for_status()
 
     # Parse XML sitemap
@@ -184,7 +215,7 @@ def get_all_product_urls_from_sitemap(session: requests.Session) -> list:
         if loc is not None and loc.text:
             urls.append(loc.text.strip())
 
-    return urls
+    return sorted(set(urls))
 
 
 def is_fire_protection_product(soup: BeautifulSoup) -> bool:
@@ -211,16 +242,58 @@ def is_fire_protection_product(soup: BeautifulSoup) -> bool:
     return False
 
 
+def dedupe_and_sort_rows(rows: list[dict]) -> list[dict]:
+    """Keep one row per URL and write rows in stable catalog order."""
+    by_url = {}
+    for row in rows:
+        product_url = row.get("product_url", "")
+        if product_url and product_url not in by_url:
+            by_url[product_url] = row
+
+    return sorted(
+        by_url.values(),
+        key=lambda r: (
+            clean_text(r.get("category", "")).casefold(),
+            clean_text(r.get("product_name", "")).casefold(),
+            clean_text(r.get("sku", "")).casefold(),
+            clean_text(r.get("product_url", "")).casefold(),
+        ),
+    )
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Scrape Victaulic fire protection products into a stable CSV."
+    )
+    parser.add_argument("--max-pages", type=int, default=None, help="Limit product pages scanned.")
+    parser.add_argument("--delay", type=float, default=REQUEST_DELAY_SEC, help="Delay between product requests.")
+    parser.add_argument("--timeout", type=int, default=30, help="HTTP request timeout in seconds.")
+    parser.add_argument("--retries", type=int, default=DEFAULT_RETRIES, help="Retries for rate-limited product pages.")
+    parser.add_argument("--backoff", type=float, default=DEFAULT_BACKOFF_SEC, help="Base seconds to wait after a 429.")
+    parser.add_argument("--allow-partial", action="store_true", help="Write CSV even if some product pages fail.")
+    parser.add_argument("--output", default=OUT_CSV, help="Output CSV path.")
+    args = parser.parse_args()
+
+    if args.max_pages is not None and args.output == OUT_CSV:
+        parser.error("--max-pages is for sample runs; pass --output C:\\tmp\\victaulic_sample.csv")
+
+    return args
+
+
 def main():
+    args = parse_args()
     session = requests.Session()
-    rp = get_robots_parser(session)
+    rp = get_robots_parser(session, args.timeout)
 
     # 1) Get all product URLs from sitemap
-    all_product_urls = get_all_product_urls_from_sitemap(session)
+    all_product_urls = get_all_product_urls_from_sitemap(session, args.timeout)
+    if args.max_pages is not None:
+        all_product_urls = all_product_urls[:args.max_pages]
     print(f"Found {len(all_product_urls)} total products in sitemap")
 
     # 2) Visit each product page and extract fire-protection products
     rows = []
+    failed_urls = []
     fire_product_count = 0
 
     for i, pu in enumerate(all_product_urls, start=1):
@@ -229,7 +302,7 @@ def main():
             continue
 
         try:
-            soup = get_soup(session, pu)
+            soup = get_soup(session, pu, args.timeout, args.retries, args.backoff)
 
             # Check if it's a fire protection product
             if is_fire_protection_product(soup):
@@ -253,24 +326,37 @@ def main():
                 print(f"[{fire_product_count}] Found: {sku} - {name}")
         except Exception as e:
             print(f"FAILED product fetch: {pu} -> {e}")
+            failed_urls.append(pu)
 
         if i % 50 == 0:
             print(f"...processed {i}/{len(all_product_urls)} total products ({fire_product_count} fire-related)")
 
-        time.sleep(REQUEST_DELAY_SEC)
+        time.sleep(args.delay)
+
+    if failed_urls and not args.allow_partial:
+        print("\nSCRAPE INCOMPLETE. CSV was not written because product pages failed:")
+        for failed_url in failed_urls:
+            print(f"  - {failed_url}")
+        print("\nRe-run with a larger --delay/--backoff, or pass --allow-partial for diagnostics only.")
+        raise SystemExit(1)
 
     # 3) Write CSV
-    with open(OUT_CSV, "w", newline="", encoding="utf-8") as f:
+    rows = dedupe_and_sort_rows(rows)
+    output_path = Path(args.output)
+    with open(output_path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(
             f,
-            fieldnames=["sku", "product_name", "category", "size_range", "short_description", "product_url"],
+            fieldnames=CSV_FIELDS,
+            lineterminator="\n",
         )
         w.writeheader()
         for r in rows:
             w.writerow(r)
 
-    print(f"\nDONE. Wrote {len(rows)} fire protection products to: {OUT_CSV}")
+    print(f"\nDONE. Wrote {len(rows)} fire protection products to: {output_path}")
     print(f"Total products scanned: {len(all_product_urls)}")
+    if failed_urls:
+        print(f"WARNING: {len(failed_urls)} product pages failed; output is partial.")
 
 
 if __name__ == "__main__":

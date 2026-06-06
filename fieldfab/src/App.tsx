@@ -6,45 +6,135 @@ import './App.css';
 import { PipeSpecForm } from './components/PipeSpecForm';
 import PickerModal from './components/PickerModal';
 import ProjectsMenu from './components/projectsmenu';
-import { getProjects, addProject, updateProject } from './data/db';
 import WeldedOutletForm from './components/WeldedOutletForm';
 import PipeSketch from './components/PipeSketch';
 import LooseMaterialForm from './components/LooseMaterialForm';
 import type { MaterialItem } from './components/LooseMaterialForm';
-import type { Project } from './types';
+import MarketingLanding from './components/MarketingLanding';
+import type { Project, Piece, Outlet } from './types';
 import { exportToCSV, exportToExcel, exportToPDF } from './utils/looseMaterialExport';
+import { isLoggedIn } from './api/client';
+import { fetchMe, logout } from './api/auth';
+import type { AuthUser } from './api/auth';
+import { ApiError } from './api/client';
+import { fetchProjects, createProject } from './api/projects';
+import type { ApiProject } from './api/projects';
+import { fetchPieces, createPiece, updatePiece, deletePiece } from './api/pieces';
+import type { PiecePayload, ApiPiece } from './api/pieces';
+import {
+  fetchLooseMaterials,
+  createLooseMaterial,
+  updateLooseMaterial,
+  deleteLooseMaterial,
+} from './api/looseMaterials';
+import type { LooseMaterialPayload, ApiLooseMaterial } from './api/looseMaterials';
 
-// Helper function to parse inches (handles decimals and fractions)
+// ── Conversion helpers ────────────────────────────────────────────────────────
+
+function apiProjectToProject(api: ApiProject): Project {
+  return {
+    id: api.id,
+    name: api.name,
+    companyName: api.company_name ?? '',
+    streetNumber: api.street_number ?? '',
+    streetName: api.street_name ?? '',
+    city: api.city ?? '',
+    zipcode: api.zipcode ?? '',
+    pieces: [],
+    looseMaterials: [],
+    createdAt: api.created_at,
+    updatedAt: api.created_at,
+    schemaVersion: 1,
+  };
+}
+
+function pieceToPiecePayload(piece: Piece, orderIndex: number): PiecePayload {
+  return {
+    order_index: orderIndex,
+    qty: Number(piece.qty ?? 1),
+    feet: piece.feet ?? '',
+    inches: piece.inches ?? '',
+    pipe_type: piece.pipeType ?? '',
+    pipe_tag: piece.pipeTag ?? '',
+    diameter: piece.diameter ?? '',
+    fittings_end1: piece.fittingsEnd1 ?? '',
+    fittings_end2: piece.fittingsEnd2 ?? '',
+    outlets: piece.outlets ?? [],
+  };
+}
+
+function apiPieceToFrontend(api: ApiPiece): Piece {
+  return {
+    id: api.id,
+    qty: api.qty,
+    feet: api.feet,
+    inches: api.inches,
+    pipeType: api.pipe_type,
+    pipeTag: api.pipe_tag,
+    diameter: api.diameter,
+    fittingsEnd1: api.fittings_end1,
+    fittingsEnd2: api.fittings_end2,
+    outlets: api.outlets ?? [],
+  };
+}
+
+function materialToPayload(material: MaterialItem, orderIndex: number): LooseMaterialPayload {
+  return {
+    order_index: orderIndex,
+    qty: material.qty,
+    part: material.part,
+    size: material.size,
+    description: material.description,
+    mat_type: material.type,
+    options: material.options ?? [],
+    sizes: material.sizes ?? [],
+  };
+}
+
+function apiMatToMaterialItem(api: ApiLooseMaterial): MaterialItem {
+  return {
+    id: String(api.id),
+    qty: api.qty,
+    part: api.part,
+    size: api.size,
+    description: api.description,
+    type: api.mat_type,
+    options: api.options ?? [],
+    sizes: api.sizes ?? [],
+  };
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 function parseInches(val: string): number {
   if (!val) return 0;
   if (/^\d+(\.\d+)?$/.test(val)) return parseFloat(val);
   if (/^\d+\/\d+$/.test(val)) {
-    const [num, denom] = val.split("/").map(Number);
+    const [num, denom] = val.split('/').map(Number);
     return denom ? num / denom : 0;
   }
   if (/^\d+ \d+\/\d+$/.test(val)) {
-    const [whole, frac] = val.split(" ");
-    const [num, denom] = frac.split("/").map(Number);
+    const [whole, frac] = val.split(' ');
+    const [num, denom] = frac.split('/').map(Number);
     return parseInt(whole) + (denom ? num / denom : 0);
   }
   return 0;
 }
 
-// import { loadProject } from './db';                 // ← uncomment when you have db.ts
-// import ProjectPickerModal from './components/ProjectPickerModal'; // ← add later
+const FREE_PLAN_PROJECT_LIMIT = 3;
+const STRIPE_UPGRADE_URL = import.meta.env.VITE_STRIPE_UPGRADE_URL as string | undefined;
+const BILLING_EMAIL = import.meta.env.VITE_BILLING_EMAIL ?? 'billing@fieldfab.app';
+
+// ── App ───────────────────────────────────────────────────────────────────────
 
 function App() {
-  // Removed unused isProcessingPiece
-  // Track if a piece is pending addition
-  // Export all pieces to PDF (3 per page, job info header)
-  const handleExportAllPdf = async () => {
-    if (!currentProject || pieces.length === 0) return;
-    await exportMultiPiecePdf(currentProject, pieces);
-  };
+  const [isAuthenticated, setIsAuthenticated] = useState(isLoggedIn());
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [apiProjects, setApiProjects] = useState<ApiProject[]>([]);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [showPicker, setShowPicker] = useState(false);
   const [showProjectsMenu, setShowProjectsMenu] = useState(false);
-  const [pieces, setPieces] = useState<any[]>([]);
+  const [pieces, setPieces] = useState<Piece[]>([]);
   const [showPieceForm, setShowPieceForm] = useState(false);
   const [editPieceIndex, setEditPieceIndex] = useState<number | null>(null);
   const [showOutletForm, setShowOutletForm] = useState(false);
@@ -52,30 +142,80 @@ function App() {
   const [activeTab, setActiveTab] = useState<'fabrication' | 'loosematerial'>('fabrication');
   const [looseMaterials, setLooseMaterials] = useState<MaterialItem[]>([]);
   const [editMaterialIndex, setEditMaterialIndex] = useState<number | null>(null);
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
 
+  // Remove legacy browser-cache data from pre-auth architecture.
   useEffect(() => {
-    (async () => {
-      const id = localStorage.getItem('fieldfab:currentProjectId');
-      if (!id) {
-        setShowPicker(true);
-        return;
-      }
-      try {
-        // const p = await loadProject(id);           // ← real load
-        const p = null as unknown as Project | null; // ← temp stub so this compiles
-        if (p) {
-          setCurrentProject(p);
-        } else {
-          setShowPicker(true); // ID existed but data missing
-        }
-      } catch {
-        setShowPicker(true);
-      }
-    })();
+    localStorage.removeItem('fieldfab:projects');
   }, []);
 
-  // Handler when user submits the modal
-  const handleModalSubmit = ({
+  const handleUpgradeClick = () => {
+    if (STRIPE_UPGRADE_URL) {
+      window.open(STRIPE_UPGRADE_URL, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    window.location.href = `mailto:${BILLING_EMAIL}?subject=FieldFab Pro Upgrade`;
+  };
+
+  // Export all pieces to PDF (3 per page, job info header)
+  const handleExportAllPdf = async () => {
+    if (!currentProject || pieces.length === 0) return;
+    await exportMultiPiecePdf(currentProject, pieces);
+  };
+
+  // Load project list when authenticated
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    fetchProjects()
+      .then(setApiProjects)
+      .catch(console.error);
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    fetchMe()
+      .then(setCurrentUser)
+      .catch((err) => {
+        console.error(err);
+      });
+  }, [isAuthenticated]);
+
+  // Select project from server state on each session start.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (apiProjects.length === 0) {
+      setCurrentProject(null);
+      setPieces([]);
+      setLooseMaterials([]);
+      setShowPicker(true);
+      return;
+    }
+
+    setShowPicker(false);
+
+    const selected = currentProject
+      ? apiProjects.find((p) => p.id === currentProject.id)
+      : undefined;
+    const projectToLoad = selected ?? apiProjects[0];
+
+    if (currentProject?.id === projectToLoad.id) return;
+
+    setCurrentProject(apiProjectToProject(projectToLoad));
+    loadProjectData(projectToLoad.id).catch(console.error);
+  }, [isAuthenticated, apiProjects, currentProject]);
+
+  const loadProjectData = async (projectId: number) => {
+    const [piecesData, matsData] = await Promise.all([
+      fetchPieces(projectId),
+      fetchLooseMaterials(projectId),
+    ]);
+    setPieces(piecesData.map(apiPieceToFrontend));
+    setLooseMaterials(matsData.map(apiMatToMaterialItem));
+  };
+
+  // ── Project creation ────────────────────────────────────────────────────────
+
+  const handleModalSubmit = async ({
     companyName,
     jobName,
     streetNumber,
@@ -90,63 +230,175 @@ function App() {
     city: string;
     zipcode: string;
   }) => {
-    const newProject: Project = {
-      id: Date.now().toString(),
-      name: jobName,
-      companyName,
-      streetNumber,
-      streetName,
-      city,
-      zipcode,
-      pieces: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      schemaVersion: 1,
-    };
-    addProject(newProject);
-    setCurrentProject(newProject);
-    setPieces([]);
-    setLooseMaterials([]);
-    localStorage.setItem('fieldfab:currentProjectId', newProject.id);
-    setShowPicker(false);
+    try {
+      const created = await createProject({
+        name: jobName,
+        company_name: companyName,
+        street_number: streetNumber,
+        street_name: streetName,
+        city,
+        zipcode,
+      });
+      setApiProjects((prev) => [...prev, created]);
+      setCurrentProject(apiProjectToProject(created));
+      setPieces([]);
+      setLooseMaterials([]);
+      setShowPicker(false);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 403) {
+          setShowUpgradePrompt(true);
+        }
+        alert(err.message);
+      }
+    }
   };
 
-  // Handler for creating a new piece
-  const handleCreatePiece = (piece: any) => {
-    setPieces(prev => {
-      let newArr;
+  // ── Select existing project ─────────────────────────────────────────────────
+
+  const handleSelectProject = async (p: Project) => {
+    setCurrentProject(p);
+    setPieces([]);
+    setLooseMaterials([]);
+    setShowPicker(false);
+    setShowProjectsMenu(false);
+    await loadProjectData(p.id);
+  };
+
+  // ── Pieces ──────────────────────────────────────────────────────────────────
+
+  const handleCreatePiece = async (piece: Piece) => {
+    if (!currentProject) return;
+    try {
       if (editPieceIndex !== null) {
-        // Edit existing piece
-        newArr = prev.map((p, i) => (i === editPieceIndex ? piece : p));
+        const existing = pieces[editPieceIndex];
+        if (!existing || existing.id == null) {
+          alert('Unable to update piece: missing piece ID.');
+          return;
+        }
+        const payload = pieceToPiecePayload(
+          { ...piece, id: existing.id, outlets: existing.outlets ?? [] },
+          editPieceIndex,
+        );
+        const updated = await updatePiece(currentProject.id, existing.id, payload);
+        setPieces((prev) => prev.map((p, i) => (i === editPieceIndex ? apiPieceToFrontend(updated) : p)));
       } else {
-        // Add new piece
-        newArr = [...prev, piece];
+        const payload = pieceToPiecePayload(piece, pieces.length);
+        const created = await createPiece(currentProject.id, payload);
+        setPieces((prev) => [...prev, apiPieceToFrontend(created)]);
       }
-      // Persist to current project
-      if (currentProject) {
-        updateProject(currentProject.id, { pieces: newArr });
-      }
-      return newArr;
-    });
-    setCurrentProject(prev => {
-      if (!prev) return prev;
-      let newPieces;
-      if (editPieceIndex !== null) {
-        newPieces = prev.pieces.map((p: any, i: number) => (i === editPieceIndex ? piece : p));
-      } else {
-        newPieces = [...(prev.pieces || []), piece];
-      }
-      return { ...prev, pieces: newPieces };
-    });
+    } catch (err) {
+      if (err instanceof ApiError) alert(err.message);
+    }
     setEditPieceIndex(null);
   };
+
+  const handleDeletePiece = async (idx: number) => {
+    if (!currentProject) return;
+    const piece = pieces[idx];
+    if (!piece || piece.id == null) {
+      alert('Unable to delete piece: missing piece ID.');
+      return;
+    }
+    try {
+      await deletePiece(currentProject.id, piece.id);
+      setPieces((prev) => prev.filter((_, i) => i !== idx));
+    } catch (err) {
+      if (err instanceof ApiError) alert(err.message);
+    }
+  };
+
+  // ── Outlets (stored inside the last piece) ──────────────────────────────────
+
+  const handleOutletChange = async (newOutlets: Outlet[]) => {
+    if (!currentProject || pieces.length === 0) return false;
+    const lastIdx = pieces.length - 1;
+    const lastPiece = pieces[lastIdx];
+    if (!lastPiece || lastPiece.id == null) {
+      alert('Unable to update outlets: missing piece ID.');
+      return false;
+    }
+    const payload = pieceToPiecePayload({ ...lastPiece, outlets: newOutlets }, lastIdx);
+    try {
+      const updated = await updatePiece(currentProject.id, lastPiece.id, payload);
+      setPieces((prev) => prev.map((p, i) => (i === lastIdx ? apiPieceToFrontend(updated) : p)));
+      return true;
+    } catch (err) {
+      if (err instanceof ApiError) alert(err.message);
+      return false;
+    }
+  };
+
+  // ── Loose Materials ─────────────────────────────────────────────────────────
+
+  const handleAddMaterial = async (material: MaterialItem) => {
+    if (!currentProject) return;
+    try {
+      const payload = materialToPayload(material, looseMaterials.length);
+      const created = await createLooseMaterial(currentProject.id, payload);
+      setLooseMaterials((prev) => [...prev, apiMatToMaterialItem(created)]);
+    } catch (err) {
+      if (err instanceof ApiError) alert(err.message);
+    }
+  };
+
+  const handleUpdateMaterial = async (material: MaterialItem) => {
+    if (!currentProject || editMaterialIndex === null) return;
+    const existing = looseMaterials[editMaterialIndex];
+    try {
+      const payload = materialToPayload(material, editMaterialIndex);
+      const updated = await updateLooseMaterial(
+        currentProject.id,
+        parseInt(existing.id, 10),
+        payload,
+      );
+      setLooseMaterials((prev) =>
+        prev.map((m, i) => (i === editMaterialIndex ? apiMatToMaterialItem(updated) : m)),
+      );
+      setEditMaterialIndex(null);
+    } catch (err) {
+      if (err instanceof ApiError) alert(err.message);
+    }
+  };
+
+  const handleDeleteMaterial = async (material: MaterialItem) => {
+    if (!currentProject) return;
+    try {
+      await deleteLooseMaterial(currentProject.id, parseInt(material.id, 10));
+      setLooseMaterials((prev) => prev.filter((m) => m.id !== material.id));
+    } catch (err) {
+      if (err instanceof ApiError) alert(err.message);
+    }
+  };
+
+  // ── Auth ────────────────────────────────────────────────────────────────────
+
+  const handleLogout = () => {
+    logout();
+    setIsAuthenticated(false);
+    setCurrentProject(null);
+    setPieces([]);
+    setLooseMaterials([]);
+    setApiProjects([]);
+    setCurrentUser(null);
+    setShowUpgradePrompt(false);
+  };
+
+  if (!isAuthenticated) {
+    return <MarketingLanding onAuth={() => setIsAuthenticated(true)} />;
+  }
+
+  const projectList = apiProjects.map(apiProjectToProject);
+  const currentPiece = pieces.length > 0 ? pieces[pieces.length - 1] : undefined;
+  const currentOutlets = currentPiece?.outlets ?? [];
+  const isProPlan = currentUser?.plan_type === 'pro';
 
   return (
     <>
       <div
         style={{
           minHeight: '100vh',
-          background: 'linear-gradient(135deg, #f8fafc 0%, #e3f0ff 60%, #f0e3ff 100%)',
+          background: 'radial-gradient(1200px 700px at 95% -10%, rgba(72, 149, 255, 0.26), transparent 60%), radial-gradient(700px 400px at -10% 90%, rgba(245, 124, 0, 0.18), transparent 60%), linear-gradient(180deg, #0f172a 0%, #13233f 55%, #1b2f52 100%)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -154,13 +406,15 @@ function App() {
           padding: 0,
           width: '100%',
           boxSizing: 'border-box',
+          overflowY: 'auto',
         }}
       >
         <div
+          className="fieldfab-header-card"
           style={{
             marginTop: 20,
             marginBottom: 20,
-            background: 'rgba(255,255,255,0.85)',
+            background: 'rgba(243, 248, 255, 0.92)',
             borderRadius: 20,
             boxShadow: '0 4px 32px 0 #0002',
             padding: '20px 16px',
@@ -174,25 +428,97 @@ function App() {
           <img
             src={fieldfabLogo}
             alt="FieldFab logo"
+            className="fieldfab-header-logo"
             style={{ height: 75, width: 75, borderRadius: 10, marginBottom: 8, boxShadow: '0 2px 12px #0001' }}
           />
-          <h1 style={{ fontWeight: 800, fontSize: 32, margin: 0, color: '#1a2233', letterSpacing: 1 }}>FieldFab</h1>
+          <h1 className="fieldfab-header-title" style={{ fontWeight: 800, fontSize: 32, margin: 0, color: '#1a2233', letterSpacing: 1 }}>FieldFab</h1>
 
-          {/* Optional: show current project name */}
+          {/* Current project + nav */}
           {currentProject && (
-            <div style={{ marginTop: 8, color: '#3b4458', fontSize: 14, display: 'flex', alignItems: 'center' }}>
+            <div style={{ marginTop: 8, color: '#3b4458', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
               Project: <strong>{currentProject.name}</strong>
               <button
-                style={{ marginLeft: 12, padding: '4px 12px', borderRadius: 6, border: 'none', background: '#1976d2', color: '#fff', fontWeight: 600, cursor: 'pointer' }}
+                style={{ padding: '4px 12px', borderRadius: 6, border: 'none', background: '#1976d2', color: '#fff', fontWeight: 600, cursor: 'pointer' }}
                 onClick={() => setShowProjectsMenu(true)}
               >
                 Project List
               </button>
+              <button
+                style={{ padding: '4px 12px', borderRadius: 6, border: 'none', background: '#757575', color: '#fff', fontWeight: 600, cursor: 'pointer' }}
+                onClick={handleLogout}
+              >
+                Log Out
+              </button>
+            </div>
+          )}
+          {!currentProject && (
+            <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+            <button
+              style={{ padding: '4px 12px', borderRadius: 6, border: 'none', background: '#1976d2', color: '#fff', fontWeight: 600, cursor: 'pointer' }}
+              onClick={() => setShowProjectsMenu(true)}
+            >
+              Project List
+            </button>
+            <button
+              style={{ padding: '4px 12px', borderRadius: 6, border: 'none', background: '#757575', color: '#fff', fontWeight: 600, cursor: 'pointer' }}
+              onClick={handleLogout}
+            >
+              Log Out
+            </button>
             </div>
           )}
 
+          <div
+            style={{
+              marginTop: 10,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexWrap: 'wrap',
+              gap: 8,
+              fontSize: 13,
+              color: '#3b4458',
+            }}
+          >
+            <span
+              style={{
+                background: isProPlan ? '#2e7d32' : '#f57c00',
+                color: '#fff',
+                borderRadius: 999,
+                padding: '2px 10px',
+                fontWeight: 700,
+                letterSpacing: 0.3,
+                textTransform: 'uppercase',
+                fontSize: 11,
+              }}
+            >
+              {isProPlan ? 'Pro Plan' : 'Beta'}
+            </span>
+            {isProPlan ? (
+              <span>Unlimited active projects</span>
+            ) : (
+              <span>Unlimited projects during beta</span>
+            )}
+            {!isProPlan && (
+              <button
+                style={{
+                  padding: '4px 12px',
+                  borderRadius: 6,
+                  border: 'none',
+                  background: '#1a2233',
+                  color: '#fff',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+                onClick={handleUpgradeClick}
+              >
+                Upgrade to Pro
+              </button>
+            )}
+          </div>
+
           {/* Tab selector */}
-          <div style={{
+          <div className="fieldfab-tabs" style={{
             marginTop: 16,
             display: 'flex',
             gap: 8,
@@ -216,20 +542,25 @@ function App() {
               Fabrication
             </button>
             <button
+              className="fieldfab-tab-disabled"
               style={{
                 padding: '10px 24px',
                 border: 'none',
-                background: activeTab === 'loosematerial' ? '#1976d2' : 'transparent',
-                color: activeTab === 'loosematerial' ? '#fff' : '#666',
+                background: '#d9dee8',
+                color: '#6b7280',
                 fontWeight: 600,
                 fontSize: '0.95rem',
-                cursor: 'pointer',
+                cursor: 'not-allowed',
                 borderRadius: '6px 6px 0 0',
                 transition: 'all 0.2s',
+                position: 'relative',
+                opacity: 0.72,
               }}
-              onClick={() => setActiveTab('loosematerial')}
+              disabled
+              title="Loose Material is under development"
             >
               Loose Material
+              <span className="fieldfab-tab-watermark">Under Development</span>
             </button>
           </div>
         </div>
@@ -237,7 +568,7 @@ function App() {
         {activeTab === 'fabrication' && (
           <>
             {/* Beta Watermark Banner */}
-            <div style={{
+            <div className="fieldfab-beta-banner" style={{
               width: '100%',
               maxWidth: '95vw',
               background: 'linear-gradient(135deg, rgba(25, 118, 210, 0.05) 0%, rgba(25, 118, 210, 0.02) 100%)',
@@ -259,21 +590,23 @@ function App() {
                 Beta Version — Feature in Development
               </span>
             </div>
-        <div style={{ width: '100%', maxWidth: '95vw', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24, padding: '0 8px' }}>
+        <div className="fieldfab-fab-workspace" style={{ width: '100%', maxWidth: '95vw', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24, padding: '0 8px' }}>
           <PipeSketch
-            length={pieces.length > 0 ? (Number(pieces[pieces.length-1].feet) * 12 + parseInches(pieces[pieces.length-1].inches)) : 0}
-            pipeType={pieces.length > 0 ? pieces[pieces.length-1].pipeType : ''}
-            pipetag={pieces.length > 0 ? pieces[pieces.length-1].pipeTag : ''}
-            diameter={pieces.length > 0 ? pieces[pieces.length-1].diameter : ''}
-            fittingsEndPipeLabel1={pieces.length > 0 ? pieces[pieces.length-1].fittingsEnd1 : ''}
-            fittingsEndPipeLabel2={pieces.length > 0 ? pieces[pieces.length-1].fittingsEnd2 : ''}
-            outlets={pieces.length > 0 && pieces[pieces.length-1].outlets ? pieces[pieces.length-1].outlets : []}
+            qty={currentPiece?.qty ?? 1}
+            length={currentPiece ? (Number(currentPiece.feet) * 12 + parseInches(currentPiece.inches)) : 0}
+            pipeType={currentPiece?.pipeType ?? ''}
+            pipetag={currentPiece?.pipeTag ?? ''}
+            diameter={currentPiece?.diameter ?? ''}
+            fittingsEndPipeLabel1={currentPiece?.fittingsEnd1 ?? ''}
+            fittingsEndPipeLabel2={currentPiece?.fittingsEnd2 ?? ''}
+            outlets={currentOutlets}
             showExportButton={false}
           />
           <button
+            className="fieldfab-primary-action"
             style={{
               marginTop: 12,
-              marginBottom: 24, // more space below Pipe Specification button
+              marginBottom: 24,
               background: '#1976d2',
               color: '#fff',
               border: 'none',
@@ -301,23 +634,24 @@ function App() {
               bottom: 0,
               width: '100%',
               height: '100%',
-              background: 'rgba(0,0,0,0.4)',
-              backdropFilter: 'blur(6px)',
+              background: 'rgba(7, 14, 28, 0.55)',
+              backdropFilter: 'blur(10px)',
               zIndex: 1000,
-              padding: '20px',
+              padding: '16px',
               boxSizing: 'border-box',
               overflow: 'auto',
               WebkitOverflowScrolling: 'touch',
             } as React.CSSProperties}>
               <div style={{
-                background: '#fff',
-                borderRadius: 12,
-                padding: '20px',
+                background: 'linear-gradient(180deg, #ffffff 0%, #f7fbff 100%)',
+                border: '1px solid #d8e5f7',
+                borderRadius: 16,
+                padding: '22px',
                 width: '100%',
-                maxWidth: '500px',
+                maxWidth: '620px',
                 margin: '0 auto',
                 minHeight: 'fit-content',
-                boxShadow: '0 4px 32px #0003',
+                boxShadow: '0 22px 60px rgba(7, 14, 28, 0.32)',
                 position: 'relative',
                 marginBottom: '40px',
               }}>
@@ -325,21 +659,25 @@ function App() {
                   onClick={() => { setShowPieceForm(false); setEditPieceIndex(null); }}
                   style={{
                     position: 'absolute',
-                    top: 12,
-                    right: 12,
-                    background: 'none',
-                    border: 'none',
-                    fontSize: 26,
-                    color: '#888',
+                    top: 14,
+                    right: 14,
+                    background: '#eef3fb',
+                    border: '1px solid #d2ddec',
+                    borderRadius: '50%',
+                    width: 34,
+                    height: 34,
+                    fontSize: 20,
+                    color: '#4b5b75',
                     cursor: 'pointer',
                     zIndex: 1001,
+                    lineHeight: 1,
                   }}
                   aria-label="Close"
                 >
                   ×
                 </button>
                 <PipeSpecForm
-                  onCreatePiece={(piece: any) => {
+                  onCreatePiece={(piece: Piece) => {
                     handleCreatePiece(piece);
                     setShowPieceForm(false);
                   }}
@@ -351,7 +689,7 @@ function App() {
           )}
           <button
             style={{
-              marginTop: 0, // no extra space above
+              marginTop: 0,
               background: '#1976d2',
               color: '#fff',
               border: 'none',
@@ -366,7 +704,10 @@ function App() {
               display: 'block',
               minHeight: '44px',
             }}
-            onClick={() => setShowOutletForm(true)}
+            onClick={() => {
+              setEditOutletIndex(null);
+              setShowOutletForm(true);
+            }}
           >
             Add Welded Outlet
           </button>
@@ -417,36 +758,24 @@ function App() {
                   ×
                 </button>
                 <WeldedOutletForm
-                  onAdd={outlet => {
-                    setPieces(prev => {
-                      if (prev.length === 0) return prev;
-                      const lastIdx = prev.length - 1;
-                      const lastPiece = prev[lastIdx];
-                      let updatedOutlets;
-                      if (editOutletIndex !== null) {
-                        // Edit existing outlet
-                        updatedOutlets = (lastPiece.outlets || []).map((o: any, i: number) => 
-                          i === editOutletIndex ? outlet : o
-                        );
-                      } else {
-                        // Add new outlet
-                        updatedOutlets = [...(lastPiece.outlets || []), outlet];
-                      }
-                      const updatedPiece = {
-                        ...lastPiece,
-                        outlets: updatedOutlets,
-                      };
-                      const newPieces = [...prev.slice(0, lastIdx), updatedPiece];
-                      if (currentProject) {
-                        updateProject(currentProject.id, { pieces: newPieces });
-                      }
-                      return newPieces;
-                    });
-                    setShowOutletForm(false);
-                    setEditOutletIndex(null);
+                  onAdd={async outlet => {
+                    if (pieces.length === 0) { setShowOutletForm(false); return; }
+                    let newOutlets;
+                    if (editOutletIndex !== null) {
+                      newOutlets = currentOutlets.map((o: Outlet, i: number) =>
+                        i === editOutletIndex ? outlet : o
+                      );
+                    } else {
+                      newOutlets = [...currentOutlets, outlet];
+                    }
+                    const saved = await handleOutletChange(newOutlets);
+                    if (saved) {
+                      setShowOutletForm(false);
+                      setEditOutletIndex(null);
+                    }
                   }}
-                  maxFeet={pieces.length > 0 ? Number(pieces[pieces.length-1].feet) : 10}
-                  initialValues={editOutletIndex !== null && pieces.length > 0 && pieces[pieces.length-1].outlets?.[editOutletIndex] ? pieces[pieces.length-1].outlets[editOutletIndex] : undefined}
+                  maxFeet={currentPiece ? Number(currentPiece.feet) : 10}
+                  initialValues={editOutletIndex !== null ? currentOutlets[editOutletIndex] : undefined}
                   isEditing={editOutletIndex !== null}
                 />
               </div>
@@ -454,35 +783,35 @@ function App() {
           )}
 
           {/* Outlet List for Current Piece */}
-          {pieces.length > 0 && pieces[pieces.length-1].outlets && pieces[pieces.length-1].outlets.length > 0 && (
-            <div style={{ 
-              maxWidth: '95vw', 
-              margin: '20px auto 0', 
-              background: '#fff', 
-              borderRadius: 8, 
-              boxShadow: '0 2px 8px #0001', 
+          {currentOutlets.length > 0 && (
+            <div className="fieldfab-list-card" style={{
+              maxWidth: '95vw',
+              margin: '20px auto 0',
+              background: '#fff',
+              borderRadius: 8,
+              boxShadow: '0 2px 8px #0001',
               padding: '16px',
               color: '#222'
             }}>
               <h3 style={{ color: '#222', marginTop: 0, marginBottom: 12, fontSize: '1.1rem' }}>Welded Outlets on Current Piece</h3>
               <ul style={{ paddingLeft: 16, margin: 0 }}>
-                {pieces[pieces.length-1].outlets.map((outlet: any, idx: number) => {
+                {currentOutlets.map((outlet: Outlet, idx: number) => {
                   const feet = Math.floor(outlet.location / 12);
                   const inches = (outlet.location % 12).toFixed(2);
                   return (
-                    <li key={idx} style={{ 
-                      marginBottom: 12, 
-                      fontSize: '0.875rem', 
-                      color: '#222', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: 8, 
-                      flexWrap: 'wrap' 
+                    <li key={idx} style={{
+                      marginBottom: 12,
+                      fontSize: '0.875rem',
+                      color: '#222',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      flexWrap: 'wrap'
                     }}>
                       <span>
-                        <strong>Location:</strong> {feet}' {inches}" | 
-                        <strong> Size:</strong> {outlet.size}" | 
-                        <strong> Type:</strong> {outlet.type} | 
+                        <strong>Location:</strong> {feet}' {inches}" |
+                        <strong> Size:</strong> {outlet.size}" |
+                        <strong> Type:</strong> {outlet.type} |
                         <strong> Direction:</strong> {outlet.direction}
                       </span>
                       <button
@@ -521,21 +850,10 @@ function App() {
                         }}
                         title="Delete outlet"
                         onClick={() => {
-                          setPieces(prev => {
-                            if (prev.length === 0) return prev;
-                            const lastIdx = prev.length - 1;
-                            const lastPiece = prev[lastIdx];
-                            const updatedOutlets = (lastPiece.outlets || []).filter((_: any, i: number) => i !== idx);
-                            const updatedPiece = {
-                              ...lastPiece,
-                              outlets: updatedOutlets,
-                            };
-                            const newPieces = [...prev.slice(0, lastIdx), updatedPiece];
-                            if (currentProject) {
-                              updateProject(currentProject.id, { pieces: newPieces });
-                            }
-                            return newPieces;
-                          });
+                          if (pieces.length === 0) return;
+                          const lastPiece = pieces[pieces.length - 1];
+                          const newOutlets = (lastPiece.outlets || []).filter((_: Outlet, i: number) => i !== idx);
+                          handleOutletChange(newOutlets);
                         }}
                       >
                         Delete
@@ -548,22 +866,23 @@ function App() {
           )}
         </div>
 
-        {/* List of created pieces (always show, even if empty) */}
-  <div style={{ maxWidth: '95vw', 
-                margin: '20px auto', 
-                background: '#fff', 
-                borderRadius: 8, 
-                boxShadow: '0 2px 8px #0001', 
-                padding: '12px', color: '#222', 
+        {/* List of created pieces */}
+  <div className="fieldfab-list-card fieldfab-created-card" style={{ maxWidth: '95vw',
+                margin: '20px auto',
+                background: '#fff',
+                borderRadius: 8,
+                boxShadow: '0 2px 8px #0001',
+                padding: '12px', color: '#222',
                 minHeight: 60 }}>
           <h3 style={{ color: '#222' }}>Created Pieces</h3>
           {pieces.length === 0 ? (
-            <div style={{ color:   '#888', fontSize: 15 }}>No pieces created yet.</div>
+            <div style={{ color: '#888', fontSize: 15 }}>No pieces created yet.</div>
           ) : (
             <ul style={{ paddingLeft: 16 }}>
               {pieces.map((piece, idx) => (
-                <li key={idx} style={{ marginBottom: 8, fontSize: '0.875rem', color: '#222', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <li key={piece.id ?? idx} style={{ marginBottom: 8, fontSize: '0.875rem', color: '#222', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   {piece.pipeTag ? <b>{piece.pipeTag}</b> : `Piece #${idx + 1}`}: {piece.feet}' {piece.inches}'' {piece.diameter}in {piece.pipeType}
+                  <span style={{ fontWeight: 700 }}>Qty: {piece.qty}</span>
                   <button
                     style={{
                       marginLeft: 8,
@@ -601,13 +920,7 @@ function App() {
                       touchAction: 'manipulation',
                     }}
                     title="Delete piece"
-                    onClick={() => {
-                      const newArr = pieces.filter((_, i) => i !== idx);
-                      setPieces(newArr);
-                      if (currentProject) {
-                        updateProject(currentProject.id, { pieces: newArr });
-                      }
-                    }}
+                    onClick={() => handleDeletePiece(idx)}
                   >
                     Delete
                   </button>
@@ -615,7 +928,7 @@ function App() {
               ))}
             </ul>
           )}
-          {/* Export PDF and Create New Piece button group - now directly below Created Pieces */}
+          {/* Export PDF and Create New Piece button group */}
           <div style={{ width: '100%', margin: '10px 0 0 0', display: 'flex', flexDirection: window.innerWidth < 480 ? 'column' : 'row', justifyContent: 'center', gap: 12 }}>
             <button
               style={{
@@ -696,15 +1009,7 @@ function App() {
               </p>
 
               <LooseMaterialForm
-                onAdd={(material) => {
-                  setLooseMaterials(prev => {
-                    const newMaterials = [...prev, material];
-                    if (currentProject) {
-                      updateProject(currentProject.id, { looseMaterials: newMaterials });
-                    }
-                    return newMaterials;
-                  });
-                }}
+                onAdd={handleAddMaterial}
               />
 
               {/* Material List Display */}
@@ -791,13 +1096,7 @@ function App() {
                                     cursor: 'pointer',
                                     width: '80px',
                                   }}
-                                  onClick={() => {
-                                    const newMaterials = looseMaterials.filter(m => m.id !== material.id);
-                                    setLooseMaterials(newMaterials);
-                                    if (currentProject) {
-                                      updateProject(currentProject.id, { looseMaterials: newMaterials });
-                                    }
-                                  }}
+                                  onClick={() => handleDeleteMaterial(material)}
                                 >
                                   Delete
                                 </button>
@@ -929,16 +1228,7 @@ function App() {
                     </button>
                     <h3 style={{ marginTop: 0, marginBottom: 20, color: '#1a2233' }}>Edit Material</h3>
                     <LooseMaterialForm
-                      onAdd={(material) => {
-                        setLooseMaterials(prev => {
-                          const newMaterials = prev.map((m, i) => i === editMaterialIndex ? material : m);
-                          if (currentProject) {
-                            updateProject(currentProject.id, { looseMaterials: newMaterials });
-                          }
-                          return newMaterials;
-                        });
-                        setEditMaterialIndex(null);
-                      }}
+                      onAdd={handleUpdateMaterial}
                       initialValues={looseMaterials[editMaterialIndex]}
                       isEditing={true}
                     />
@@ -949,26 +1239,21 @@ function App() {
           </div>
         )}
       </div>
-      {/* Project picker modal (show when no current project) */}
+
+      {/* Project picker modal */}
       {showPicker && (
         <PickerModal
           isOpen={showPicker}
           onSubmit={handleModalSubmit}
           onClose={() => setShowPicker(false)}
-          projects={getProjects()}
-          onSelectProject={p => {
-            setCurrentProject(p);
-            setPieces(p.pieces || []);
-            setLooseMaterials((p as any).looseMaterials || []);
-            localStorage.setItem('fieldfab:currentProjectId', p.id);
-            setShowPicker(false);
-          }}
+          projects={projectList}
+          onSelectProject={handleSelectProject}
         />
       )}
 
       {/* Projects menu modal */}
       {showProjectsMenu && (
-        <div style={{
+        <div className="fieldfab-modal-backdrop" style={{
           position: 'fixed',
           top: 0,
           left: 0,
@@ -980,23 +1265,83 @@ function App() {
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-          <div style={{ background: '#fff', borderRadius: 12, minWidth: 340, boxShadow: '0 4px 32px #0003', position: 'relative' }}>
+          <div className="fieldfab-projects-modal" style={{ background: '#fff', borderRadius: 12, minWidth: 340, boxShadow: '0 4px 32px #0003', position: 'relative' }}>
             <button
+              className="fieldfab-modal-close"
               style={{ position: 'absolute', top: 12, right: 12, background: '#222', color: '#fff', border: 'none', borderRadius: 6, width: 28, height: 28, fontSize: 18, cursor: 'pointer' }}
               onClick={() => setShowProjectsMenu(false)}
             >
               ×
             </button>
             <ProjectsMenu
-              projects={getProjects()}
-              onSelect={p => {
-                setCurrentProject(p);
-                setPieces(p.pieces || []);
-                setLooseMaterials((p as any).looseMaterials || []);
-                localStorage.setItem('fieldfab:currentProjectId', p.id);
-                setShowProjectsMenu(false);
-              }}
+              projects={projectList}
+              onSelect={handleSelectProject}
+              onAddProject={() => { setShowProjectsMenu(false); setShowPicker(true); }}
             />
+          </div>
+        </div>
+      )}
+
+      {showUpgradePrompt && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.42)',
+            zIndex: 2500,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: 12,
+              width: '100%',
+              maxWidth: 460,
+              boxShadow: '0 8px 34px #0004',
+              padding: 20,
+            }}
+          >
+            <h3 style={{ margin: '0 0 8px', color: '#1a2233' }}>Free plan limit reached</h3>
+            <p style={{ margin: '0 0 14px', color: '#445', fontSize: 14, lineHeight: 1.5 }}>
+              You have reached {FREE_PLAN_PROJECT_LIMIT} active projects. Upgrade to Pro for unlimited projects.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button
+                style={{
+                  background: '#e0e0e0',
+                  color: '#222',
+                  border: 'none',
+                  borderRadius: 8,
+                  padding: '10px 14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+                onClick={() => setShowUpgradePrompt(false)}
+              >
+                Not now
+              </button>
+              <button
+                style={{
+                  background: '#1976d2',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  padding: '10px 14px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+                onClick={() => {
+                  setShowUpgradePrompt(false);
+                  handleUpgradeClick();
+                }}
+              >
+                Upgrade to Pro
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1007,14 +1352,16 @@ function App() {
         maxWidth: '95vw',
         background: 'rgba(255,255,255,0.7)',
         borderRadius: 12,
-        padding: '16px 20px',
-        marginTop: 40,
+        padding: '12px 16px',
+        marginTop: 16,
         marginBottom: 20,
         color: '#666',
         fontSize: '0.75rem',
         lineHeight: 1.5,
         boxShadow: '0 2px 12px rgba(25, 118, 210, 0.06)',
         border: '1px solid rgba(25, 118, 210, 0.1)',
+        position: 'relative',
+        zIndex: 0,
       }}>
         <p style={{ margin: '0', color: '#555', fontSize: '0.78rem' }}>
           <strong style={{ color: '#1976d2' }}>Quick heads up:</strong> Get a licensed fire protection engineer to review your specs before you build or install anything. This app helps with planning and organizing, but you're responsible for verifying everything matches your project needs and code requirements.
@@ -1027,10 +1374,13 @@ function App() {
         <p style={{ margin: '0', color: '#777', fontSize: '0.72rem', lineHeight: 1.4 }}>
           Have a licensed fire protection engineer or proper NICET level review all specs before fabrication. This tool helps with planning, but always double-check measurements, materials, and code requirements (NFPA, local AHJ) before ordering or installing.
         </p>
+
+        <p style={{ margin: '0', color: '#666', fontSize: '0.72rem', lineHeight: 1.4 }}>
+          Billing and plan changes: {BILLING_EMAIL}
+        </p>
       </div>
     </>
   );
 }
 
 export default App;
-
