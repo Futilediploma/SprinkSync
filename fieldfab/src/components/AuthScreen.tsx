@@ -38,15 +38,17 @@ export default function AuthScreen({ onAuth, variant = 'fullscreen' }: AuthScree
   };
 
   const card = (
-    <div style={{
+    <div className="fieldfab-auth-card" aria-labelledby="fieldfab-auth-title" style={{
       background: '#fff',
       borderRadius: 12,
       boxShadow: '0 2px 16px rgba(0,0,0,0.12)',
       padding: 32,
       width: '100%',
       maxWidth: 380,
+      boxSizing: 'border-box',
+      color: '#1a2233',
     }}>
-        <h1 style={{ margin: '0 0 8px', fontSize: 24, fontWeight: 700, textAlign: 'center' }}>
+        <h1 id="fieldfab-auth-title" style={{ margin: '0 0 8px', fontSize: 24, fontWeight: 700, textAlign: 'center' }}>
           FieldFab
         </h1>
         <p style={{ margin: '0 0 24px', color: '#666', textAlign: 'center', fontSize: 14 }}>
@@ -58,7 +60,9 @@ export default function AuthScreen({ onAuth, variant = 'fullscreen' }: AuthScree
           {(['login', 'register'] as const).map((t) => (
             <button
               key={t}
+              type="button"
               onClick={() => { setTab(t); setError(''); }}
+              aria-pressed={tab === t}
               style={{
                 flex: 1,
                 background: 'none',
@@ -81,8 +85,9 @@ export default function AuthScreen({ onAuth, variant = 'fullscreen' }: AuthScree
         <form onSubmit={handleSubmit}>
           {tab === 'register' && (
             <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>Company Name (optional)</label>
+              <label htmlFor="fieldfab-company" style={labelStyle}>Company Name (optional)</label>
               <input
+                id="fieldfab-company"
                 style={inputStyle}
                 type="text"
                 value={companyName}
@@ -94,8 +99,9 @@ export default function AuthScreen({ onAuth, variant = 'fullscreen' }: AuthScree
           )}
 
           <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Email</label>
+            <label htmlFor="fieldfab-email" style={labelStyle}>Email</label>
             <input
+              id="fieldfab-email"
               style={inputStyle}
               type="email"
               value={email}
@@ -107,8 +113,9 @@ export default function AuthScreen({ onAuth, variant = 'fullscreen' }: AuthScree
           </div>
 
           <div style={{ marginBottom: 24 }}>
-            <label style={labelStyle}>Password</label>
+            <label htmlFor="fieldfab-password" style={labelStyle}>Password</label>
             <input
+              id="fieldfab-password"
               style={inputStyle}
               type="password"
               value={password}
@@ -121,7 +128,7 @@ export default function AuthScreen({ onAuth, variant = 'fullscreen' }: AuthScree
           </div>
 
           {error && (
-            <div style={{
+            <div role="alert" style={{
               background: '#fdecea',
               color: '#c62828',
               borderRadius: 6,
@@ -136,6 +143,7 @@ export default function AuthScreen({ onAuth, variant = 'fullscreen' }: AuthScree
           <button
             type="submit"
             disabled={loading}
+            aria-busy={loading}
             style={{
               width: '100%',
               padding: '12px 0',
@@ -154,7 +162,7 @@ export default function AuthScreen({ onAuth, variant = 'fullscreen' }: AuthScree
 
         {tab === 'login' && (
           <p style={{ textAlign: 'center', marginTop: 16, fontSize: 13, color: '#888' }}>
-            Free plan: up to 3 projects. Unlimited with Pro.
+            Beta access includes unlimited projects during testing.
           </p>
         )}
     </div>
@@ -165,13 +173,16 @@ export default function AuthScreen({ onAuth, variant = 'fullscreen' }: AuthScree
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
+    <div className="fieldfab-auth-fullscreen" style={{
+      minHeight: '100dvh',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       background: 'linear-gradient(145deg, #0f172a 0%, #13233f 58%, #1d3358 100%)',
       padding: 16,
+      boxSizing: 'border-box',
+      overflowY: 'auto',
+      WebkitOverflowScrolling: 'touch',
     }}>
       {card}
     </div>
