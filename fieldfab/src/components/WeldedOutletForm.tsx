@@ -11,14 +11,17 @@ export interface WeldedOutlet {
 }
 
 interface WeldedOutletFormProps {
-  onAdd: (outlet: WeldedOutlet) => void;
+  onAdd: (outlet: WeldedOutlet) => void | Promise<void>;
   maxFeet?: number;
+  maxLocationInches?: number;
   initialValues?: WeldedOutlet;
   isEditing?: boolean;
 }
 
 
-const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 100, initialValues, isEditing = false }) => {
+const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 100, maxLocationInches, initialValues, isEditing = false }) => {
+  const maxSelectableFeet = Number.isFinite(maxFeet) ? Math.max(0, Math.floor(maxFeet)) : 100;
+  const [isSaving, setIsSaving] = useState(false);
   const [feet, setFeet] = useState(initialValues ? Math.floor(initialValues.location / 12) : 0);
   const [inches, setInches] = useState(initialValues ? Math.floor(initialValues.location % 12) : 0);
   const [fraction, setFraction] = useState(initialValues ? String((initialValues.location % 1) * 8 / 8) : "");
@@ -33,21 +36,33 @@ const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 10
     return result;
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const totalLocationInches = () => {
     let totalInches = inches;
-    if (fraction) {
+    if (fraction && fraction !== "0") {
       const [num, denom] = fraction.split("/").map(Number);
       if (denom) totalInches += num / denom;
     }
-    const location = feet * 12 + totalInches;
-    onAdd({ location, size, type, direction });
-    setFeet(0);
-    setInches(0);
-    setFraction("");
-    setSize("");
-    setType("");
-    setDirection("");
+    return feet * 12 + totalInches;
+  };
+
+  const location = totalLocationInches();
+  const isPastPipeEnd = typeof maxLocationInches === "number" && location > maxLocationInches;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isPastPipeEnd || isSaving) return;
+    setIsSaving(true);
+    try {
+      await onAdd({ location, size, type, direction });
+      setFeet(0);
+      setInches(0);
+      setFraction("");
+      setSize("");
+      setType("");
+      setDirection("");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
 
@@ -67,7 +82,7 @@ const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 10
               onChange={e => setFeet(Number(e.target.value))}
               MenuProps={{ disablePortal: true }}
             >
-              {[...Array(maxFeet + 1).keys()].map(f => (
+              {[...Array(maxSelectableFeet + 1).keys()].map(f => (
                 <MenuItem key={f} value={String(f)}>{f}</MenuItem>
               ))}
             </Select>
@@ -86,7 +101,7 @@ const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 10
               ))}
             </Select>
           </FormControl>
-          <FormControl sx={{ minWidth: { xs: '100%', sm: 70 }, flexGrow: 1 }} required>
+          <FormControl sx={{ minWidth: { xs: '100%', sm: 70 }, flexGrow: 1 }}>
             <InputLabel id="location-fraction-label">Fraction</InputLabel>
             <Select
               labelId="location-fraction-label"
@@ -163,13 +178,18 @@ const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 10
           </Select>
         </FormControl>
       </Stack>
+      {isPastPipeEnd && (
+        <Typography variant="body2" color="error" mb={2}>
+          Location must be on the current pipe.
+        </Typography>
+      )}
   <Button
     type="submit"
     variant="contained"
     color="primary"
-    disabled={feet > maxFeet || !size || !type || !direction}
+    disabled={isSaving || feet > maxSelectableFeet || isPastPipeEnd || !size || !type || !direction}
   >
-    {isEditing ? 'Update Outlet' : 'Add Outlet'}
+    {isSaving ? 'Saving...' : isEditing ? 'Update Outlet' : 'Add Outlet'}
   </Button>
     </Box>
   );
