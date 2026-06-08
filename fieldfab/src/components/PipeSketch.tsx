@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { exportPipeSketchPdf } from "./exportPdf";
 
 import type { WeldedOutlet } from "./WeldedOutletForm";
@@ -166,6 +166,8 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
   onOutletLocationCommit,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
+  const activeDragRef = useRef<{ outletIndex: number; pointerId: number } | null>(null);
+  const [draggingOutletIndex, setDraggingOutletIndex] = useState<number | null>(null);
   const width = 480;
   const height = 275;
   const margin = 24;
@@ -201,27 +203,46 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
 
     event.preventDefault();
     event.stopPropagation();
-    event.currentTarget.setPointerCapture(event.pointerId);
+    activeDragRef.current = { outletIndex, pointerId: event.pointerId };
+    setDraggingOutletIndex(outletIndex);
+    svgRef.current?.setPointerCapture(event.pointerId);
 
     const nextLocation = inchesAtClientX(event.clientX);
     onOutletLocationPreview?.(outletIndex, nextLocation);
   };
 
-  const previewOutletDrag = (event: React.PointerEvent<SVGGElement>, outletIndex: number) => {
-    if (!canDragOutlets || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
+  const previewOutletDrag = (event: React.PointerEvent<SVGSVGElement>) => {
+    const activeDrag = activeDragRef.current;
+    if (!canDragOutlets || !activeDrag || activeDrag.pointerId !== event.pointerId) return;
 
     event.preventDefault();
-    onOutletLocationPreview?.(outletIndex, inchesAtClientX(event.clientX));
+    onOutletLocationPreview?.(activeDrag.outletIndex, inchesAtClientX(event.clientX));
   };
 
-  const finishOutletDrag = (event: React.PointerEvent<SVGGElement>, outletIndex: number) => {
-    if (!canDragOutlets || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
+  const finishOutletDrag = (event: React.PointerEvent<SVGSVGElement>) => {
+    const activeDrag = activeDragRef.current;
+    if (!canDragOutlets || !activeDrag || activeDrag.pointerId !== event.pointerId) return;
 
     event.preventDefault();
     const nextLocation = inchesAtClientX(event.clientX);
-    event.currentTarget.releasePointerCapture(event.pointerId);
-    onOutletLocationPreview?.(outletIndex, nextLocation);
-    onOutletLocationCommit?.(outletIndex, nextLocation);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    activeDragRef.current = null;
+    setDraggingOutletIndex(null);
+    onOutletLocationPreview?.(activeDrag.outletIndex, nextLocation);
+    onOutletLocationCommit?.(activeDrag.outletIndex, nextLocation);
+  };
+
+  const cancelOutletDrag = (event: React.PointerEvent<SVGSVGElement>) => {
+    const activeDrag = activeDragRef.current;
+    if (!activeDrag || activeDrag.pointerId !== event.pointerId) return;
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    activeDragRef.current = null;
+    setDraggingOutletIndex(null);
   };
 
   return (
@@ -254,6 +275,9 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
           width="100%"
           height="auto"
           viewBox={`0 0 ${width} ${height}`}
+          onPointerMove={previewOutletDrag}
+          onPointerUp={finishOutletDrag}
+          onPointerCancel={cancelOutletDrag}
           style={{
             display: 'block',
             width: '100%',
@@ -351,11 +375,8 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
               <g
                 key={`outlet-${originalIndex}`}
                 onPointerDown={(event) => beginOutletDrag(event, originalIndex)}
-                onPointerMove={(event) => previewOutletDrag(event, originalIndex)}
-                onPointerUp={(event) => finishOutletDrag(event, originalIndex)}
-                onPointerCancel={(event) => finishOutletDrag(event, originalIndex)}
                 style={{
-                  cursor: canDragOutlets ? 'grab' : 'default',
+                  cursor: draggingOutletIndex === originalIndex ? 'grabbing' : canDragOutlets ? 'grab' : 'default',
                   touchAction: canDragOutlets ? 'none' : 'auto',
                 }}
               >
