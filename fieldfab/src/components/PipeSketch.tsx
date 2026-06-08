@@ -166,7 +166,12 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
   onOutletLocationCommit,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
-  const activeDragRef = useRef<{ outletIndex: number; pointerId: number } | null>(null);
+  const activeDragRef = useRef<{
+    outletIndex: number;
+    mode: "pointer" | "mouse" | "touch";
+    pointerId?: number;
+    lastClientX: number;
+  } | null>(null);
   const [draggingOutletIndex, setDraggingOutletIndex] = useState<number | null>(null);
   const width = 480;
   const height = 275;
@@ -198,62 +203,142 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
   const rightPrepCode = endPrepCode(fittingsEndPipeLabel2);
   const canDragOutlets = editableOutlets && length > 0;
 
+  const previewDragAt = useCallback((clientX: number) => {
+    const activeDrag = activeDragRef.current;
+    if (!canDragOutlets || !activeDrag) return;
+
+    activeDrag.lastClientX = clientX;
+    onOutletLocationPreview?.(activeDrag.outletIndex, inchesAtClientX(clientX));
+  }, [canDragOutlets, inchesAtClientX, onOutletLocationPreview]);
+
+  const finishDragAt = useCallback((clientX: number) => {
+    const activeDrag = activeDragRef.current;
+    if (!canDragOutlets || !activeDrag) return;
+
+    const nextLocation = inchesAtClientX(clientX);
+    const svg = svgRef.current;
+    if (
+      activeDrag.mode === "pointer" &&
+      activeDrag.pointerId !== undefined &&
+      svg?.hasPointerCapture(activeDrag.pointerId)
+    ) {
+      svg.releasePointerCapture(activeDrag.pointerId);
+    }
+
+    activeDragRef.current = null;
+    setDraggingOutletIndex(null);
+    onOutletLocationPreview?.(activeDrag.outletIndex, nextLocation);
+    onOutletLocationCommit?.(activeDrag.outletIndex, nextLocation);
+  }, [canDragOutlets, inchesAtClientX, onOutletLocationCommit, onOutletLocationPreview]);
+
+  const cancelDrag = useCallback(() => {
+    const activeDrag = activeDragRef.current;
+    if (!activeDrag) return;
+
+    const svg = svgRef.current;
+    if (
+      activeDrag.mode === "pointer" &&
+      activeDrag.pointerId !== undefined &&
+      svg?.hasPointerCapture(activeDrag.pointerId)
+    ) {
+      svg.releasePointerCapture(activeDrag.pointerId);
+    }
+
+    activeDragRef.current = null;
+    setDraggingOutletIndex(null);
+  }, []);
+
   useEffect(() => {
     if (draggingOutletIndex === null) return;
 
     const handleWindowPointerMove = (event: PointerEvent) => {
       const activeDrag = activeDragRef.current;
-      if (!activeDrag || activeDrag.pointerId !== event.pointerId) return;
+      if (!activeDrag || activeDrag.mode !== "pointer" || activeDrag.pointerId !== event.pointerId) return;
 
       event.preventDefault();
-      onOutletLocationPreview?.(activeDrag.outletIndex, inchesAtClientX(event.clientX));
+      previewDragAt(event.clientX);
     };
 
     const handleWindowPointerUp = (event: PointerEvent) => {
       const activeDrag = activeDragRef.current;
-      if (!activeDrag || activeDrag.pointerId !== event.pointerId) return;
+      if (!activeDrag || activeDrag.mode !== "pointer" || activeDrag.pointerId !== event.pointerId) return;
 
       event.preventDefault();
-      const nextLocation = inchesAtClientX(event.clientX);
-      const svg = svgRef.current;
-      if (svg?.hasPointerCapture(event.pointerId)) {
-        svg.releasePointerCapture(event.pointerId);
-      }
-      activeDragRef.current = null;
-      setDraggingOutletIndex(null);
-      onOutletLocationPreview?.(activeDrag.outletIndex, nextLocation);
-      onOutletLocationCommit?.(activeDrag.outletIndex, nextLocation);
+      finishDragAt(event.clientX);
     };
 
     const handleWindowPointerCancel = (event: PointerEvent) => {
       const activeDrag = activeDragRef.current;
-      if (!activeDrag || activeDrag.pointerId !== event.pointerId) return;
+      if (!activeDrag || activeDrag.mode !== "pointer" || activeDrag.pointerId !== event.pointerId) return;
 
-      const svg = svgRef.current;
-      if (svg?.hasPointerCapture(event.pointerId)) {
-        svg.releasePointerCapture(event.pointerId);
-      }
-      activeDragRef.current = null;
-      setDraggingOutletIndex(null);
+      cancelDrag();
+    };
+
+    const handleWindowMouseMove = (event: MouseEvent) => {
+      const activeDrag = activeDragRef.current;
+      if (!activeDrag || activeDrag.mode !== "mouse") return;
+
+      event.preventDefault();
+      previewDragAt(event.clientX);
+    };
+
+    const handleWindowMouseUp = (event: MouseEvent) => {
+      const activeDrag = activeDragRef.current;
+      if (!activeDrag || activeDrag.mode !== "mouse") return;
+
+      event.preventDefault();
+      finishDragAt(event.clientX);
+    };
+
+    const handleWindowTouchMove = (event: TouchEvent) => {
+      const activeDrag = activeDragRef.current;
+      if (!activeDrag || activeDrag.mode !== "touch") return;
+
+      const touch = event.touches[0];
+      if (!touch) return;
+      event.preventDefault();
+      previewDragAt(touch.clientX);
+    };
+
+    const handleWindowTouchEnd = () => {
+      const activeDrag = activeDragRef.current;
+      if (!activeDrag || activeDrag.mode !== "touch") return;
+
+      finishDragAt(activeDrag.lastClientX);
     };
 
     window.addEventListener("pointermove", handleWindowPointerMove);
     window.addEventListener("pointerup", handleWindowPointerUp);
     window.addEventListener("pointercancel", handleWindowPointerCancel);
+    window.addEventListener("mousemove", handleWindowMouseMove);
+    window.addEventListener("mouseup", handleWindowMouseUp);
+    window.addEventListener("touchmove", handleWindowTouchMove, { passive: false });
+    window.addEventListener("touchend", handleWindowTouchEnd);
+    window.addEventListener("touchcancel", cancelDrag);
 
     return () => {
       window.removeEventListener("pointermove", handleWindowPointerMove);
       window.removeEventListener("pointerup", handleWindowPointerUp);
       window.removeEventListener("pointercancel", handleWindowPointerCancel);
+      window.removeEventListener("mousemove", handleWindowMouseMove);
+      window.removeEventListener("mouseup", handleWindowMouseUp);
+      window.removeEventListener("touchmove", handleWindowTouchMove);
+      window.removeEventListener("touchend", handleWindowTouchEnd);
+      window.removeEventListener("touchcancel", cancelDrag);
     };
-  }, [draggingOutletIndex, inchesAtClientX, onOutletLocationCommit, onOutletLocationPreview]);
+  }, [cancelDrag, draggingOutletIndex, finishDragAt, previewDragAt]);
 
   const beginOutletDrag = (event: React.PointerEvent<SVGGElement>, outletIndex: number) => {
-    if (!canDragOutlets) return;
+    if (!canDragOutlets || activeDragRef.current) return;
 
     event.preventDefault();
     event.stopPropagation();
-    activeDragRef.current = { outletIndex, pointerId: event.pointerId };
+    activeDragRef.current = {
+      outletIndex,
+      mode: "pointer",
+      pointerId: event.pointerId,
+      lastClientX: event.clientX,
+    };
     setDraggingOutletIndex(outletIndex);
     try {
       svgRef.current?.setPointerCapture(event.pointerId);
@@ -263,6 +348,28 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
 
     const nextLocation = inchesAtClientX(event.clientX);
     onOutletLocationPreview?.(outletIndex, nextLocation);
+  };
+
+  const beginOutletMouseDrag = (event: React.MouseEvent<SVGGElement>, outletIndex: number) => {
+    if (!canDragOutlets || activeDragRef.current) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    activeDragRef.current = { outletIndex, mode: "mouse", lastClientX: event.clientX };
+    setDraggingOutletIndex(outletIndex);
+    onOutletLocationPreview?.(outletIndex, inchesAtClientX(event.clientX));
+  };
+
+  const beginOutletTouchDrag = (event: React.TouchEvent<SVGGElement>, outletIndex: number) => {
+    if (!canDragOutlets || activeDragRef.current) return;
+
+    const touch = event.touches[0];
+    if (!touch) return;
+    event.preventDefault();
+    event.stopPropagation();
+    activeDragRef.current = { outletIndex, mode: "touch", lastClientX: touch.clientX };
+    setDraggingOutletIndex(outletIndex);
+    onOutletLocationPreview?.(outletIndex, inchesAtClientX(touch.clientX));
   };
 
   const previewOutletDrag = (event: React.PointerEvent<SVGSVGElement>) => {
@@ -429,6 +536,8 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
               <g
                 key={`outlet-${originalIndex}`}
                 onPointerDown={(event) => beginOutletDrag(event, originalIndex)}
+                onMouseDown={(event) => beginOutletMouseDrag(event, originalIndex)}
+                onTouchStart={(event) => beginOutletTouchDrag(event, originalIndex)}
                 style={{
                   cursor: draggingOutletIndex === originalIndex ? 'grabbing' : canDragOutlets ? 'grab' : 'default',
                   touchAction: canDragOutlets ? 'none' : 'auto',
