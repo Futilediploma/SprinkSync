@@ -1,0 +1,94 @@
+.projects-menu {
+  width: 100%;
+  padding: 18px;
+  color: #17253b;
+  box-sizing: border-box;
+}
+
+.projects-menu-kicker {
+  color: #1976d2;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.projects-menu h3 {
+  margin: 4px 0 14px;
+  color: #101827;
+  font-size: 1.35rem;
+  line-height: 1.15;
+}
+
+.projects-menu ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+  max-height: min(46vh, 360px);
+  overflow: auto;
+}
+
+.projects-menu li {
+  margin: 0;
+}
+
+.projects-menu-item {
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #c9d7ea;
+  background: linear-gradient(180deg, #ffffff 0%, #f4f8fd 100%);
+  color: #17253b;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.projects-menu-item:hover {
+  border-color: #1976d2;
+  box-shadow: 0 10px 24px rgba(25, 118, 210, 0.16);
+  transform: translateY(-1px);
+}
+
+.projects-menu-item b,
+.projects-menu-item span {
+  display: block;
+}
+
+.projects-menu-item b {
+  color: #101827;
+  font-size: 0.98rem;
+}
+
+.projects-menu-item span {
+  margin-top: 3px;
+  color: #4b5f7a;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.projects-menu-add {
+  margin-top: 14px;
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 2px dashed rgba(25, 118, 210, 0.48);
+  background: rgba(25, 118, 210, 0.08);
+  color: #125ca3;
+  font-weight: 800;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.projects-menu-empty {
+  padding: 14px;
+  border-radius: 10px;
+  background: #eef5ff;
+  color: #40536f;
+  font-weight: 700;
+  text-align: center;
+}
