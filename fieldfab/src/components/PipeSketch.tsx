@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { exportPipeSketchPdf } from "./exportPdf";
 
 import type { WeldedOutlet } from "./WeldedOutletForm";
@@ -182,7 +182,7 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
   const segmentLengths = segmentPositions.slice(0, -1).map((start, idx) => segmentPositions[idx + 1] - start);
 
   const xAt = (inches: number) => margin + Math.max(0, Math.min(inches / Math.max(length, 1), 1)) * pipeLength;
-  const inchesAtClientX = (clientX: number) => {
+  const inchesAtClientX = useCallback((clientX: number) => {
     const svg = svgRef.current;
     if (!svg) return 0;
 
@@ -191,12 +191,62 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
     const rawInches = ((viewBoxX - margin) / pipeLength) * Math.max(length, 0);
     const clamped = Math.max(0, Math.min(rawInches, Math.max(length, 0)));
     return snapToEighth(clamped);
-  };
+  }, [length, pipeLength]);
   const segmentCenters = segmentPositions.slice(0, -1).map((start, idx) => (xAt(start) + xAt(segmentPositions[idx + 1])) / 2);
 
   const leftPrepCode = endPrepCode(fittingsEndPipeLabel1);
   const rightPrepCode = endPrepCode(fittingsEndPipeLabel2);
   const canDragOutlets = editableOutlets && length > 0;
+
+  useEffect(() => {
+    if (draggingOutletIndex === null) return;
+
+    const handleWindowPointerMove = (event: PointerEvent) => {
+      const activeDrag = activeDragRef.current;
+      if (!activeDrag || activeDrag.pointerId !== event.pointerId) return;
+
+      event.preventDefault();
+      onOutletLocationPreview?.(activeDrag.outletIndex, inchesAtClientX(event.clientX));
+    };
+
+    const handleWindowPointerUp = (event: PointerEvent) => {
+      const activeDrag = activeDragRef.current;
+      if (!activeDrag || activeDrag.pointerId !== event.pointerId) return;
+
+      event.preventDefault();
+      const nextLocation = inchesAtClientX(event.clientX);
+      const svg = svgRef.current;
+      if (svg?.hasPointerCapture(event.pointerId)) {
+        svg.releasePointerCapture(event.pointerId);
+      }
+      activeDragRef.current = null;
+      setDraggingOutletIndex(null);
+      onOutletLocationPreview?.(activeDrag.outletIndex, nextLocation);
+      onOutletLocationCommit?.(activeDrag.outletIndex, nextLocation);
+    };
+
+    const handleWindowPointerCancel = (event: PointerEvent) => {
+      const activeDrag = activeDragRef.current;
+      if (!activeDrag || activeDrag.pointerId !== event.pointerId) return;
+
+      const svg = svgRef.current;
+      if (svg?.hasPointerCapture(event.pointerId)) {
+        svg.releasePointerCapture(event.pointerId);
+      }
+      activeDragRef.current = null;
+      setDraggingOutletIndex(null);
+    };
+
+    window.addEventListener("pointermove", handleWindowPointerMove);
+    window.addEventListener("pointerup", handleWindowPointerUp);
+    window.addEventListener("pointercancel", handleWindowPointerCancel);
+
+    return () => {
+      window.removeEventListener("pointermove", handleWindowPointerMove);
+      window.removeEventListener("pointerup", handleWindowPointerUp);
+      window.removeEventListener("pointercancel", handleWindowPointerCancel);
+    };
+  }, [draggingOutletIndex, inchesAtClientX, onOutletLocationCommit, onOutletLocationPreview]);
 
   const beginOutletDrag = (event: React.PointerEvent<SVGGElement>, outletIndex: number) => {
     if (!canDragOutlets) return;
@@ -205,7 +255,11 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
     event.stopPropagation();
     activeDragRef.current = { outletIndex, pointerId: event.pointerId };
     setDraggingOutletIndex(outletIndex);
-    svgRef.current?.setPointerCapture(event.pointerId);
+    try {
+      svgRef.current?.setPointerCapture(event.pointerId);
+    } catch {
+      // Window-level listeners continue the drag if SVG pointer capture is unavailable.
+    }
 
     const nextLocation = inchesAtClientX(event.clientX);
     onOutletLocationPreview?.(outletIndex, nextLocation);
