@@ -127,6 +127,29 @@ function parseFeet(val: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function gcd(a: number, b: number): number {
+  return b ? gcd(b, a % b) : a;
+}
+
+function lengthToPieceFields(totalInches: number): Pick<Piece, 'feet' | 'inches'> {
+  const eighths = Math.max(0, Math.round(totalInches * 8));
+  const feet = Math.floor(eighths / 96);
+  const remainingEighths = eighths - feet * 96;
+  const wholeInches = Math.floor(remainingEighths / 8);
+  const fracNum = remainingEighths % 8;
+
+  if (fracNum === 0) {
+    return { feet: String(feet), inches: String(wholeInches) };
+  }
+
+  const divisor = gcd(fracNum, 8);
+  const num = fracNum / divisor;
+  const den = 8 / divisor;
+  const inches = wholeInches === 0 ? `${num}/${den}` : `${wholeInches} ${num}/${den}`;
+
+  return { feet: String(feet), inches };
+}
+
 const FREE_PLAN_PROJECT_LIMIT = 3;
 const STRIPE_UPGRADE_URL = import.meta.env.VITE_STRIPE_UPGRADE_URL as string | undefined;
 const BILLING_EMAIL = import.meta.env.VITE_BILLING_EMAIL ?? 'billing@fieldfab.app';
@@ -150,6 +173,7 @@ function App() {
   const [editMaterialIndex, setEditMaterialIndex] = useState<number | null>(null);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [previewOutlets, setPreviewOutlets] = useState<Outlet[] | null>(null);
+  const [previewPipeLength, setPreviewPipeLength] = useState<number | null>(null);
 
   const handleAuthExpired = useCallback(() => {
     logout();
@@ -163,6 +187,7 @@ function App() {
     setShowProjectsMenu(false);
     setShowUpgradePrompt(false);
     setPreviewOutlets(null);
+    setPreviewPipeLength(null);
   }, []);
 
   // Remove legacy browser-cache data from pre-auth architecture.
@@ -241,6 +266,7 @@ function App() {
       fetchLooseMaterials(projectId),
     ]);
     setPreviewOutlets(null);
+    setPreviewPipeLength(null);
     setPieces(piecesData.map(apiPieceToFrontend));
     setLooseMaterials(matsData.map(apiMatToMaterialItem));
   };
@@ -275,6 +301,7 @@ function App() {
       setCurrentProject(apiProjectToProject(created));
       setPieces([]);
       setLooseMaterials([]);
+      setPreviewPipeLength(null);
       setShowPicker(false);
     } catch (err) {
       if (err instanceof ApiError) {
@@ -319,11 +346,13 @@ function App() {
         const updated = await updatePiece(currentProject.id, existing.id, payload);
         setPieces((prev) => prev.map((p, i) => (i === editPieceIndex ? apiPieceToFrontend(updated) : p)));
         setPreviewOutlets(null);
+        setPreviewPipeLength(null);
       } else {
         const payload = pieceToPiecePayload(piece, pieces.length);
         const created = await createPiece(currentProject.id, payload);
         setPieces((prev) => [...prev, apiPieceToFrontend(created)]);
         setPreviewOutlets(null);
+        setPreviewPipeLength(null);
       }
       setEditPieceIndex(null);
       return true;
@@ -350,6 +379,7 @@ function App() {
       await deletePiece(currentProject.id, piece.id);
       setPieces((prev) => prev.filter((_, i) => i !== idx));
       setPreviewOutlets(null);
+      setPreviewPipeLength(null);
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
@@ -376,6 +406,7 @@ function App() {
       const updated = await updatePiece(currentProject.id, lastPiece.id, payload);
       setPieces((prev) => prev.map((p, i) => (i === lastIdx ? apiPieceToFrontend(updated) : p)));
       setPreviewOutlets(null);
+      setPreviewPipeLength(null);
       return true;
     } catch (err) {
       if (err instanceof ApiError) {
@@ -416,6 +447,45 @@ function App() {
 
     const saved = await handleOutletChange(nextOutlets);
     if (!saved) setPreviewOutlets(null);
+  };
+
+  const handlePipeLengthPreview = (nextLength: number) => {
+    setPreviewPipeLength(nextLength);
+  };
+
+  const handlePipeLengthCommit = async (nextLength: number) => {
+    if (!currentProject || pieces.length === 0) {
+      setPreviewPipeLength(null);
+      return;
+    }
+
+    const lastIdx = pieces.length - 1;
+    const lastPiece = pieces[lastIdx];
+    if (!lastPiece || lastPiece.id == null) {
+      alert('Unable to update pipe length: missing piece ID.');
+      setPreviewPipeLength(null);
+      return;
+    }
+
+    const minLength = Math.max(1, ...(lastPiece.outlets ?? []).map((outlet) => Number(outlet.location) || 0));
+    const clampedLength = Math.max(minLength, Math.round(nextLength * 8) / 8);
+    const lengthFields = lengthToPieceFields(clampedLength);
+    const payload = pieceToPiecePayload({ ...lastPiece, ...lengthFields }, lastIdx);
+
+    try {
+      const updated = await updatePiece(currentProject.id, lastPiece.id, payload);
+      setPieces((prev) => prev.map((p, i) => (i === lastIdx ? apiPieceToFrontend(updated) : p)));
+      setPreviewPipeLength(null);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          handleAuthExpired();
+          return;
+        }
+        alert(err.message);
+      }
+      setPreviewPipeLength(null);
+    }
   };
 
   // ── Loose Materials ─────────────────────────────────────────────────────────
@@ -480,8 +550,10 @@ function App() {
   const projectList = apiProjects.map(apiProjectToProject);
   const currentPiece = pieces.length > 0 ? pieces[pieces.length - 1] : undefined;
   const currentPieceFeet = currentPiece ? parseFeet(currentPiece.feet) : 0;
-  const currentPieceLength = currentPiece ? (currentPieceFeet * 12 + parseInches(currentPiece.inches)) : 0;
+  const savedCurrentPieceLength = currentPiece ? (currentPieceFeet * 12 + parseInches(currentPiece.inches)) : 0;
+  const currentPieceLength = previewPipeLength ?? savedCurrentPieceLength;
   const currentOutlets = previewOutlets ?? currentPiece?.outlets ?? [];
+  const currentMinPipeLength = Math.max(1, ...currentOutlets.map((outlet) => Number(outlet.location) || 0));
   const isProPlan = currentUser?.plan_type === 'pro';
 
   return (
@@ -693,9 +765,28 @@ function App() {
             outlets={currentOutlets}
             showExportButton={false}
             editableOutlets={currentOutlets.length > 0}
+            editableLength={Boolean(currentPiece)}
+            minLength={currentMinPipeLength}
             onOutletLocationPreview={handleOutletLocationPreview}
             onOutletLocationCommit={handleOutletLocationCommit}
+            onLengthPreview={handlePipeLengthPreview}
+            onLengthCommit={handlePipeLengthCommit}
           />
+          {currentPiece && (
+            <div
+              style={{
+                marginTop: -2,
+                marginBottom: 14,
+                color: 'rgba(226, 232, 240, 0.78)',
+                fontSize: 12,
+                fontWeight: 600,
+                letterSpacing: 0,
+                textAlign: 'center',
+              }}
+            >
+              Drag outlets to reposition. Drag pipe ends to adjust length.
+            </div>
+          )}
           <button
             className="fieldfab-primary-action"
             style={{

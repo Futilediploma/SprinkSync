@@ -15,8 +15,12 @@ interface PipeSketchProps {
   showExportButton?: boolean;
   hideSummaryText?: boolean;
   editableOutlets?: boolean;
+  editableLength?: boolean;
+  minLength?: number;
   onOutletLocationPreview?: (index: number, location: number) => void;
   onOutletLocationCommit?: (index: number, location: number) => void;
+  onLengthPreview?: (length: number) => void;
+  onLengthCommit?: (length: number) => void;
 }
 
 function gcd(a: number, b: number): number {
@@ -150,6 +154,20 @@ function snapToEighth(inches: number): number {
   return Math.round(inches * 8) / 8;
 }
 
+function clampPipeLength(length: number, minLength: number): number {
+  const nextMin = Math.max(1, snapToEighth(minLength));
+  return Math.max(nextMin, snapToEighth(length));
+}
+
+function getRenderedPipeLength(length: number, availableLength: number): number {
+  const fullStickLength = 252;
+  const minVisibleLength = 72;
+  const referenceLength = Math.max(fullStickLength, length, 1);
+  const proportionalLength = (Math.max(length, 1) / referenceLength) * availableLength;
+
+  return Math.max(minVisibleLength, Math.min(availableLength, proportionalLength));
+}
+
 const PipeSketch: React.FC<PipeSketchProps> = ({
   pipeType,
   pipetag,
@@ -162,8 +180,12 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
   showExportButton = false,
   hideSummaryText = false,
   editableOutlets = false,
+  editableLength = false,
+  minLength = 1,
   onOutletLocationPreview,
   onOutletLocationCommit,
+  onLengthPreview,
+  onLengthCommit,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const activeDragRef = useRef<{
@@ -172,7 +194,19 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
     pointerId?: number;
     lastClientX: number;
   } | null>(null);
+  const activeLengthDragRef = useRef<{
+    end: "left" | "right";
+    mode: "pointer" | "mouse" | "touch";
+    pointerId?: number;
+    startClientX: number;
+    lastClientX: number;
+    startLength: number;
+    startRenderedPipeLength: number;
+  } | null>(null);
   const [draggingOutletIndex, setDraggingOutletIndex] = useState<number | null>(null);
+  const [draggingPipeEnd, setDraggingPipeEnd] = useState<"left" | "right" | null>(null);
+  const [hoveredOutletIndex, setHoveredOutletIndex] = useState<number | null>(null);
+  const [hoveredPipeEnd, setHoveredPipeEnd] = useState<"left" | "right" | null>(null);
   const width = 480;
   const height = 275;
   const margin = 24;
@@ -180,28 +214,91 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
   const pipeY = 186;
   const pipeHeight = 18;
   const pipeLength = width - 2 * margin;
+  const renderedPipeLength = getRenderedPipeLength(length, pipeLength);
+  const renderedMargin = (width - renderedPipeLength) / 2;
   const sortedOutlets = outlets
     .map((outlet, originalIndex) => ({ outlet, originalIndex }))
     .sort((a, b) => Number(a.outlet.location) - Number(b.outlet.location));
   const segmentPositions = [0, ...sortedOutlets.map(o => Number(o.outlet.location)), length];
   const segmentLengths = segmentPositions.slice(0, -1).map((start, idx) => segmentPositions[idx + 1] - start);
 
-  const xAt = (inches: number) => margin + Math.max(0, Math.min(inches / Math.max(length, 1), 1)) * pipeLength;
+  const xAt = (inches: number) => renderedMargin + Math.max(0, Math.min(inches / Math.max(length, 1), 1)) * renderedPipeLength;
   const inchesAtClientX = useCallback((clientX: number) => {
     const svg = svgRef.current;
     if (!svg) return 0;
 
     const rect = svg.getBoundingClientRect();
     const viewBoxX = ((clientX - rect.left) / Math.max(rect.width, 1)) * width;
-    const rawInches = ((viewBoxX - margin) / pipeLength) * Math.max(length, 0);
+    const rawInches = ((viewBoxX - renderedMargin) / renderedPipeLength) * Math.max(length, 0);
     const clamped = Math.max(0, Math.min(rawInches, Math.max(length, 0)));
     return snapToEighth(clamped);
-  }, [length, pipeLength]);
+  }, [length, renderedMargin, renderedPipeLength]);
   const segmentCenters = segmentPositions.slice(0, -1).map((start, idx) => (xAt(start) + xAt(segmentPositions[idx + 1])) / 2);
 
   const leftPrepCode = endPrepCode(fittingsEndPipeLabel1);
   const rightPrepCode = endPrepCode(fittingsEndPipeLabel2);
   const canDragOutlets = editableOutlets && length > 0;
+  const canDragLength = editableLength && length > 0;
+
+  const lengthAtClientX = useCallback((clientX: number) => {
+    const activeDrag = activeLengthDragRef.current;
+    const svg = svgRef.current;
+    if (!activeDrag || !svg) return clampPipeLength(length, minLength);
+
+    const rect = svg.getBoundingClientRect();
+    const viewBoxDelta = ((clientX - activeDrag.startClientX) / Math.max(rect.width, 1)) * width;
+    const inchesDelta = (viewBoxDelta / Math.max(activeDrag.startRenderedPipeLength, 1)) * Math.max(activeDrag.startLength, 1);
+    const nextLength = activeDrag.end === "right"
+      ? activeDrag.startLength + inchesDelta
+      : activeDrag.startLength - inchesDelta;
+
+    return clampPipeLength(nextLength, minLength);
+  }, [length, minLength]);
+
+  const previewLengthDragAt = useCallback((clientX: number) => {
+    const activeDrag = activeLengthDragRef.current;
+    if (!canDragLength || !activeDrag) return;
+
+    activeDrag.lastClientX = clientX;
+    onLengthPreview?.(lengthAtClientX(clientX));
+  }, [canDragLength, lengthAtClientX, onLengthPreview]);
+
+  const finishLengthDragAt = useCallback((clientX: number) => {
+    const activeDrag = activeLengthDragRef.current;
+    if (!canDragLength || !activeDrag) return;
+
+    const nextLength = lengthAtClientX(clientX);
+    const svg = svgRef.current;
+    if (
+      activeDrag.mode === "pointer" &&
+      activeDrag.pointerId !== undefined &&
+      svg?.hasPointerCapture(activeDrag.pointerId)
+    ) {
+      svg.releasePointerCapture(activeDrag.pointerId);
+    }
+
+    activeLengthDragRef.current = null;
+    setDraggingPipeEnd(null);
+    onLengthPreview?.(nextLength);
+    onLengthCommit?.(nextLength);
+  }, [canDragLength, lengthAtClientX, onLengthCommit, onLengthPreview]);
+
+  const cancelLengthDrag = useCallback(() => {
+    const activeDrag = activeLengthDragRef.current;
+    if (!activeDrag) return;
+
+    const svg = svgRef.current;
+    if (
+      activeDrag.mode === "pointer" &&
+      activeDrag.pointerId !== undefined &&
+      svg?.hasPointerCapture(activeDrag.pointerId)
+    ) {
+      svg.releasePointerCapture(activeDrag.pointerId);
+    }
+
+    activeLengthDragRef.current = null;
+    setDraggingPipeEnd(null);
+  }, []);
 
   const previewDragAt = useCallback((clientX: number) => {
     const activeDrag = activeDragRef.current;
@@ -249,10 +346,16 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
   }, []);
 
   useEffect(() => {
-    if (draggingOutletIndex === null) return;
+    if (draggingOutletIndex === null && draggingPipeEnd === null) return;
 
     const handleWindowPointerMove = (event: PointerEvent) => {
       const activeDrag = activeDragRef.current;
+      const activeLengthDrag = activeLengthDragRef.current;
+      if (activeLengthDrag && activeLengthDrag.mode === "pointer" && activeLengthDrag.pointerId === event.pointerId) {
+        event.preventDefault();
+        previewLengthDragAt(event.clientX);
+        return;
+      }
       if (!activeDrag || activeDrag.mode !== "pointer" || activeDrag.pointerId !== event.pointerId) return;
 
       event.preventDefault();
@@ -261,6 +364,12 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
 
     const handleWindowPointerUp = (event: PointerEvent) => {
       const activeDrag = activeDragRef.current;
+      const activeLengthDrag = activeLengthDragRef.current;
+      if (activeLengthDrag && activeLengthDrag.mode === "pointer" && activeLengthDrag.pointerId === event.pointerId) {
+        event.preventDefault();
+        finishLengthDragAt(event.clientX);
+        return;
+      }
       if (!activeDrag || activeDrag.mode !== "pointer" || activeDrag.pointerId !== event.pointerId) return;
 
       event.preventDefault();
@@ -269,6 +378,11 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
 
     const handleWindowPointerCancel = (event: PointerEvent) => {
       const activeDrag = activeDragRef.current;
+      const activeLengthDrag = activeLengthDragRef.current;
+      if (activeLengthDrag && activeLengthDrag.mode === "pointer" && activeLengthDrag.pointerId === event.pointerId) {
+        cancelLengthDrag();
+        return;
+      }
       if (!activeDrag || activeDrag.mode !== "pointer" || activeDrag.pointerId !== event.pointerId) return;
 
       cancelDrag();
@@ -276,6 +390,12 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
 
     const handleWindowMouseMove = (event: MouseEvent) => {
       const activeDrag = activeDragRef.current;
+      const activeLengthDrag = activeLengthDragRef.current;
+      if (activeLengthDrag && activeLengthDrag.mode === "mouse") {
+        event.preventDefault();
+        previewLengthDragAt(event.clientX);
+        return;
+      }
       if (!activeDrag || activeDrag.mode !== "mouse") return;
 
       event.preventDefault();
@@ -284,6 +404,12 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
 
     const handleWindowMouseUp = (event: MouseEvent) => {
       const activeDrag = activeDragRef.current;
+      const activeLengthDrag = activeLengthDragRef.current;
+      if (activeLengthDrag && activeLengthDrag.mode === "mouse") {
+        event.preventDefault();
+        finishLengthDragAt(event.clientX);
+        return;
+      }
       if (!activeDrag || activeDrag.mode !== "mouse") return;
 
       event.preventDefault();
@@ -292,6 +418,14 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
 
     const handleWindowTouchMove = (event: TouchEvent) => {
       const activeDrag = activeDragRef.current;
+      const activeLengthDrag = activeLengthDragRef.current;
+      if (activeLengthDrag && activeLengthDrag.mode === "touch") {
+        const touch = event.touches[0];
+        if (!touch) return;
+        event.preventDefault();
+        previewLengthDragAt(touch.clientX);
+        return;
+      }
       if (!activeDrag || activeDrag.mode !== "touch") return;
 
       const touch = event.touches[0];
@@ -302,6 +436,11 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
 
     const handleWindowTouchEnd = () => {
       const activeDrag = activeDragRef.current;
+      const activeLengthDrag = activeLengthDragRef.current;
+      if (activeLengthDrag && activeLengthDrag.mode === "touch") {
+        finishLengthDragAt(activeLengthDrag.lastClientX);
+        return;
+      }
       if (!activeDrag || activeDrag.mode !== "touch") return;
 
       finishDragAt(activeDrag.lastClientX);
@@ -314,6 +453,7 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
     window.addEventListener("mouseup", handleWindowMouseUp);
     window.addEventListener("touchmove", handleWindowTouchMove, { passive: false });
     window.addEventListener("touchend", handleWindowTouchEnd);
+    window.addEventListener("touchcancel", cancelLengthDrag);
     window.addEventListener("touchcancel", cancelDrag);
 
     return () => {
@@ -324,9 +464,10 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
       window.removeEventListener("mouseup", handleWindowMouseUp);
       window.removeEventListener("touchmove", handleWindowTouchMove);
       window.removeEventListener("touchend", handleWindowTouchEnd);
+      window.removeEventListener("touchcancel", cancelLengthDrag);
       window.removeEventListener("touchcancel", cancelDrag);
     };
-  }, [cancelDrag, draggingOutletIndex, finishDragAt, previewDragAt]);
+  }, [cancelDrag, cancelLengthDrag, draggingOutletIndex, draggingPipeEnd, finishDragAt, finishLengthDragAt, previewDragAt, previewLengthDragAt]);
 
   const beginOutletDrag = (event: React.PointerEvent<SVGGElement>, outletIndex: number) => {
     if (!canDragOutlets || activeDragRef.current) return;
@@ -406,6 +547,65 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
     setDraggingOutletIndex(null);
   };
 
+  const beginLengthDrag = (event: React.PointerEvent<SVGGElement>, end: "left" | "right") => {
+    if (!canDragLength || activeDragRef.current || activeLengthDragRef.current) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    activeLengthDragRef.current = {
+      end,
+      mode: "pointer",
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      lastClientX: event.clientX,
+      startLength: length,
+      startRenderedPipeLength: renderedPipeLength,
+    };
+    setDraggingPipeEnd(end);
+    try {
+      svgRef.current?.setPointerCapture(event.pointerId);
+    } catch {
+      // Window-level listeners continue the drag if SVG pointer capture is unavailable.
+    }
+    onLengthPreview?.(clampPipeLength(length, minLength));
+  };
+
+  const beginLengthMouseDrag = (event: React.MouseEvent<SVGGElement>, end: "left" | "right") => {
+    if (!canDragLength || activeDragRef.current || activeLengthDragRef.current) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    activeLengthDragRef.current = {
+      end,
+      mode: "mouse",
+      startClientX: event.clientX,
+      lastClientX: event.clientX,
+      startLength: length,
+      startRenderedPipeLength: renderedPipeLength,
+    };
+    setDraggingPipeEnd(end);
+    onLengthPreview?.(clampPipeLength(length, minLength));
+  };
+
+  const beginLengthTouchDrag = (event: React.TouchEvent<SVGGElement>, end: "left" | "right") => {
+    if (!canDragLength || activeDragRef.current || activeLengthDragRef.current) return;
+
+    const touch = event.touches[0];
+    if (!touch) return;
+    event.preventDefault();
+    event.stopPropagation();
+    activeLengthDragRef.current = {
+      end,
+      mode: "touch",
+      startClientX: touch.clientX,
+      lastClientX: touch.clientX,
+      startLength: length,
+      startRenderedPipeLength: renderedPipeLength,
+    };
+    setDraggingPipeEnd(end);
+    onLengthPreview?.(clampPipeLength(length, minLength));
+  };
+
   return (
     <div
       style={{
@@ -483,9 +683,9 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
             <text x={margin} y={70} fontSize="6" fill="#333">ARROW: ---&gt;</text>
           )}
 
-          <line x1={margin} y1={dimensionY} x2={width - margin} y2={dimensionY} stroke="#111" strokeWidth="1.6" />
-          <line x1={margin} y1={dimensionY - 8} x2={margin} y2={dimensionY + 8} stroke="#111" strokeWidth="1.6" />
-          <line x1={width - margin} y1={dimensionY - 8} x2={width - margin} y2={dimensionY + 8} stroke="#111" strokeWidth="1.6" />
+          <line x1={renderedMargin} y1={dimensionY} x2={width - renderedMargin} y2={dimensionY} stroke="#111" strokeWidth="1.6" />
+          <line x1={renderedMargin} y1={dimensionY - 8} x2={renderedMargin} y2={dimensionY + 8} stroke="#111" strokeWidth="1.6" />
+          <line x1={width - renderedMargin} y1={dimensionY - 8} x2={width - renderedMargin} y2={dimensionY + 8} stroke="#111" strokeWidth="1.6" />
 
           {sortedOutlets.map(({ outlet, originalIndex }) => {
             const x = xAt(Number(outlet.location));
@@ -500,7 +700,7 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
             </text>
           ))}
 
-          <text x={margin - 8} y={dimensionY + 17} textAnchor="start" fontSize="6.7">0-0</text>
+          <text x={renderedMargin - 8} y={dimensionY + 17} textAnchor="start" fontSize="6.7">0-0</text>
 
           {sortedOutlets.map(({ outlet, originalIndex }) => {
             const x = xAt(Number(outlet.location));
@@ -511,31 +711,75 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
             );
           })}
 
-          <text x={width - margin} y={dimensionY + 17} textAnchor="end" fontSize="6.7">
+          <text x={width - renderedMargin} y={dimensionY + 17} textAnchor="end" fontSize="6.7">
             {formatFabDimension(length)}
           </text>
 
-          <text x={margin + 4} y={dimensionY - 4} textAnchor="start" fontSize="7.5" fontWeight="700">{leftPrepCode}</text>
-          <text x={width - margin - 4} y={dimensionY - 4} textAnchor="end" fontSize="7.5" fontWeight="700">{rightPrepCode}</text>
+          <text x={renderedMargin + 4} y={dimensionY - 4} textAnchor="start" fontSize="7.5" fontWeight="700">{leftPrepCode}</text>
+          <text x={width - renderedMargin - 4} y={dimensionY - 4} textAnchor="end" fontSize="7.5" fontWeight="700">{rightPrepCode}</text>
 
-          <rect x={margin} y={pipeY} width={pipeLength} height={pipeHeight} fill="url(#hatch)" stroke="#111" strokeWidth="2" />
+          <rect x={renderedMargin} y={pipeY} width={renderedPipeLength} height={pipeHeight} fill="url(#hatch)" stroke="#111" strokeWidth="2" />
+
+          {canDragLength && (
+            <>
+              {(["left", "right"] as const).map((end) => {
+                const x = end === "left" ? renderedMargin : width - renderedMargin;
+                const isDragging = draggingPipeEnd === end;
+                const isHighlighted = isDragging || hoveredPipeEnd === end;
+                return (
+                  <g
+                    key={`pipe-end-${end}`}
+                    onPointerDown={(event) => beginLengthDrag(event, end)}
+                    onPointerEnter={() => setHoveredPipeEnd(end)}
+                    onPointerLeave={() => setHoveredPipeEnd(null)}
+                    onMouseDown={(event) => beginLengthMouseDrag(event, end)}
+                    onTouchStart={(event) => beginLengthTouchDrag(event, end)}
+                    style={{
+                      cursor: isDragging ? 'ew-resize' : 'col-resize',
+                      touchAction: 'none',
+                    }}
+                  >
+                    <title>Drag to adjust pipe length</title>
+                    <rect
+                      x={x - 18}
+                      y={pipeY - 22}
+                      width="36"
+                      height={pipeHeight + 44}
+                      fill="transparent"
+                      pointerEvents="all"
+                    />
+                    <line
+                      x1={x}
+                      y1={pipeY - 12}
+                      x2={x}
+                      y2={pipeY + pipeHeight + 12}
+                      stroke={isHighlighted ? "#1976d2" : "#111"}
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                    />
+                  </g>
+                );
+              })}
+            </>
+          )}
 
           {sortedOutlets.map(({ outlet, originalIndex }) => {
             const x = xAt(Number(outlet.location));
             const { dx, dy } = outletDirectionVector(outlet.direction);
             const scale = outletScale(outlet.size, diameter);
             const pipeCenterY = pipeY + pipeHeight / 2;
-            const branchLength = 15 + scale * 9;
-            const branchWidth = 2.8 + scale * 2.4;
-            const hubRadius = 2.4 + scale * 1.25;
-            const endX = x + dx * branchLength;
-            const endY = pipeCenterY + dy * branchLength;
-            const labelX = endX + dx * 5;
-            const labelY = endY + dy * 5 + (dy === 0 ? 3 : 0);
+            const outletLength = 19 + scale * 9;
+            const outletWidth = 5 + scale * 3.1;
+            const outletAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+            const labelX = x + dx * (outletLength + 6);
+            const labelY = pipeCenterY + dy * (outletLength + 6) + (dy === 0 ? 3 : 0);
+            const isHighlighted = draggingOutletIndex === originalIndex || hoveredOutletIndex === originalIndex;
             return (
               <g
                 key={`outlet-${originalIndex}`}
                 onPointerDown={(event) => beginOutletDrag(event, originalIndex)}
+                onPointerEnter={() => setHoveredOutletIndex(originalIndex)}
+                onPointerLeave={() => setHoveredOutletIndex(null)}
                 onMouseDown={(event) => beginOutletMouseDrag(event, originalIndex)}
                 onTouchStart={(event) => beginOutletTouchDrag(event, originalIndex)}
                 style={{
@@ -543,6 +787,7 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
                   touchAction: canDragOutlets ? 'none' : 'auto',
                 }}
               >
+                <title>Drag to reposition outlet</title>
                 {canDragOutlets && (
                   <circle
                     cx={x}
@@ -553,9 +798,15 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
                     pointerEvents="all"
                   />
                 )}
-                <circle cx={x} cy={pipeCenterY} r={hubRadius} fill="#111" />
-                <line x1={x} y1={pipeCenterY} x2={endX} y2={endY} stroke="#111" strokeWidth={branchWidth} strokeLinecap="round" />
-                <line x1={x} y1={pipeCenterY} x2={endX} y2={endY} stroke="#f7f7f7" strokeWidth="1.1" strokeLinecap="round" />
+                <rect
+                  x={x - 1}
+                  y={pipeCenterY - outletWidth / 2}
+                  width={outletLength}
+                  height={outletWidth}
+                  rx={outletWidth / 2}
+                  fill={isHighlighted ? "#1976d2" : "#111"}
+                  transform={`rotate(${outletAngle} ${x} ${pipeCenterY})`}
+                />
                 <text
                   x={labelX}
                   y={labelY}
