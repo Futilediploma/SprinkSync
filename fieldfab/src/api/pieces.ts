@@ -1,5 +1,5 @@
 import { apiFetch } from './client';
-import type { Outlet } from '../types';
+import type { Outlet, ThreadedFitting } from '../types';
 
 export interface ApiPiece {
   id: number;
@@ -14,6 +14,7 @@ export interface ApiPiece {
   fittings_end1: string;
   fittings_end2: string;
   outlets: Outlet[];
+  threaded_fittings: ThreadedFitting[];
 }
 
 export interface PiecePayload {
@@ -27,6 +28,7 @@ export interface PiecePayload {
   fittings_end1: string;
   fittings_end2: string;
   outlets: Outlet[];
+  threaded_fittings: ThreadedFitting[];
 }
 
 export function fetchPieces(projectId: number): Promise<ApiPiece[]> {

@@ -12,6 +12,7 @@ export default function AuthScreen({ onAuth, variant = 'fullscreen' }: AuthScree
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const [marketingEmailsOptIn, setMarketingEmailsOptIn] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -23,7 +24,7 @@ export default function AuthScreen({ onAuth, variant = 'fullscreen' }: AuthScree
       if (tab === 'login') {
         await login(email, password);
       } else {
-        await register(email, password, companyName || undefined);
+        await register(email, password, companyName || undefined, marketingEmailsOptIn);
       }
       onAuth();
     } catch (err) {
@@ -127,6 +128,33 @@ export default function AuthScreen({ onAuth, variant = 'fullscreen' }: AuthScree
             />
           </div>
 
+          {tab === 'register' && (
+            <label
+              htmlFor="fieldfab-marketing-opt-in"
+              style={{
+                display: 'flex',
+                gap: 10,
+                alignItems: 'flex-start',
+                margin: '-8px 0 20px',
+                color: '#43556f',
+                fontSize: 13,
+                lineHeight: 1.35,
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                id="fieldfab-marketing-opt-in"
+                type="checkbox"
+                checked={marketingEmailsOptIn}
+                onChange={(event) => setMarketingEmailsOptIn(event.target.checked)}
+                style={{ marginTop: 2 }}
+              />
+              <span>
+                Send me FieldFab product updates, new feature announcements, and beta feedback requests by email. I can unsubscribe anytime.
+              </span>
+            </label>
+          )}
+
           {error && (
             <div role="alert" style={{
               background: '#fdecea',
@@ -162,7 +190,7 @@ export default function AuthScreen({ onAuth, variant = 'fullscreen' }: AuthScree
 
         {tab === 'login' && (
           <p style={{ textAlign: 'center', marginTop: 16, fontSize: 13, color: '#888' }}>
-            Beta access includes unlimited projects during testing.
+            Free development access includes 2 active projects.
           </p>
         )}
     </div>

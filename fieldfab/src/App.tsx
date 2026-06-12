@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import fieldfabLogo from './assets/field_fab.jpg';
 import './App.css';
 import { PipeSpecForm } from './components/PipeSpecForm';
+import { ThreadedPipeForm } from './components/ThreadedPipeForm';
 import PickerModal from './components/PickerModal';
 import ProjectsMenu from './components/projectsmenu';
 import WeldedOutletForm from './components/WeldedOutletForm';
@@ -60,6 +61,7 @@ function pieceToPiecePayload(piece: Piece, orderIndex: number): PiecePayload {
     fittings_end1: piece.fittingsEnd1 ?? '',
     fittings_end2: piece.fittingsEnd2 ?? '',
     outlets: piece.outlets ?? [],
+    threaded_fittings: piece.threadedFittings ?? [],
   };
 }
 
@@ -75,6 +77,7 @@ function apiPieceToFrontend(api: ApiPiece): Piece {
     fittingsEnd1: api.fittings_end1,
     fittingsEnd2: api.fittings_end2,
     outlets: api.outlets ?? [],
+    threadedFittings: api.threaded_fittings ?? [],
   };
 }
 
@@ -150,7 +153,18 @@ function lengthToPieceFields(totalInches: number): Pick<Piece, 'feet' | 'inches'
   return { feet: String(feet), inches };
 }
 
-const FREE_PLAN_PROJECT_LIMIT = 3;
+function isThreadedPipe(piece?: Piece): boolean {
+  return piece?.pipeType?.trim().toLowerCase() === 'threaded pipe';
+}
+
+function pieceQty(piece?: Piece): number {
+  const qty = Number(piece?.qty ?? 0);
+  return Number.isFinite(qty) ? Math.max(0, qty) : 0;
+}
+
+const FREE_PLAN_PROJECT_LIMIT = 2;
+const FREE_PLAN_MAIN_PIPE_QTY_LIMIT = 10;
+const FREE_PLAN_THREADED_PIPE_QTY_LIMIT = 10;
 const STRIPE_UPGRADE_URL = import.meta.env.VITE_STRIPE_UPGRADE_URL as string | undefined;
 const BILLING_EMAIL = import.meta.env.VITE_BILLING_EMAIL ?? 'billing@fieldfab.app';
 
@@ -165,6 +179,7 @@ function App() {
   const [showProjectsMenu, setShowProjectsMenu] = useState(false);
   const [pieces, setPieces] = useState<Piece[]>([]);
   const [showPieceForm, setShowPieceForm] = useState(false);
+  const [showThreadedPipeForm, setShowThreadedPipeForm] = useState(false);
   const [editPieceIndex, setEditPieceIndex] = useState<number | null>(null);
   const [showOutletForm, setShowOutletForm] = useState(false);
   const [editOutletIndex, setEditOutletIndex] = useState<number | null>(null);
@@ -186,6 +201,8 @@ function App() {
     setShowPicker(false);
     setShowProjectsMenu(false);
     setShowUpgradePrompt(false);
+    setShowPieceForm(false);
+    setShowThreadedPipeForm(false);
     setPreviewOutlets(null);
     setPreviewPipeLength(null);
   }, []);
@@ -332,6 +349,23 @@ function App() {
 
   const handleCreatePiece = async (piece: Piece) => {
     if (!currentProject) return false;
+    if (currentUser?.plan_type === 'free') {
+      const pieceIsThreaded = isThreadedPipe(piece);
+      const limit = pieceIsThreaded ? FREE_PLAN_THREADED_PIPE_QTY_LIMIT : FREE_PLAN_MAIN_PIPE_QTY_LIMIT;
+      const currentQty = pieces.reduce((total, existingPiece, index) => {
+        if (index === editPieceIndex) return total;
+        if (isThreadedPipe(existingPiece) !== pieceIsThreaded) return total;
+        return total + pieceQty(existingPiece);
+      }, 0);
+      const nextQty = currentQty + pieceQty(piece);
+
+      if (nextQty > limit) {
+        const label = pieceIsThreaded ? 'threaded pipe' : 'grooved/welded main pipe';
+        alert(`Free development access is limited to ${limit} pcs of ${label} per project. Upgrade to Pro for unlimited pieces.`);
+        return false;
+      }
+    }
+
     try {
       if (editPieceIndex !== null) {
         const existing = pieces[editPieceIndex];
@@ -340,7 +374,12 @@ function App() {
           return false;
         }
         const payload = pieceToPiecePayload(
-          { ...piece, id: existing.id, outlets: existing.outlets ?? [] },
+          {
+            ...piece,
+            id: existing.id,
+            outlets: piece.outlets ?? existing.outlets ?? [],
+            threadedFittings: piece.threadedFittings ?? existing.threadedFittings ?? [],
+          },
           editPieceIndex,
         );
         const updated = await updatePiece(currentProject.id, existing.id, payload);
@@ -541,6 +580,8 @@ function App() {
     setApiProjects([]);
     setCurrentUser(null);
     setShowUpgradePrompt(false);
+    setShowPieceForm(false);
+    setShowThreadedPipeForm(false);
   };
 
   if (!isAuthenticated) {
@@ -660,7 +701,7 @@ function App() {
             {isProPlan ? (
               <span>Unlimited active projects</span>
             ) : (
-              <span>Unlimited projects during beta</span>
+              <span>{FREE_PLAN_PROJECT_LIMIT} active projects during development</span>
             )}
             {!isProPlan && (
               <button
@@ -762,6 +803,7 @@ function App() {
             diameter={currentPiece?.diameter ?? ''}
             fittingsEndPipeLabel1={currentPiece?.fittingsEnd1 ?? ''}
             fittingsEndPipeLabel2={currentPiece?.fittingsEnd2 ?? ''}
+            threadedFittings={currentPiece?.threadedFittings ?? []}
             outlets={currentOutlets}
             showExportButton={false}
             editableOutlets={currentOutlets.length > 0}
@@ -787,29 +829,54 @@ function App() {
               Drag outlets to reposition. Drag pipe ends to adjust length.
             </div>
           )}
-          <button
-            className="fieldfab-primary-action"
-            style={{
-              marginTop: 12,
-              marginBottom: 24,
-              background: '#1976d2',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 8,
-              padding: '12px 24px',
-              fontWeight: 600,
-              fontSize: '1rem',
-              cursor: 'pointer',
-              boxShadow: '0 1px 4px #0001',
-              transition: 'background 0.2s',
-              margin: '0 auto',
-              display: 'block',
-              minHeight: '44px',
-            }}
-            onClick={() => setShowPieceForm(true)}
-          >
-            Pipe Specification
-          </button>
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, margin: '0 auto 24px' }}>
+            <button
+              className="fieldfab-primary-action"
+              style={{
+                marginTop: 12,
+                background: '#1976d2',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                padding: '12px 24px',
+                fontWeight: 600,
+                fontSize: '1rem',
+                cursor: 'pointer',
+                boxShadow: '0 1px 4px #0001',
+                transition: 'background 0.2s',
+                minHeight: '44px',
+              }}
+              onClick={() => {
+                setEditPieceIndex(null);
+                setShowPieceForm(true);
+              }}
+            >
+              Grooved/Welded Pipe Specs
+            </button>
+            <button
+              className="fieldfab-primary-action"
+              style={{
+                marginTop: 12,
+                background: '#1565c0',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                padding: '12px 24px',
+                fontWeight: 600,
+                fontSize: '1rem',
+                cursor: 'pointer',
+                boxShadow: '0 1px 4px #0001',
+                transition: 'background 0.2s',
+                minHeight: '44px',
+              }}
+              onClick={() => {
+                setEditPieceIndex(null);
+                setShowThreadedPipeForm(true);
+              }}
+            >
+              Threaded Pipe Specs
+            </button>
+          </div>
           {showPieceForm && (
             <div style={{
               position: 'fixed',
@@ -867,6 +934,68 @@ function App() {
                     if (saved) setShowPieceForm(false);
                   }}
                   onCancel={() => { setShowPieceForm(false); setEditPieceIndex(null); }}
+                  {...(editPieceIndex !== null ? { initialValues: pieces[editPieceIndex] } : {})}
+                />
+              </div>
+            </div>
+          )}
+          {showThreadedPipeForm && (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: '100%',
+              height: '100%',
+              background: 'rgba(7, 14, 28, 0.55)',
+              backdropFilter: 'blur(10px)',
+              zIndex: 1000,
+              padding: '16px',
+              boxSizing: 'border-box',
+              overflow: 'auto',
+              WebkitOverflowScrolling: 'touch',
+            } as React.CSSProperties}>
+              <div style={{
+                background: 'linear-gradient(180deg, #ffffff 0%, #f7fbff 100%)',
+                border: '1px solid #d8e5f7',
+                borderRadius: 16,
+                padding: '22px',
+                width: '100%',
+                maxWidth: '620px',
+                margin: '0 auto',
+                minHeight: 'fit-content',
+                boxShadow: '0 22px 60px rgba(7, 14, 28, 0.32)',
+                position: 'relative',
+                marginBottom: '40px',
+              }}>
+                <button
+                  onClick={() => { setShowThreadedPipeForm(false); setEditPieceIndex(null); }}
+                  style={{
+                    position: 'absolute',
+                    top: 14,
+                    right: 14,
+                    background: '#eef3fb',
+                    border: '1px solid #d2ddec',
+                    borderRadius: '50%',
+                    width: 34,
+                    height: 34,
+                    fontSize: 20,
+                    color: '#4b5b75',
+                    cursor: 'pointer',
+                    zIndex: 1001,
+                    lineHeight: 1,
+                  }}
+                  aria-label="Close"
+                >
+                  Ã—
+                </button>
+                <ThreadedPipeForm
+                  onCreatePiece={async (piece: Piece) => {
+                    const saved = await handleCreatePiece(piece);
+                    if (saved) setShowThreadedPipeForm(false);
+                  }}
+                  onCancel={() => { setShowThreadedPipeForm(false); setEditPieceIndex(null); }}
                   {...(editPieceIndex !== null ? { initialValues: pieces[editPieceIndex] } : {})}
                 />
               </div>
@@ -1069,6 +1198,11 @@ function App() {
                 <li key={piece.id ?? idx} style={{ marginBottom: 8, fontSize: '0.875rem', color: '#222', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   {piece.pipeTag ? <b>{piece.pipeTag}</b> : `Piece #${idx + 1}`}: {piece.feet}' {piece.inches}'' {piece.diameter}in {piece.pipeType}
                   <span style={{ fontWeight: 700 }}>Qty: {piece.qty}</span>
+                  {(piece.fittingsEnd1 || piece.fittingsEnd2) && (
+                    <span style={{ color: '#43556f', fontWeight: 600 }}>
+                      Ends: {piece.fittingsEnd1 || '-'} / {piece.fittingsEnd2 || '-'}
+                    </span>
+                  )}
                   <button
                     style={{
                       marginLeft: 8,
@@ -1086,7 +1220,11 @@ function App() {
                     title="Edit piece"
                     onClick={() => {
                       setEditPieceIndex(idx);
-                      setShowPieceForm(true);
+                      if (isThreadedPipe(piece)) {
+                        setShowThreadedPipeForm(true);
+                      } else {
+                        setShowPieceForm(true);
+                      }
                     }}
                   >
                     Edit
@@ -1153,7 +1291,10 @@ function App() {
                 flex: window.innerWidth < 480 ? 'none' : '1',
                 maxWidth: window.innerWidth < 480 ? 'none' : '200px',
               }}
-              onClick={() => setShowPieceForm(true)}
+              onClick={() => {
+                setEditPieceIndex(null);
+                setShowPieceForm(true);
+              }}
             >
               Create New Piece
             </button>

@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { exportPipeSketchPdf } from "./exportPdf";
+import { ThreadedFittingRenderer } from "./threadedFittingRenderer";
 
 import type { WeldedOutlet } from "./WeldedOutletForm";
+import type { ThreadedFitting } from "../types";
 
 interface PipeSketchProps {
   pipeType: string;
@@ -11,6 +13,7 @@ interface PipeSketchProps {
   diameter: number | string;
   fittingsEndPipeLabel1: string;
   fittingsEndPipeLabel2: string;
+  threadedFittings?: ThreadedFitting[];
   outlets?: WeldedOutlet[];
   showExportButton?: boolean;
   hideSummaryText?: boolean;
@@ -79,6 +82,14 @@ function pipeDescription(diameter: number | string, pipeType: string): string {
   return `${diameter} DOM BLK ${normalizePipeType(pipeType)}`;
 }
 
+function isThreadedPipeType(pipeType: string): boolean {
+  return pipeType.trim().toLowerCase() === "threaded pipe";
+}
+
+function threadedPipeDescription(diameter: number | string): string {
+  return `${diameter} THREADED PIPE`;
+}
+
 function endPrepCode(label: string): string {
   const normalized = label.toLowerCase();
   if (normalized.includes("cut groov")) return "CC";
@@ -87,6 +98,58 @@ function endPrepCode(label: string): string {
   if (normalized.includes("thread")) return "T";
   if (normalized.includes("weld")) return "W";
   return "P";
+}
+
+function threadedEndCode(label: string): string {
+  const normalized = label.toLowerCase();
+  if (!normalized.trim() || normalized === "none") return "THD";
+  if (normalized.includes("90") || normalized.includes("elbow")) return "90";
+  if (normalized.includes("tee")) return "TEE";
+  if (normalized.includes("cap")) return "CAP";
+  if (normalized.includes("coupling")) return "CPL";
+  if (normalized.includes("union")) return "UN";
+  if (normalized.includes("plug")) return "PLG";
+  return "FIT";
+}
+
+function fittingKind(label: string): "none" | "elbow" | "tee" | "cap" | "coupling" | "union" | "plug" | "generic" {
+  const normalized = label.toLowerCase().trim();
+  if (!normalized || normalized === "none") return "none";
+  if (normalized.includes("90") || normalized.includes("elbow")) return "elbow";
+  if (normalized.includes("tee")) return "tee";
+  if (normalized.includes("cap")) return "cap";
+  if (normalized.includes("coupling")) return "coupling";
+  if (normalized.includes("union")) return "union";
+  if (normalized.includes("plug")) return "plug";
+  return "generic";
+}
+
+function fittingDirection(label: string): "up" | "down" {
+  const normalized = label.toLowerCase();
+  if (normalized.includes("down")) return "down";
+  return "up";
+}
+
+function fallbackThreadedFittingFromLabel(label: string, location: number, diameter: number | string): ThreadedFitting | null {
+  const kind = fittingKind(label);
+  if (kind === "none") return null;
+
+  const type = (() => {
+    if (kind === "elbow") return "threadedelbow90";
+    if (kind === "tee") return "threadedtee";
+    if (kind === "cap") return "threadedcap";
+    if (kind === "coupling") return "threadedcoupling";
+    if (kind === "union") return "threadedunion";
+    if (kind === "plug") return "threadedplug";
+    return "threadedelbow90";
+  })();
+
+  return {
+    type,
+    location,
+    direction: kind === "elbow" || kind === "tee" ? fittingDirection(label) : undefined,
+    size: String(diameter),
+  };
 }
 
 function outletDirectionVector(direction: string): { dx: number; dy: number } {
@@ -176,6 +239,7 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
   diameter,
   fittingsEndPipeLabel1,
   fittingsEndPipeLabel2,
+  threadedFittings = [],
   outlets = [],
   showExportButton = false,
   hideSummaryText = false,
@@ -214,12 +278,16 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
   const pipeY = 186;
   const pipeHeight = 18;
   const pipeLength = width - 2 * margin;
-  const renderedPipeLength = getRenderedPipeLength(length, pipeLength);
-  const renderedMargin = (width - renderedPipeLength) / 2;
+  const isThreadedPipeSketch = isThreadedPipeType(pipeType);
+  const rawRenderedPipeLength = getRenderedPipeLength(length, pipeLength);
+  const rawRenderedMargin = (width - rawRenderedPipeLength) / 2;
+  const renderedMargin = isThreadedPipeSketch ? Math.max(rawRenderedMargin, 52) : rawRenderedMargin;
+  const renderedPipeLength = width - 2 * renderedMargin;
   const sortedOutlets = outlets
     .map((outlet, originalIndex) => ({ outlet, originalIndex }))
     .sort((a, b) => Number(a.outlet.location) - Number(b.outlet.location));
-  const segmentPositions = [0, ...sortedOutlets.map(o => Number(o.outlet.location)), length];
+  const sketchOutlets = isThreadedPipeSketch ? [] : sortedOutlets;
+  const segmentPositions = [0, ...sketchOutlets.map(o => Number(o.outlet.location)), length];
   const segmentLengths = segmentPositions.slice(0, -1).map((start, idx) => segmentPositions[idx + 1] - start);
 
   const xAt = (inches: number) => renderedMargin + Math.max(0, Math.min(inches / Math.max(length, 1), 1)) * renderedPipeLength;
@@ -235,10 +303,22 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
   }, [length, renderedMargin, renderedPipeLength]);
   const segmentCenters = segmentPositions.slice(0, -1).map((start, idx) => (xAt(start) + xAt(segmentPositions[idx + 1])) / 2);
 
-  const leftPrepCode = endPrepCode(fittingsEndPipeLabel1);
-  const rightPrepCode = endPrepCode(fittingsEndPipeLabel2);
-  const canDragOutlets = editableOutlets && length > 0;
+  const leftPrepCode = isThreadedPipeSketch ? threadedEndCode(fittingsEndPipeLabel1) : endPrepCode(fittingsEndPipeLabel1);
+  const rightPrepCode = isThreadedPipeSketch ? threadedEndCode(fittingsEndPipeLabel2) : endPrepCode(fittingsEndPipeLabel2);
+  const sketchPipeDescription = isThreadedPipeSketch ? threadedPipeDescription(diameter) : pipeDescription(diameter, pipeType);
+  const lengthHandleY = pipeY;
+  const lengthHandleTopY = isThreadedPipeSketch ? pipeY + 1 : lengthHandleY - 12;
+  const lengthHandleBottomY = isThreadedPipeSketch ? pipeY + 17 : lengthHandleY + pipeHeight + 12;
+  const canDragOutlets = editableOutlets && length > 0 && !isThreadedPipeSketch;
   const canDragLength = editableLength && length > 0;
+  const renderedThreadedFittings = isThreadedPipeSketch
+    ? threadedFittings.length > 0
+      ? threadedFittings
+      : [
+          fallbackThreadedFittingFromLabel(fittingsEndPipeLabel1, 0, diameter),
+          fallbackThreadedFittingFromLabel(fittingsEndPipeLabel2, length, diameter),
+        ].filter((fitting): fitting is ThreadedFitting => Boolean(fitting))
+    : [];
 
   const lengthAtClientX = useCallback((clientX: number) => {
     const activeDrag = activeLengthDragRef.current;
@@ -606,6 +686,17 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
     onLengthPreview?.(clampPipeLength(length, minLength));
   };
 
+  const renderThreadedFitting = (fitting: ThreadedFitting, index: number) => (
+    <ThreadedFittingRenderer
+      key={`threaded-fitting-${index}`}
+      fitting={fitting}
+      x={xAt(fitting.location)}
+      y={pipeY + pipeHeight / 2}
+      isLeftEnd={fitting.location <= length / 2}
+      index={index}
+    />
+  );
+
   return (
     <div
       style={{
@@ -668,7 +759,7 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
           <text x={margin + 96} y={36} fontSize="7">1</text>
 
           <text x={margin + 146} y={20} fontSize="7" fontWeight="700">PIPE DESCRIPTION</text>
-          <text x={margin + 146} y={36} fontSize="7">{pipeDescription(diameter, pipeType)}</text>
+          <text x={margin + 146} y={36} fontSize="7">{sketchPipeDescription}</text>
 
           <text x={width - 192} y={20} fontSize="7" fontWeight="700">LENGTH</text>
           <text x={width - 192} y={36} fontSize="7">{formatLengthLabel(length)}</text>
@@ -687,7 +778,7 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
           <line x1={renderedMargin} y1={dimensionY - 8} x2={renderedMargin} y2={dimensionY + 8} stroke="#111" strokeWidth="1.6" />
           <line x1={width - renderedMargin} y1={dimensionY - 8} x2={width - renderedMargin} y2={dimensionY + 8} stroke="#111" strokeWidth="1.6" />
 
-          {sortedOutlets.map(({ outlet, originalIndex }) => {
+          {sketchOutlets.map(({ outlet, originalIndex }) => {
             const x = xAt(Number(outlet.location));
             return (
               <line key={`tick-${originalIndex}`} x1={x} y1={dimensionY - 8} x2={x} y2={dimensionY + 8} stroke="#111" strokeWidth="1.4" />
@@ -702,7 +793,7 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
 
           <text x={renderedMargin - 8} y={dimensionY + 17} textAnchor="start" fontSize="6.7">0-0</text>
 
-          {sortedOutlets.map(({ outlet, originalIndex }) => {
+          {sketchOutlets.map(({ outlet, originalIndex }) => {
             const x = xAt(Number(outlet.location));
             return (
               <text key={`cum-${originalIndex}`} x={x} y={dimensionY + 17} textAnchor="middle" fontSize="6.7">
@@ -718,7 +809,22 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
           <text x={renderedMargin + 4} y={dimensionY - 4} textAnchor="start" fontSize="7.5" fontWeight="700">{leftPrepCode}</text>
           <text x={width - renderedMargin - 4} y={dimensionY - 4} textAnchor="end" fontSize="7.5" fontWeight="700">{rightPrepCode}</text>
 
-          <rect x={renderedMargin} y={pipeY} width={renderedPipeLength} height={pipeHeight} fill="url(#hatch)" stroke="#111" strokeWidth="2" />
+          {isThreadedPipeSketch ? (
+            <g>
+              <rect
+                x={renderedMargin}
+                y={pipeY + 5}
+                width={renderedPipeLength}
+                height="8"
+                fill="url(#hatch)"
+                stroke="#111"
+                strokeWidth="1.7"
+              />
+              {renderedThreadedFittings.map(renderThreadedFitting)}
+            </g>
+          ) : (
+            <rect x={renderedMargin} y={pipeY} width={renderedPipeLength} height={pipeHeight} fill="url(#hatch)" stroke="#111" strokeWidth="2" />
+          )}
 
           {canDragLength && (
             <>
@@ -742,7 +848,7 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
                     <title>Drag to adjust pipe length</title>
                     <rect
                       x={x - 18}
-                      y={pipeY - 22}
+                      y={lengthHandleY - 22}
                       width="36"
                       height={pipeHeight + 44}
                       fill="transparent"
@@ -750,9 +856,9 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
                     />
                     <line
                       x1={x}
-                      y1={pipeY - 12}
+                      y1={lengthHandleTopY}
                       x2={x}
-                      y2={pipeY + pipeHeight + 12}
+                      y2={lengthHandleBottomY}
                       stroke={isHighlighted ? "#1976d2" : "#111"}
                       strokeWidth="3"
                       strokeLinecap="round"
@@ -763,7 +869,7 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
             </>
           )}
 
-          {sortedOutlets.map(({ outlet, originalIndex }) => {
+          {sketchOutlets.map(({ outlet, originalIndex }) => {
             const x = xAt(Number(outlet.location));
             const { dx, dy } = outletDirectionVector(outlet.direction);
             const scale = outletScale(outlet.size, diameter);
@@ -820,10 +926,16 @@ const PipeSketch: React.FC<PipeSketchProps> = ({
             );
           })}
 
-          <text x={margin} y={height - 14} fontSize="6" fontWeight="700">STANDARD OUTLET: WELD P.O.L.</text>
-          <text x={width - margin} y={height - 14} textAnchor="end" fontSize="6" fontWeight="700">
-            TOTAL NUMBER OF WELDS: {sortedOutlets.length}
-          </text>
+          {isThreadedPipeSketch ? (
+            <text x={margin} y={height - 14} fontSize="6" fontWeight="700">THREAD ENDS WITH MAKE-ON FITTINGS AS SHOWN</text>
+          ) : (
+            <>
+              <text x={margin} y={height - 14} fontSize="6" fontWeight="700">STANDARD OUTLET: WELD P.O.L.</text>
+              <text x={width - margin} y={height - 14} textAnchor="end" fontSize="6" fontWeight="700">
+                TOTAL NUMBER OF WELDS: {sketchOutlets.length}
+              </text>
+            </>
+          )}
         </svg>
       </div>
       {showExportButton && (

@@ -150,11 +150,11 @@ export default function MarketingLanding({ onAuth }: MarketingLandingProps) {
       <section className="marketing-pricing" aria-label="Pricing">
         <article className="marketing-price-card">
           <div className="marketing-price-eyebrow">Free</div>
-          <h3>Unlimited during beta</h3>
+          <h3>Development access</h3>
           <p>Use FieldFab on active jobs while v0.2 is being tested.</p>
-          <div className="marketing-beta-badge">Unlimited projects during beta</div>
+          <div className="marketing-beta-badge">2 projects during development</div>
           <ul>
-            <li>Unlimited active projects during beta</li>
+            <li>2 active projects during development</li>
             <li>Pipe + outlet tracking</li>
             <li>PDF and CSV exports</li>
           </ul>
