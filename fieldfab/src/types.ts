@@ -19,6 +19,7 @@ export interface Outlet {
 export type ThreadedFittingType =
     | "threadedelbow90"
     | "threadedtee"
+    | "threadedbullheadtee"
     | "threadedreducingelbow90"
     | "threadedreducingtee"
     | "threadedcoupling"
@@ -31,7 +32,7 @@ export type ThreadedFittingType =
 export interface ThreadedFitting {
     type: ThreadedFittingType;
     location: number;
-    direction?: "up" | "down";
+    direction?: "up" | "down" | "left" | "right";
     size?: string;
     runSize?: string;
     branchSize?: string;

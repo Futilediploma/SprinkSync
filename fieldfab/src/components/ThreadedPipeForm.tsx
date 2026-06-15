@@ -41,6 +41,7 @@ function fittingTypeFromLabel(label: string): ThreadedFittingType | null {
   if (normalized.includes("reducing") && normalized.includes("tee")) return "threadedreducingtee";
   if (normalized.includes("reducing") && normalized.includes("coupling")) return "threadedreducingcoupling";
   if (normalized.includes("90") || normalized.includes("elbow")) return "threadedelbow90";
+  if (normalized.includes("bullhead") && normalized.includes("tee")) return "threadedbullheadtee";
   if (normalized.includes("tee")) return "threadedtee";
   if (normalized.includes("coupling")) return "threadedcoupling";
   if (normalized.includes("union")) return "threadedunion";
@@ -50,24 +51,56 @@ function fittingTypeFromLabel(label: string): ThreadedFittingType | null {
   return null;
 }
 
-function directionFromLabel(label: string): "up" | "down" {
-  return label.toLowerCase().includes("down") ? "down" : "up";
+function directionFromLabel(label: string): "up" | "down" | "left" | "right" {
+  const normalized = label.toLowerCase();
+  if (normalized.includes("down")) return "down";
+  if (normalized.includes("left")) return "left";
+  if (normalized.includes("right")) return "right";
+  return "up";
 }
 
-function sizeFromLabel(label: string, fallback: string): string {
-  const quotedSize = label.match(/(\d(?:\s+\d\/\d)?|\d\/\d)"/);
-  return quotedSize ? `${quotedSize[1]}"` : fallback;
+function isReducingFitting(label: string): boolean {
+  return fittingTypeFromLabel(label)?.includes("reducing") ?? false;
 }
 
-function fittingFromLabel(label: string, location: number, fallbackSize: string): ThreadedFitting | null {
+function needsReducerSize(label: string): boolean {
+  const type = fittingTypeFromLabel(label);
+  return type === "threadedreducingcoupling" || type === "threadedbushing";
+}
+
+function needsReducingTeeSizes(label: string): boolean {
+  return fittingTypeFromLabel(label) === "threadedreducingtee";
+}
+
+function fittingFromLabel(
+  label: string,
+  location: number,
+  pipeSize: string,
+  reducerToSize?: string,
+  reducingTeeAcrossSize?: string,
+  reducingTeeOutletSize?: string,
+): ThreadedFitting | null {
   const type = fittingTypeFromLabel(label);
   if (!type) return null;
 
   const fitting: ThreadedFitting = {
     type,
     location,
-    size: sizeFromLabel(label, fallbackSize),
+    size: pipeSize,
   };
+
+  if (type === "threadedreducingcoupling" || type === "threadedbushing") {
+    fitting.runSize = pipeSize;
+    fitting.outletSize = reducerToSize?.trim() || pipeSize;
+    fitting.size = `${pipeSize} x ${fitting.outletSize}`;
+  }
+
+  if (type === "threadedreducingtee") {
+    fitting.runSize = pipeSize;
+    fitting.branchSize = reducingTeeAcrossSize?.trim() || pipeSize;
+    fitting.outletSize = reducingTeeOutletSize?.trim() || pipeSize;
+    fitting.size = `${pipeSize} x ${fitting.branchSize} x ${fitting.outletSize}`;
+  }
 
   if (type.includes("elbow90") || type.includes("tee")) {
     fitting.direction = directionFromLabel(label);
@@ -76,39 +109,40 @@ function fittingFromLabel(label: string, location: number, fallbackSize: string)
   return fitting;
 }
 
-const DIAMETER_OPTIONS = [
-  '1"',
-  '1 1/4"',
-  '1 1/2"',
-  '2"',
-  '2 1/2"',
-  '3"',
+const PIPE_SIZE_OPTIONS = [
   '4"',
+  '3"',
+  '2 1/2"',
+  '2"',
+  '1 1/2"',
+  '1 1/4"',
+  '1"',
+  '3/4"',
+  '1/2"',
 ];
+
+const DIAMETER_OPTIONS = PIPE_SIZE_OPTIONS;
 
 const MAKE_ON_FITTINGS = [
   'None',
-  '1" 90 Up',
-  '1" 90 Down',
-  '1 1/4" 90 Up',
-  '1 1/4" 90 Down',
-  '1 1/2" 90 Up',
-  '1 1/2" 90 Down',
-  '2" 90 Up',
-  '2" 90 Down',
-  '1" Tee Up',
-  '1" Tee Down',
-  '1 1/4" Tee Up',
-  '1 1/4" Tee Down',
-  '1 1/2" Tee Up',
-  '1 1/2" Tee Down',
-  '2" Tee Up',
-  '2" Tee Down',
+  '90 Up',
+  '90 Down',
+  '90 Left',
+  '90 Right',
+  'Tee Run Up',
+  'Tee Run Down',
+  'Tee Run Left',
+  'Tee Run Right',
+  'Bullhead Tee',
   'Cap',
   'Coupling',
   'Reducing Coupling',
   'Union',
   'Bushing',
+  'Reducing Tee Up',
+  'Reducing Tee Down',
+  'Reducing Tee Left',
+  'Reducing Tee Right',
   'Plug',
 ];
 
@@ -126,6 +160,60 @@ const threadedPipeSchema = z.object({
   pipeTag: z.string().optional(),
   makeOnEnd1: z.string().optional(),
   makeOnEnd2: z.string().optional(),
+  reducerToEnd1: z.string().optional(),
+  reducerToEnd2: z.string().optional(),
+  reducingTeeAcrossEnd1: z.string().optional(),
+  reducingTeeAcrossEnd2: z.string().optional(),
+  reducingTeeOutletEnd1: z.string().optional(),
+  reducingTeeOutletEnd2: z.string().optional(),
+}).superRefine((values, ctx) => {
+  ([
+    {
+      fitting: values.makeOnEnd1,
+      reducerTo: values.reducerToEnd1,
+      teeAcross: values.reducingTeeAcrossEnd1,
+      teeOutlet: values.reducingTeeOutletEnd1,
+      pathPrefix: "End 1",
+      reducerPath: "reducerToEnd1",
+      teeAcrossPath: "reducingTeeAcrossEnd1",
+      teeOutletPath: "reducingTeeOutletEnd1",
+    },
+    {
+      fitting: values.makeOnEnd2,
+      reducerTo: values.reducerToEnd2,
+      teeAcross: values.reducingTeeAcrossEnd2,
+      teeOutlet: values.reducingTeeOutletEnd2,
+      pathPrefix: "End 2",
+      reducerPath: "reducerToEnd2",
+      teeAcrossPath: "reducingTeeAcrossEnd2",
+      teeOutletPath: "reducingTeeOutletEnd2",
+    },
+  ] as const).forEach((end) => {
+    if (needsReducerSize(end.fitting ?? "") && !end.reducerTo?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `${end.pathPrefix} reducing size required`,
+        path: [end.reducerPath],
+      });
+    }
+
+    if (needsReducingTeeSizes(end.fitting ?? "")) {
+      if (!end.teeAcross?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `${end.pathPrefix} across size required`,
+          path: [end.teeAcrossPath],
+        });
+      }
+      if (!end.teeOutlet?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `${end.pathPrefix} outlet size required`,
+          path: [end.teeOutletPath],
+        });
+      }
+    }
+  });
 });
 
 type ThreadedPipeFormValues = z.input<typeof threadedPipeSchema>;
@@ -143,6 +231,19 @@ const inputSurfaceSx = {
   "& .MuiFormHelperText-root": { marginLeft: "2px" },
 };
 
+function isNoneLabel(label: string): boolean {
+  const normalized = label.trim().toLowerCase();
+  return !normalized || normalized === "none";
+}
+
+type SizeFieldName =
+  | "reducerToEnd1"
+  | "reducerToEnd2"
+  | "reducingTeeAcrossEnd1"
+  | "reducingTeeAcrossEnd2"
+  | "reducingTeeOutletEnd1"
+  | "reducingTeeOutletEnd2";
+
 function ThreadedPipeForm({ onCreatePiece, onCancel, initialValues }: ThreadedPipeFormProps) {
   const [isSaving, setIsSaving] = React.useState(false);
   const {
@@ -151,6 +252,7 @@ function ThreadedPipeForm({ onCreatePiece, onCancel, initialValues }: ThreadedPi
     formState: { errors },
     handleSubmit,
     setValue,
+    watch,
   } = useForm<ThreadedPipeFormValues>({
     resolver: zodResolver(threadedPipeSchema),
     mode: "onBlur",
@@ -162,8 +264,42 @@ function ThreadedPipeForm({ onCreatePiece, onCancel, initialValues }: ThreadedPi
       pipeTag: initialValues?.pipeTag ?? "",
       makeOnEnd1: initialValues?.fittingsEnd1 ?? "",
       makeOnEnd2: initialValues?.fittingsEnd2 ?? "",
+      reducerToEnd1: "",
+      reducerToEnd2: "",
+      reducingTeeAcrossEnd1: "",
+      reducingTeeAcrossEnd2: "",
+      reducingTeeOutletEnd1: "",
+      reducingTeeOutletEnd2: "",
     },
   });
+  const diameter = watch("diameter");
+  const makeOnEnd1 = watch("makeOnEnd1") ?? "";
+  const makeOnEnd2 = watch("makeOnEnd2") ?? "";
+
+  const renderSizeSelect = (name: SizeFieldName, label: string) => (
+    <Controller
+      name={name}
+      control={control}
+      render={({ field }) => (
+        <Autocomplete
+          freeSolo
+          options={PIPE_SIZE_OPTIONS}
+          value={field.value || ""}
+          onChange={(_, newValue) => field.onChange(newValue ?? "")}
+          onInputChange={(_, newInputValue) => field.onChange(newInputValue)}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label={label}
+              error={!!errors[name]}
+              helperText={errors[name]?.message as string}
+              sx={inputSurfaceSx}
+            />
+          )}
+        />
+      )}
+    />
+  );
 
   React.useEffect(() => {
     if (initialValues) {
@@ -174,6 +310,14 @@ function ThreadedPipeForm({ onCreatePiece, onCancel, initialValues }: ThreadedPi
       setValue("pipeTag", initialValues.pipeTag ?? "");
       setValue("makeOnEnd1", initialValues.fittingsEnd1 ?? "");
       setValue("makeOnEnd2", initialValues.fittingsEnd2 ?? "");
+      const end1Fitting = initialValues.threadedFittings?.find((fitting) => Number(fitting.location) === 0);
+      const end2Fitting = initialValues.threadedFittings?.find((fitting) => Number(fitting.location) !== 0);
+      setValue("reducerToEnd1", end1Fitting?.outletSize ?? "");
+      setValue("reducerToEnd2", end2Fitting?.outletSize ?? "");
+      setValue("reducingTeeAcrossEnd1", end1Fitting?.branchSize ?? "");
+      setValue("reducingTeeAcrossEnd2", end2Fitting?.branchSize ?? "");
+      setValue("reducingTeeOutletEnd1", end1Fitting?.outletSize ?? "");
+      setValue("reducingTeeOutletEnd2", end2Fitting?.outletSize ?? "");
     }
   }, [initialValues, setValue]);
 
@@ -184,8 +328,22 @@ function ThreadedPipeForm({ onCreatePiece, onCancel, initialValues }: ThreadedPi
       const end2 = values.makeOnEnd2 === "None" ? "" : values.makeOnEnd2 ?? "";
       const totalInches = totalLengthInches(Number(values.feet ?? 0), String(values.inches ?? "0"));
       const threadedFittings = [
-        fittingFromLabel(end1, 0, String(values.diameter ?? "")),
-        fittingFromLabel(end2, totalInches, String(values.diameter ?? "")),
+        fittingFromLabel(
+          end1,
+          0,
+          String(values.diameter ?? ""),
+          values.reducerToEnd1,
+          values.reducingTeeAcrossEnd1,
+          values.reducingTeeOutletEnd1,
+        ),
+        fittingFromLabel(
+          end2,
+          totalInches,
+          String(values.diameter ?? ""),
+          values.reducerToEnd2,
+          values.reducingTeeAcrossEnd2,
+          values.reducingTeeOutletEnd2,
+        ),
       ].filter((fitting): fitting is ThreadedFitting => Boolean(fitting));
       const piece = {
         qty: Number(values.qty ?? 1),
@@ -300,11 +458,26 @@ function ThreadedPipeForm({ onCreatePiece, onCancel, initialValues }: ThreadedPi
               onChange={(_, newValue) => field.onChange(newValue ?? "")}
               onInputChange={(_, newInputValue) => field.onChange(newInputValue)}
               renderInput={(params) => (
-                <TextField {...params} label="Make-On Fitting End 1" placeholder={'Type e.g. 1" 90'} sx={{ mb: 2, ...inputSurfaceSx }} />
+                <TextField {...params} label="Make-On Fitting End 1" placeholder="Select fitting" sx={{ mb: 2, ...inputSurfaceSx }} />
               )}
             />
           )}
         />
+
+        {!isNoneLabel(makeOnEnd1) && isReducingFitting(makeOnEnd1) && (
+          needsReducingTeeSizes(makeOnEnd1) ? (
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
+              <TextField label="End 1 Pipe Side" value={diameter || ""} disabled fullWidth sx={inputSurfaceSx} />
+              {renderSizeSelect("reducingTeeAcrossEnd1", "End 1 Across Tee Size")}
+              {renderSizeSelect("reducingTeeOutletEnd1", "End 1 Outlet Size")}
+            </Stack>
+          ) : (
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
+              <TextField label="End 1 Pipe Side" value={diameter || ""} disabled fullWidth sx={inputSurfaceSx} />
+              {renderSizeSelect("reducerToEnd1", "End 1 Reduces To")}
+            </Stack>
+          )
+        )}
 
         <Controller
           name="makeOnEnd2"
@@ -317,11 +490,26 @@ function ThreadedPipeForm({ onCreatePiece, onCancel, initialValues }: ThreadedPi
               onChange={(_, newValue) => field.onChange(newValue ?? "")}
               onInputChange={(_, newInputValue) => field.onChange(newInputValue)}
               renderInput={(params) => (
-                <TextField {...params} label="Make-On Fitting End 2" placeholder={'Type e.g. 1" cap'} sx={{ mb: 2, ...inputSurfaceSx }} />
+                <TextField {...params} label="Make-On Fitting End 2" placeholder="Select fitting" sx={{ mb: 2, ...inputSurfaceSx }} />
               )}
             />
           )}
         />
+
+        {!isNoneLabel(makeOnEnd2) && isReducingFitting(makeOnEnd2) && (
+          needsReducingTeeSizes(makeOnEnd2) ? (
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
+              <TextField label="End 2 Pipe Side" value={diameter || ""} disabled fullWidth sx={inputSurfaceSx} />
+              {renderSizeSelect("reducingTeeAcrossEnd2", "End 2 Across Tee Size")}
+              {renderSizeSelect("reducingTeeOutletEnd2", "End 2 Outlet Size")}
+            </Stack>
+          ) : (
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
+              <TextField label="End 2 Pipe Side" value={diameter || ""} disabled fullWidth sx={inputSurfaceSx} />
+              {renderSizeSelect("reducerToEnd2", "End 2 Reduces To")}
+            </Stack>
+          )
+        )}
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 18, borderTop: "1px solid #dce6f5", paddingTop: 14 }}>
           <Button

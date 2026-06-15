@@ -22,8 +22,10 @@ function isType(fitting: ThreadedFitting, keyword: string): boolean {
 function threadedFittingLabel(fitting: ThreadedFitting): string {
   const size = fitting.size || fitting.runSize || fitting.branchSize || fitting.outletSize || "";
 
+  if (isType(fitting, "bullheadtee")) return `${size} Bullhead Tee`.trim();
   if (isType(fitting, "tee")) return `${size} Tee`.trim();
   if (isType(fitting, "cap")) return `${size} Cap`.trim();
+  if (isType(fitting, "reducingcoupling")) return `${size} Reducing Coupling`.trim();
   if (isType(fitting, "coupling")) return `${size} Coupling`.trim();
   if (isType(fitting, "union")) return `${size} Union`.trim();
   if (isType(fitting, "bushing")) return `${size} Bushing`.trim();
@@ -35,9 +37,12 @@ function threadedFittingLabel(fitting: ThreadedFitting): string {
 
 export function ThreadedFittingRenderer({ fitting, x, y, isLeftEnd, index }: ThreadedFittingRendererProps) {
   const isTee = isType(fitting, "tee");
+  const isBullheadTee = isType(fitting, "bullheadtee");
   const isCap = isType(fitting, "cap");
+  const isReducingCoupling = isType(fitting, "reducingcoupling");
   const isCoupling = isType(fitting, "coupling");
   const isUnion = isType(fitting, "union");
+  const isBushing = isType(fitting, "bushing");
 
   const branchDirection = fitting.direction === "down" ? 1 : -1;
   const pipeDirection = isLeftEnd ? -1 : 1;
@@ -46,17 +51,110 @@ export function ThreadedFittingRenderer({ fitting, x, y, isLeftEnd, index }: Thr
   const labelY = y + 34;
 
   if (isCap) {
+    const capDepth = 7;
+    const capHalf = HALF * 0.9;
+    const capFaceX = x + pipeDirection * capDepth;
+    const capLabelX = x + pipeDirection * (capDepth / 2);
+
     return (
       <g key={`threaded-fitting-${index}`}>
         <line
-          x1={x}
-          y1={y - HALF}
-          x2={x}
-          y2={y + HALF}
+          x1={capFaceX}
+          y1={y - capHalf}
+          x2={capFaceX}
+          y2={y + capHalf}
           stroke={STROKE}
           strokeWidth={STROKE_WIDTH}
           strokeLinecap="round"
         />
+        <line
+          x1={capFaceX}
+          y1={y - capHalf}
+          x2={x}
+          y2={y - capHalf}
+          stroke={STROKE}
+          strokeWidth={STROKE_WIDTH}
+          strokeLinecap="round"
+        />
+        <line
+          x1={capFaceX}
+          y1={y + capHalf}
+          x2={x}
+          y2={y + capHalf}
+          stroke={STROKE}
+          strokeWidth={STROKE_WIDTH}
+          strokeLinecap="round"
+        />
+        <text x={capLabelX} y={labelY} textAnchor="middle" fontSize="7.5" fontWeight="700">
+          {label}
+        </text>
+      </g>
+    );
+  }
+
+  if (isReducingCoupling) {
+    const reducerDepth = 11;
+    const reducerHalf = HALF * 0.9;
+    const noseHalf = HALF * 0.42;
+    const pipeEndX = x;
+    const noseX = x + pipeDirection * reducerDepth;
+    const labelX = x + pipeDirection * (reducerDepth / 2);
+
+    return (
+      <g key={`threaded-fitting-${index}`}>
+        <line x1={pipeEndX} y1={y - reducerHalf} x2={pipeEndX} y2={y + reducerHalf} stroke={STROKE} strokeWidth={SOCKET_STROKE_WIDTH} strokeLinecap="round" />
+        <line x1={pipeEndX} y1={y - reducerHalf} x2={noseX} y2={y - noseHalf} stroke={STROKE} strokeWidth={SOCKET_STROKE_WIDTH} strokeLinecap="round" />
+        <line x1={pipeEndX} y1={y + reducerHalf} x2={noseX} y2={y + noseHalf} stroke={STROKE} strokeWidth={SOCKET_STROKE_WIDTH} strokeLinecap="round" />
+        <line x1={noseX} y1={y - noseHalf} x2={noseX} y2={y + noseHalf} stroke={STROKE} strokeWidth={SOCKET_STROKE_WIDTH} strokeLinecap="round" />
+        <text x={labelX} y={labelY} textAnchor="middle" fontSize="7.5" fontWeight="700">
+          {label}
+        </text>
+      </g>
+    );
+  }
+
+  if (isBushing) {
+    const bushingDepth = 10;
+    const bushingHalf = HALF * 0.85;
+    const pointX = x + pipeDirection * bushingDepth;
+
+    return (
+      <g key={`threaded-fitting-${index}`}>
+        <line x1={x} y1={y - bushingHalf} x2={x} y2={y + bushingHalf} stroke={STROKE} strokeWidth={SOCKET_STROKE_WIDTH} strokeLinecap="round" />
+        <line x1={x} y1={y - bushingHalf} x2={pointX} y2={y} stroke={STROKE} strokeWidth={SOCKET_STROKE_WIDTH} strokeLinecap="round" />
+        <line x1={x} y1={y + bushingHalf} x2={pointX} y2={y} stroke={STROKE} strokeWidth={SOCKET_STROKE_WIDTH} strokeLinecap="round" />
+        <text x={x + pipeDirection * (bushingDepth / 2)} y={labelY} textAnchor="middle" fontSize="7.5" fontWeight="700">
+          {label}
+        </text>
+      </g>
+    );
+  }
+
+  if (isCoupling && !isUnion) {
+    const sleeveDepth = 8;
+    const sleeveHalf = HALF * 0.9;
+    const innerX = x;
+    const outerX = x + pipeDirection * sleeveDepth;
+    const labelX = x + pipeDirection * (sleeveDepth / 2);
+
+    return (
+      <g key={`threaded-fitting-${index}`}>
+        <line x1={innerX} y1={y - sleeveHalf} x2={innerX} y2={y + sleeveHalf} stroke={STROKE} strokeWidth={SOCKET_STROKE_WIDTH} strokeLinecap="round" />
+        <line x1={innerX} y1={y - sleeveHalf} x2={outerX} y2={y - sleeveHalf} stroke={STROKE} strokeWidth={SOCKET_STROKE_WIDTH} strokeLinecap="round" />
+        <line x1={innerX} y1={y + sleeveHalf} x2={outerX} y2={y + sleeveHalf} stroke={STROKE} strokeWidth={SOCKET_STROKE_WIDTH} strokeLinecap="round" />
+        <text x={labelX} y={labelY} textAnchor="middle" fontSize="7.5" fontWeight="700">
+          {label}
+        </text>
+      </g>
+    );
+  }
+
+  if (isUnion) {
+    const gap = 6;
+    return (
+      <g key={`threaded-fitting-${index}`}>
+        <line x1={x - gap} y1={y - HALF} x2={x - gap} y2={y + HALF} stroke={STROKE} strokeWidth={SOCKET_STROKE_WIDTH} strokeLinecap="round" />
+        <line x1={x + gap} y1={y - HALF} x2={x + gap} y2={y + HALF} stroke={STROKE} strokeWidth={SOCKET_STROKE_WIDTH} strokeLinecap="round" />
         <text x={x} y={labelY} textAnchor="middle" fontSize="7.5" fontWeight="700">
           {label}
         </text>
@@ -64,13 +162,60 @@ export function ThreadedFittingRenderer({ fitting, x, y, isLeftEnd, index }: Thr
     );
   }
 
-  if (isCoupling || isUnion) {
-    const gap = 6;
+  if (isBullheadTee) {
+    const runX = x + pipeDirection * (STUB + 2);
+    const runHalf = HALF * 1.35;
+    const capHalf = HALF * 0.78;
+    const bullheadLabelY = y + 34;
+
     return (
       <g key={`threaded-fitting-${index}`}>
-        <line x1={x - gap} y1={y - HALF} x2={x - gap} y2={y + HALF} stroke={STROKE} strokeWidth={SOCKET_STROKE_WIDTH} strokeLinecap="round" />
-        <line x1={x + gap} y1={y - HALF} x2={x + gap} y2={y + HALF} stroke={STROKE} strokeWidth={SOCKET_STROKE_WIDTH} strokeLinecap="round" />
-        <text x={x} y={labelY} textAnchor="middle" fontSize="7.5" fontWeight="700">
+        <line
+          x1={x}
+          y1={y}
+          x2={runX}
+          y2={y}
+          stroke={STROKE}
+          strokeWidth={STROKE_WIDTH}
+          strokeLinecap="round"
+        />
+        <line
+          x1={runX}
+          y1={y - runHalf}
+          x2={runX}
+          y2={y + runHalf}
+          stroke={STROKE}
+          strokeWidth={STROKE_WIDTH}
+          strokeLinecap="round"
+        />
+        <line
+          x1={runX - capHalf}
+          y1={y - runHalf}
+          x2={runX + capHalf}
+          y2={y - runHalf}
+          stroke={STROKE}
+          strokeWidth={STROKE_WIDTH}
+          strokeLinecap="round"
+        />
+        <line
+          x1={runX - capHalf}
+          y1={y + runHalf}
+          x2={runX + capHalf}
+          y2={y + runHalf}
+          stroke={STROKE}
+          strokeWidth={STROKE_WIDTH}
+          strokeLinecap="round"
+        />
+        <line
+          x1={x}
+          y1={y - capHalf}
+          x2={x}
+          y2={y + capHalf}
+          stroke={STROKE}
+          strokeWidth={STROKE_WIDTH}
+          strokeLinecap="round"
+        />
+        <text x={runX} y={bullheadLabelY} textAnchor="middle" fontSize="7.5" fontWeight="700">
           {label}
         </text>
       </g>

@@ -103,19 +103,23 @@ function endPrepCode(label: string): string {
 function threadedEndCode(label: string): string {
   const normalized = label.toLowerCase();
   if (!normalized.trim() || normalized === "none") return "THD";
+  if (normalized.includes("reducing") && normalized.includes("tee")) return "RTEE";
+  if (normalized.includes("reducing") && normalized.includes("coupling")) return "RCPL";
   if (normalized.includes("90") || normalized.includes("elbow")) return "90";
   if (normalized.includes("tee")) return "TEE";
   if (normalized.includes("cap")) return "CAP";
   if (normalized.includes("coupling")) return "CPL";
   if (normalized.includes("union")) return "UN";
+  if (normalized.includes("bushing")) return "BSH";
   if (normalized.includes("plug")) return "PLG";
   return "FIT";
 }
 
-function fittingKind(label: string): "none" | "elbow" | "tee" | "cap" | "coupling" | "union" | "plug" | "generic" {
+function fittingKind(label: string): "none" | "elbow" | "tee" | "bullheadtee" | "cap" | "coupling" | "union" | "plug" | "generic" {
   const normalized = label.toLowerCase().trim();
   if (!normalized || normalized === "none") return "none";
   if (normalized.includes("90") || normalized.includes("elbow")) return "elbow";
+  if (normalized.includes("bullhead") && normalized.includes("tee")) return "bullheadtee";
   if (normalized.includes("tee")) return "tee";
   if (normalized.includes("cap")) return "cap";
   if (normalized.includes("coupling")) return "coupling";
@@ -137,6 +141,7 @@ function fallbackThreadedFittingFromLabel(label: string, location: number, diame
   const type = (() => {
     if (kind === "elbow") return "threadedelbow90";
     if (kind === "tee") return "threadedtee";
+    if (kind === "bullheadtee") return "threadedbullheadtee";
     if (kind === "cap") return "threadedcap";
     if (kind === "coupling") return "threadedcoupling";
     if (kind === "union") return "threadedunion";
