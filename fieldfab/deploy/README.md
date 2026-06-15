@@ -44,9 +44,16 @@ The script will:
 - install backend requirements inside the venv
 - install frontend packages
 - build `fieldfab/dist`
+- publish `fieldfab/dist` to `/var/www/sprinksync.com/fieldfab`
 - restart the `fieldfab` systemd service if installed
-- fall back to `nohup uvicorn` if the service is not installed
+- fall back to `nohup uvicorn` on `127.0.0.1:8002` if the service is not installed
 - reload nginx when possible
+
+Override defaults when needed:
+
+```bash
+BACKEND_PORT=8002 WEB_ROOT=/var/www/sprinksync.com/fieldfab bash ~/SprinkSync/fieldfab/deploy/deploy-fieldfab.sh
+```
 
 If nginx asks for a password during reload, run this manually:
 

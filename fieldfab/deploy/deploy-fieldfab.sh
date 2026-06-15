@@ -5,8 +5,9 @@ REPO_DIR="${REPO_DIR:-$HOME/SprinkSync}"
 FRONTEND_DIR="$REPO_DIR/fieldfab"
 BACKEND_DIR="$FRONTEND_DIR/backend"
 SERVICE_NAME="${SERVICE_NAME:-fieldfab}"
-BACKEND_HOST="${BACKEND_HOST:-0.0.0.0}"
-BACKEND_PORT="${BACKEND_PORT:-8000}"
+BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
+BACKEND_PORT="${BACKEND_PORT:-8002}"
+WEB_ROOT="${WEB_ROOT:-/var/www/sprinksync.com/fieldfab}"
 
 command_exists() {
   command -v "$1" >/dev/null 2>&1
@@ -41,13 +42,34 @@ else
 fi
 npm run build
 
+if [[ -d "$WEB_ROOT" ]]; then
+  echo "Publishing frontend to $WEB_ROOT"
+  if command_exists rsync; then
+    sudo rsync -av --delete dist/ "$WEB_ROOT/"
+  else
+    sudo mkdir -p "$WEB_ROOT"
+    sudo find "$WEB_ROOT" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+    sudo cp -R dist/. "$WEB_ROOT/"
+  fi
+else
+  echo "Web root $WEB_ROOT not found; skipping frontend publish."
+  echo "Set WEB_ROOT=/path/to/site if nginx serves FieldFab from another folder."
+fi
+
 if command_exists systemctl && systemctl list-unit-files | grep -q "^${SERVICE_NAME}.service"; then
   echo "Restarting systemd service: $SERVICE_NAME"
   sudo systemctl restart "$SERVICE_NAME"
   sudo systemctl --no-pager --full status "$SERVICE_NAME" || true
 else
   echo "No ${SERVICE_NAME}.service found; using nohup fallback"
-  pkill -f "uvicorn main:app" || true
+  if command_exists lsof; then
+    pids="$(lsof -ti TCP:"$BACKEND_PORT" -sTCP:LISTEN || true)"
+    if [[ -n "$pids" ]]; then
+      echo "Stopping existing listener(s) on port $BACKEND_PORT: $pids"
+      kill $pids || true
+      sleep 1
+    fi
+  fi
   cd "$BACKEND_DIR"
   nohup ./venv/bin/uvicorn main:app --host "$BACKEND_HOST" --port "$BACKEND_PORT" > backend.log 2>&1 &
   sleep 1
