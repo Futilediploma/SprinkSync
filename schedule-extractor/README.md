@@ -267,7 +267,7 @@ MIT License - see [LICENSE](./LICENSE)
 
 - 📖 [Documentation](./LLM_SETUP.md)
 - 💬 [Issues](https://github.com/Futilediploma/SprinkSync/issues)
-- 📧 [Contact](mailto:support@sprinksync.com)
+- 📧 [Contact](mailto:cody@sprinksync.com)
 
 ## 🔮 Roadmap
 

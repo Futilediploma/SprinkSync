@@ -170,7 +170,7 @@ const FREE_PLAN_PROJECT_LIMIT = 2;
 const FREE_PLAN_MAIN_PIPE_QTY_LIMIT = 10;
 const FREE_PLAN_THREADED_PIPE_QTY_LIMIT = 10;
 const STRIPE_UPGRADE_URL = import.meta.env.VITE_STRIPE_UPGRADE_URL as string | undefined;
-const BILLING_EMAIL = import.meta.env.VITE_BILLING_EMAIL ?? 'billing@fieldfab.app';
+const BILLING_EMAIL = import.meta.env.VITE_BILLING_EMAIL ?? 'cody@sprinksync.com';
 
 // ── App ───────────────────────────────────────────────────────────────────────
 

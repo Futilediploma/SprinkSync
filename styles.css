@@ -202,6 +202,34 @@ body {
     margin-bottom: var(--space-8);
 }
 
+.hero-contact {
+    padding: var(--space-5);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-lg);
+    background: rgba(18, 33, 59, 0.72);
+}
+
+.hero-contact p {
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.hero-contact .contact-eyebrow {
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: var(--space-2);
+}
+
+.contact-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    margin-top: var(--space-4);
+}
+
 /* Preview Window */
 .hero-preview {
     position: relative;
@@ -704,13 +732,16 @@ body {
 
 .footer-info {
     text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
 }
 
 .footer-info span {
     display: block;
     font-size: var(--text-sm);
     color: var(--text-secondary);
-    margin-bottom: var(--space-1);
 }
 
 .contact-link {

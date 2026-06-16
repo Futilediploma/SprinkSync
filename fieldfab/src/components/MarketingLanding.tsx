@@ -5,6 +5,10 @@ import { ApiError } from '../api/client';
 import { submitSalesLead } from '../api/sales';
 import './MarketingLanding.css';
 
+const CONTACT_EMAIL = 'cody@sprinksync.com';
+const CONTACT_MAILTO = `mailto:${CONTACT_EMAIL}`;
+const X_PROFILE_URL = 'https://x.com/ditzelcody';
+
 interface MarketingLandingProps {
   onAuth: () => void;
 }
@@ -111,6 +115,9 @@ export default function MarketingLanding({ onAuth }: MarketingLandingProps) {
             <button className="marketing-secondary-button" onClick={handleContactSales}>
               Contact FieldFab Team
             </button>
+            <a className="marketing-link-button" href={CONTACT_MAILTO}>
+              {CONTACT_EMAIL}
+            </a>
           </div>
           <div className="marketing-plan-note">Built for contractor workflows: job setup, pipe specs, outlet tracking, and export-ready sheets.</div>
         </section>
@@ -191,6 +198,46 @@ export default function MarketingLanding({ onAuth }: MarketingLandingProps) {
           <div className="marketing-trust-item-body">Use it in the office or on mobile at the site without changing process.</div>
         </article>
       </section>
+
+      <section className="marketing-about-contact" aria-label="About and contact">
+        <article className="marketing-about-card">
+          <div className="marketing-section-label">About FieldFab</div>
+          <h2>Built by fire protection professionals.</h2>
+          <p>
+            FieldFab is developed by SprinkSync and built by fire protection professionals to improve
+            fabrication, material takeoff, and prefab workflows.
+          </p>
+          <p>
+            Cody Ditzel<br />
+            Founder, SprinkSync<br />
+            Creator of FieldFab
+          </p>
+        </article>
+        <article className="marketing-contact-card">
+          <div className="marketing-section-label">Contact Cody</div>
+          <h2>Questions, feedback, feature requests, or partnership inquiries are welcome.</h2>
+          <div className="marketing-contact-links">
+            <a href={CONTACT_MAILTO}>{CONTACT_EMAIL}</a>
+            <a href={X_PROFILE_URL} target="_blank" rel="noopener noreferrer">
+              X @ditzelcody
+            </a>
+          </div>
+        </article>
+      </section>
+
+      <footer className="marketing-footer">
+        <div>
+          <strong>FieldFab</strong>
+          <p>FieldFab is developed by SprinkSync and built by fire protection professionals to improve fabrication, material takeoff, and prefab workflows.</p>
+          <p>SprinkSync - Software built specifically for the fire protection industry.</p>
+        </div>
+        <div className="marketing-footer-links">
+          <a href={CONTACT_MAILTO}>{CONTACT_EMAIL}</a>
+          <a href={X_PROFILE_URL} target="_blank" rel="noopener noreferrer">
+            X @ditzelcody
+          </a>
+        </div>
+      </footer>
 
       {showAuth && (
         <div className="marketing-auth-shell" role="dialog" aria-modal="true" aria-label="Authentication">
