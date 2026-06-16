@@ -7,7 +7,7 @@ import './MarketingLanding.css';
 
 const CONTACT_EMAIL = 'cody@sprinksync.com';
 const CONTACT_MAILTO = `mailto:${CONTACT_EMAIL}`;
-const X_PROFILE_URL = 'https://x.com/ditzelcody';
+const X_PROFILE_URL = 'https://x.com/FDinnovations';
 
 interface MarketingLandingProps {
   onAuth: () => void;
@@ -219,7 +219,7 @@ export default function MarketingLanding({ onAuth }: MarketingLandingProps) {
           <div className="marketing-contact-links">
             <a href={CONTACT_MAILTO}>{CONTACT_EMAIL}</a>
             <a href={X_PROFILE_URL} target="_blank" rel="noopener noreferrer">
-              X @ditzelcody
+              X @FDinnovations
             </a>
           </div>
         </article>
@@ -234,7 +234,7 @@ export default function MarketingLanding({ onAuth }: MarketingLandingProps) {
         <div className="marketing-footer-links">
           <a href={CONTACT_MAILTO}>{CONTACT_EMAIL}</a>
           <a href={X_PROFILE_URL} target="_blank" rel="noopener noreferrer">
-            X @ditzelcody
+            X @FDinnovations
           </a>
         </div>
       </footer>
