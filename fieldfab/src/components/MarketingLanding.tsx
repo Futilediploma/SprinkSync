@@ -156,7 +156,8 @@ export default function MarketingLanding({ onAuth }: MarketingLandingProps) {
           <ul>
             <li>2 active projects during development</li>
             <li>Pipe + outlet tracking</li>
-            <li>PDF and CSV exports</li>
+            <li>Loose material lists</li>
+            <li>PDF, CSV, and Excel exports</li>
           </ul>
           <button className="marketing-secondary-button" onClick={() => setShowAuth(true)}>Create Free Account</button>
         </article>
@@ -170,7 +171,7 @@ export default function MarketingLanding({ onAuth }: MarketingLandingProps) {
             <li>Unlimited active projects</li>
             <li>Priority support</li>
             <li>Team-ready growth path</li>
-            <li>Ability to add loose material to listings</li>
+            <li>Expanded project and material list capacity</li>
           </ul>
           <button className="marketing-primary-button" onClick={handleUpgrade} disabled>Upgrade to Pro</button>
         </article>

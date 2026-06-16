@@ -1,16 +1,36 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // IndexedDB for Victaulic Products
 import { openDB } from 'idb';
 import type { DBSchema, IDBPDatabase } from 'idb';
 
 export type Product = {
   id?: number;
+  sku?: string;
   product_name: string;
   product_url: string;
+  category?: string;
+  size_range?: string;
   short_description: string;
   manufacturer?: string; // Manufacturer name (extracted from CSV filename)
+  normalized_category?: LooseMaterialCategory;
   // Searchable fields
   search_text: string; // Lowercase version for searching
 };
+
+export const LOOSE_MATERIAL_CATEGORIES = [
+  'Grooved Fitting',
+  'Threaded Fitting',
+  'Coupling',
+  'Valve',
+  'Sprinkler Head',
+  'Hanger/Support',
+  'Accessory',
+  'Other',
+] as const;
+
+export type LooseMaterialCategory = typeof LOOSE_MATERIAL_CATEGORIES[number];
+
+const CATALOG_VERSION = 3;
 
 interface ProductsDB extends DBSchema {
   products: {
@@ -20,6 +40,7 @@ interface ProductsDB extends DBSchema {
       'by-name': string;
       'by-search': string;
       'by-manufacturer': string; // Index for filtering by manufacturer
+      'by-category': LooseMaterialCategory;
     };
   };
   metadata: {
@@ -41,7 +62,7 @@ export async function initProductsDatabase(): Promise<IDBPDatabase<ProductsDB>> 
     return dbInstance;
   }
 
-  dbInstance = await openDB<ProductsDB>('victaulic-products', 2, {
+  dbInstance = await openDB<ProductsDB>('victaulic-products', 3, {
     upgrade(db, oldVersion, _newVersion, transaction) {
       // Create products store
       if (!db.objectStoreNames.contains('products')) {
@@ -54,12 +75,20 @@ export async function initProductsDatabase(): Promise<IDBPDatabase<ProductsDB>> 
         productStore.createIndex('by-name', 'product_name', { unique: false });
         productStore.createIndex('by-search', 'search_text', { unique: false });
         productStore.createIndex('by-manufacturer', 'manufacturer', { unique: false });
+        productStore.createIndex('by-category', 'normalized_category', { unique: false });
       } else if (oldVersion < 2) {
         // Upgrade existing database to version 2: add manufacturer index
         // Use the upgrade transaction that's already running
         const productStore = transaction.objectStore('products');
         if (!productStore.indexNames.contains('by-manufacturer')) {
           productStore.createIndex('by-manufacturer', 'manufacturer', { unique: false });
+        }
+      }
+
+      if (oldVersion < 3 && db.objectStoreNames.contains('products')) {
+        const productStore = transaction.objectStore('products');
+        if (!productStore.indexNames.contains('by-category')) {
+          productStore.createIndex('by-category', 'normalized_category', { unique: false });
         }
       }
 
@@ -79,7 +108,8 @@ export async function initProductsDatabase(): Promise<IDBPDatabase<ProductsDB>> 
 export async function isDatabasePopulated(): Promise<boolean> {
   const db = await initProductsDatabase();
   const metadata = await db.get('metadata', 'populated');
-  return metadata?.value === true;
+  const version = await db.get('metadata', 'catalogVersion');
+  return metadata?.value === true && version?.value === CATALOG_VERSION;
 }
 
 /**
@@ -87,6 +117,7 @@ export async function isDatabasePopulated(): Promise<boolean> {
  */
 async function markDatabasePopulated(db: IDBPDatabase<ProductsDB>) {
   await db.put('metadata', { key: 'populated', value: true });
+  await db.put('metadata', { key: 'catalogVersion', value: CATALOG_VERSION });
 }
 
 /**
@@ -97,6 +128,43 @@ function extractManufacturerFromPath(csvPath: string): string {
   const filename = csvPath.split('/').pop() || '';
   const manufacturer = filename.split('_')[0];
   return manufacturer.charAt(0).toUpperCase() + manufacturer.slice(1);
+}
+
+function normalizeText(value: string | undefined): string {
+  return (value ?? '').toLowerCase();
+}
+
+export function deriveProductCategory(product: Pick<Product, 'product_name' | 'category' | 'short_description'>): LooseMaterialCategory {
+  const text = `${normalizeText(product.category)} ${normalizeText(product.product_name)} ${normalizeText(product.short_description)}`;
+
+  if (text.includes('sprinkler') || /\bvk\d+/.test(text)) return 'Sprinkler Head';
+  if (text.includes('valve')) return 'Valve';
+  if (text.includes('hanger') || text.includes('support') || text.includes('clamp') || text.includes('brace')) return 'Hanger/Support';
+  if (
+    text.includes('threaded') &&
+    (
+      text.includes('elbow') ||
+      text.includes('tee') ||
+      text.includes('fitting') ||
+      text.includes('reducer') ||
+      text.includes('cap') ||
+      text.includes('plug') ||
+      text.includes('union') ||
+      text.includes('bushing') ||
+      text.includes('nipple') ||
+      text.includes('cross') ||
+      text.includes('locknut') ||
+      text.includes('return bend') ||
+      text.includes('coupling')
+    )
+  ) {
+    return 'Threaded Fitting';
+  }
+  if (text.includes('coupling')) return 'Coupling';
+  if (text.includes('fitting') || text.includes('elbow') || text.includes('tee') || text.includes('grooved')) return 'Grooved Fitting';
+  if (text.includes('escutcheon') || text.includes('cover plate') || text.includes('trim') || text.includes('gasket')) return 'Accessory';
+
+  return 'Other';
 }
 
 /**
@@ -121,11 +189,19 @@ function parseCSV(csvText: string, csvPath: string): Product[] {
         product[header] = values[idx];
       });
 
-      // Add manufacturer field
+      // Add normalized catalog fields
       product.manufacturer = manufacturer;
+      product.normalized_category = deriveProductCategory(product as Product);
 
-      // Add search text (include manufacturer for searchability)
-      product.search_text = `${manufacturer} ${product.product_name} ${product.short_description}`.toLowerCase();
+      // Add search text (include manufacturer/category/SKU for searchability)
+      product.search_text = [
+        manufacturer,
+        product.normalized_category,
+        product.sku,
+        product.product_name,
+        product.category,
+        product.short_description,
+      ].filter(Boolean).join(' ').toLowerCase();
 
       products.push(product as Product);
     }
@@ -165,12 +241,14 @@ function parseCSVLine(line: string): string[] {
 export async function populateDatabaseFromCSV(): Promise<void> {
   const db = await initProductsDatabase();
 
-  // Check if already populated
+  // Check if already populated with the current normalization rules
   const isPopulated = await isDatabasePopulated();
   if (isPopulated) {
     console.log('Database already populated');
     return;
   }
+
+  await clearProducts();
 
   console.log('Loading products from multiple CSV sources...');
 
@@ -356,6 +434,23 @@ export async function getAllManufacturers(): Promise<string[]> {
   });
 
   return Array.from(manufacturers).sort();
+}
+
+/**
+ * Get list of unique normalized material categories from database
+ */
+export async function getAllCatalogCategories(): Promise<LooseMaterialCategory[]> {
+  const db = await initProductsDatabase();
+  const allProducts = await db.getAll('products');
+  const categories = new Set<LooseMaterialCategory>();
+
+  allProducts.forEach(product => {
+    if (product.normalized_category) {
+      categories.add(product.normalized_category);
+    }
+  });
+
+  return Array.from(categories).sort();
 }
 
 // Expose clearProducts globally for debugging

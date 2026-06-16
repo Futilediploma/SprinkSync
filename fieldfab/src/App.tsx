@@ -9,7 +9,7 @@ import PickerModal from './components/PickerModal';
 import ProjectsMenu from './components/projectsmenu';
 import WeldedOutletForm from './components/WeldedOutletForm';
 import PipeSketch from './components/PipeSketch';
-import LooseMaterialForm from './components/LooseMaterialForm';
+import LooseMaterialForm, { extractMaterialMetadata, packMaterialOptions } from './components/LooseMaterialForm';
 import type { MaterialItem } from './components/LooseMaterialForm';
 import MarketingLanding from './components/MarketingLanding';
 import type { Project, Piece, Outlet } from './types';
@@ -89,12 +89,13 @@ function materialToPayload(material: MaterialItem, orderIndex: number): LooseMat
     size: material.size,
     description: material.description,
     mat_type: material.type,
-    options: material.options ?? [],
+    options: packMaterialOptions(material),
     sizes: material.sizes ?? [],
   };
 }
 
 function apiMatToMaterialItem(api: ApiLooseMaterial): MaterialItem {
+  const metadata = extractMaterialMetadata(api.options);
   return {
     id: String(api.id),
     qty: api.qty,
@@ -102,7 +103,10 @@ function apiMatToMaterialItem(api: ApiLooseMaterial): MaterialItem {
     size: api.size,
     description: api.description,
     type: api.mat_type,
-    options: api.options ?? [],
+    manufacturer: metadata.manufacturer,
+    productUrl: metadata.productUrl,
+    isCustom: metadata.isCustom,
+    options: metadata.options,
     sizes: api.sizes ?? [],
   };
 }
@@ -746,25 +750,21 @@ function App() {
               Fabrication
             </button>
             <button
-              className="fieldfab-tab-disabled"
               style={{
                 padding: '10px 24px',
                 border: 'none',
-                background: '#d9dee8',
-                color: '#6b7280',
+                background: activeTab === 'loosematerial' ? '#1976d2' : 'transparent',
+                color: activeTab === 'loosematerial' ? '#fff' : '#666',
                 fontWeight: 600,
                 fontSize: '0.95rem',
-                cursor: 'not-allowed',
+                cursor: 'pointer',
                 borderRadius: '6px 6px 0 0',
                 transition: 'all 0.2s',
-                position: 'relative',
-                opacity: 0.72,
               }}
-              disabled
-              title="Loose Material is under development"
+              onClick={() => setActiveTab('loosematerial')}
+              title="Create and export loose material lists"
             >
               Loose Material
-              <span className="fieldfab-tab-watermark">Under Development</span>
             </button>
           </div>
         </div>
@@ -1367,6 +1367,7 @@ function App() {
                           <th style={{ padding: '12px 8px', textAlign: 'center', fontWeight: 600, width: '50px', color: '#222' }}>#</th>
                           <th style={{ padding: '12px 8px', textAlign: 'center', fontWeight: 600, width: '60px', color: '#222' }}>Qty</th>
                           <th style={{ padding: '12px 8px', textAlign: 'left', fontWeight: 600, width: '120px', color: '#222' }}>Size</th>
+                          <th style={{ padding: '12px 8px', textAlign: 'left', fontWeight: 600, width: '130px', color: '#222' }}>Manufacturer</th>
                           <th style={{ padding: '12px 8px', textAlign: 'left', fontWeight: 600, minWidth: '200px', color: '#222' }}>Product Name</th>
                           <th style={{ padding: '12px 8px', textAlign: 'left', fontWeight: 600, minWidth: '250px', color: '#222' }}>Description</th>
                           <th style={{ padding: '12px 8px', textAlign: 'left', fontWeight: 600, width: '100px', color: '#222' }}>Type</th>
@@ -1382,6 +1383,9 @@ function App() {
                               {material.sizes && material.sizes.length > 0
                                 ? material.sizes.join(', ')
                                 : material.size || '-'}
+                            </td>
+                            <td style={{ padding: '12px 8px', color: '#222' }}>
+                              {material.isCustom ? 'Custom' : material.manufacturer || '-'}
                             </td>
                             <td style={{ padding: '12px 8px', fontWeight: 500, color: '#222' }}>{material.part}</td>
                             <td style={{ padding: '12px 8px', color: '#222' }}>

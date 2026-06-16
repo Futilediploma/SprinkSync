@@ -1,8 +1,25 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { MaterialItem } from '../components/LooseMaterialForm';
+import { extractMaterialMetadata } from '../components/LooseMaterialForm';
 import type { Project } from '../types';
+
+function getVisibleMaterialOptions(material: MaterialItem): string[] {
+  return extractMaterialMetadata(material.options).options;
+}
+
+function getMaterialManufacturer(material: MaterialItem): string {
+  const metadata = extractMaterialMetadata(material.options);
+  return material.isCustom || metadata.isCustom
+    ? 'Custom'
+    : material.manufacturer || metadata.manufacturer || '';
+}
+
+function getMaterialSize(material: MaterialItem): string {
+  return material.sizes && material.sizes.length > 0 ? material.sizes.join(', ') : (material.size || '-');
+}
 
 /**
  * Export loose materials to professional CSV format
@@ -21,18 +38,19 @@ export function exportToCSV(materials: MaterialItem[], project: Project | null):
     [`Company: ${project?.companyName || 'N/A'}`],
     [`Date: ${new Date().toLocaleDateString()}`],
     [''],
-    ['#', 'Qty', 'Size', 'Product Name', 'Description', 'Type', 'Options']
+    ['#', 'Qty', 'Category', 'Manufacturer', 'Size', 'Product Name', 'Description', 'Options']
   ];
 
 // Create data rows
 const rows = materials.map((material, idx) => [
   (idx + 1).toString(),
   material.qty.toString(),
-  material.sizes && material.sizes.length > 0 ? material.sizes.join(', ') : (material.size || '-'),
+  material.type,
+  getMaterialManufacturer(material),
+  getMaterialSize(material),
   material.part,
   material.description,
-  material.type,
-  material.options && material.options.length > 0 ? material.options.join(', ') : ''
+  getVisibleMaterialOptions(material).join(', ')
 ]);
 
 // Create disclaimer rows
@@ -83,23 +101,21 @@ export function exportToExcel(materials: MaterialItem[], project: Project | null
     [`Company: ${project?.companyName || 'N/A'}`],
     [`Date: ${new Date().toLocaleDateString()}`],
     [],
-    ['#', 'Qty', 'Size', 'Product Name', 'Description', 'Type', 'Options'],
+    ['#', 'Qty', 'Category', 'Manufacturer', 'Size', 'Product Name', 'Description', 'Options'],
     ...materials.map((material, idx) => [
       idx + 1,
       material.qty,
-      material.sizes && material.sizes.length > 0 ? material.sizes.join(', ') : (material.size || '-'),
+      material.type,
+      getMaterialManufacturer(material),
+      getMaterialSize(material),
       material.part,
       material.description,
-      material.type,
-      material.options && material.options.length > 0 ? material.options.join(', ') : ''
+      getVisibleMaterialOptions(material).join(', ')
     ]),
     [],
     [],
     ['IMPORTANT NOTES:'],
     ['Please have a licensed fire protection engineer review all specifications before fabrication or installation.'],
-    ['Verify product specs, sizes, quantities, and code compliance (NFPA, local AHJ) with manufacturers before ordering.'],
-    ['This tool is provided as-is to help with planning. User assumes all responsibility for verifying information.'],
-    ['Please have a licensed fire protection engineer or Qualified NICET to review all specifications before fabrication or installation.'],
     ['Verify product specs, sizes, quantities, and code compliance (NFPA, local AHJ) with manufacturers before ordering.'],
     ['This tool is provided as-is to help with planning. User assumes all responsibility for verifying information.']
   ];
@@ -111,16 +127,17 @@ export function exportToExcel(materials: MaterialItem[], project: Project | null
   ws['!cols'] = [
     { wch: 5 },   // #
     { wch: 6 },   // Qty
+    { wch: 20 },  // Category
+    { wch: 18 },  // Manufacturer
     { wch: 12 },  // Size
     { wch: 35 },  // Product Name
     { wch: 50 },  // Description
-    { wch: 18 },  // Type
     { wch: 25 }   // Options
   ];
 
   // Merge cells for title
   ws['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }, // Title row
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }, // Title row
   ];
 
   // Style the title row (A1)
@@ -131,7 +148,7 @@ export function exportToExcel(materials: MaterialItem[], project: Project | null
   };
 
   // Style header row (row 7)
-  ['A7', 'B7', 'C7', 'D7', 'E7', 'F7', 'G7'].forEach(cell => {
+  ['A7', 'B7', 'C7', 'D7', 'E7', 'F7', 'G7', 'H7'].forEach(cell => {
     if (!ws[cell]) ws[cell] = { t: 's', v: '' };
     if (!ws[cell].s) ws[cell].s = {};
     ws[cell].s = {
@@ -186,16 +203,17 @@ export function exportToPDF(materials: MaterialItem[], project: Project | null):
   const tableData = materials.map((material, idx) => [
     (idx + 1).toString(),
     material.qty.toString(),
-    material.sizes && material.sizes.length > 0 ? material.sizes.join(', ') : (material.size || '-'),
+    material.type,
+    getMaterialManufacturer(material),
+    getMaterialSize(material),
     material.part,
     material.description,
-    material.type,
-    material.options && material.options.length > 0 ? material.options.join(', ') : ''
+    getVisibleMaterialOptions(material).join(', ')
   ]);
 
   // Add table
   autoTable(doc, {
-    head: [['#', 'Qty', 'Size', 'Product Name', 'Description', 'Type', 'Options']],
+    head: [['#', 'Qty', 'Category', 'Manufacturer', 'Size', 'Product Name', 'Description', 'Options']],
     body: tableData,
     startY: 52,
     theme: 'grid',
@@ -214,11 +232,12 @@ export function exportToPDF(materials: MaterialItem[], project: Project | null):
     columnStyles: {
       0: { cellWidth: 10, halign: 'center' },  // #
       1: { cellWidth: 12, halign: 'center' },  // Qty
-      2: { cellWidth: 20, halign: 'left' },    // Size
-      3: { cellWidth: 55, halign: 'left' },    // Product Name
-      4: { cellWidth: 80, halign: 'left' },    // Description
-      5: { cellWidth: 28, halign: 'left' },    // Type
-      6: { cellWidth: 35, halign: 'left' }     // Options
+      2: { cellWidth: 28, halign: 'left' },    // Category
+      3: { cellWidth: 24, halign: 'left' },    // Manufacturer
+      4: { cellWidth: 18, halign: 'left' },    // Size
+      5: { cellWidth: 48, halign: 'left' },    // Product Name
+      6: { cellWidth: 70, halign: 'left' },    // Description
+      7: { cellWidth: 38, halign: 'left' }     // Options
     },
     alternateRowStyles: {
       fillColor: [245, 245, 245] // Light gray for alternating rows

@@ -10,6 +10,8 @@ import Select from '@mui/material/Select';
 import CircularProgress from '@mui/material/CircularProgress';
 import type { Product } from '../data/productsDb';
 import {
+  LOOSE_MATERIAL_CATEGORIES,
+  type LooseMaterialCategory,
   initProductsDatabase,
   populateDatabaseFromCSV,
   searchProducts,
@@ -31,9 +33,50 @@ export type MaterialItem = {
   size: string;
   description: string;
   type: string;
+  manufacturer?: string;
+  productUrl?: string;
+  isCustom?: boolean;
   options?: string[]; // Selected options from description
   sizes?: string[]; // Selected sizes from available sizes
 };
+
+const MATERIAL_META_PREFIX = '__fieldfab_meta__:';
+
+export function packMaterialOptions(material: MaterialItem): string[] {
+  const visibleOptions = (material.options ?? []).filter(option => !option.startsWith(MATERIAL_META_PREFIX));
+  const metadata = [
+    material.manufacturer ? `manufacturer=${material.manufacturer}` : '',
+    material.productUrl ? `productUrl=${material.productUrl}` : '',
+    material.isCustom ? 'source=custom' : '',
+  ].filter(Boolean);
+
+  return metadata.length > 0
+    ? [...visibleOptions, `${MATERIAL_META_PREFIX}${metadata.join('|')}`]
+    : visibleOptions;
+}
+
+export function extractMaterialMetadata(options: string[] | undefined) {
+  const metadataOption = options?.find(option => option.startsWith(MATERIAL_META_PREFIX));
+  const visibleOptions = (options ?? []).filter(option => !option.startsWith(MATERIAL_META_PREFIX));
+  const metadata: { manufacturer?: string; productUrl?: string; isCustom?: boolean; options: string[] } = {
+    options: visibleOptions,
+  };
+
+  if (!metadataOption) return metadata;
+
+  metadataOption
+    .slice(MATERIAL_META_PREFIX.length)
+    .split('|')
+    .forEach(part => {
+      const [key, ...valueParts] = part.split('=');
+      const value = valueParts.join('=');
+      if (key === 'manufacturer') metadata.manufacturer = value;
+      if (key === 'productUrl') metadata.productUrl = value;
+      if (key === 'source' && value === 'custom') metadata.isCustom = true;
+    });
+
+  return metadata;
+}
 
 export default function LooseMaterialForm({ onAdd, initialValues, isEditing = false }: LooseMaterialFormProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,14 +86,15 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
   const [dbInitialized, setDbInitialized] = useState(false);
   const [dbLoading, setDbLoading] = useState(true);
   const [productCount, setProductCount] = useState(0);
-  const [productTypeFilter, setProductTypeFilter] = useState<string>('all');
+  const [entryMode, setEntryMode] = useState<'catalog' | 'custom'>('catalog');
+  const [materialCategory, setMaterialCategory] = useState<LooseMaterialCategory>('Grooved Fitting');
   const [manufacturerFilter, setManufacturerFilter] = useState<string>('all');
   const [availableManufacturers, setAvailableManufacturers] = useState<string[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const [qty, setQty] = useState<number>(1);
   const [size, setSize] = useState<string>('');
   const [description, setDescription] = useState('');
-  const [type, setType] = useState('');
   const [availableOptions, setAvailableOptions] = useState<string[]>([]);
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [availableSizes, setAvailableSizes] = useState<string[]>([]);
@@ -119,12 +163,17 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
   // Load initial values when editing
   useEffect(() => {
     if (initialValues) {
+      const metadata = extractMaterialMetadata(initialValues.options);
       setQty(initialValues.qty);
       setSize(initialValues.size);
       setSearchQuery(initialValues.part);
       setDescription(initialValues.description);
-      setType(initialValues.type);
-      setSelectedOptions(initialValues.options || []);
+      setMaterialCategory((LOOSE_MATERIAL_CATEGORIES as readonly string[]).includes(initialValues.type)
+        ? initialValues.type as LooseMaterialCategory
+        : 'Other');
+      setManufacturerFilter(metadata.manufacturer?.toLowerCase() || 'all');
+      setEntryMode(metadata.isCustom ? 'custom' : 'catalog');
+      setSelectedOptions(metadata.options);
       setSelectedSizes(initialValues.sizes || []);
 
       // Extract material type from options if present
@@ -169,11 +218,11 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
         return;
       }
       
-      if (searchQuery.length >= 2) {
+      if (entryMode === 'catalog' && searchQuery.length >= 2) {
         setIsSearching(true);
         try {
           const results = await searchProducts(searchQuery, 10);
-          const filteredResults = filterResultsByType(results, productTypeFilter, manufacturerFilter);
+          const filteredResults = filterResultsByType(results, materialCategory, manufacturerFilter);
           setSearchResults(filteredResults);
           setShowResults(filteredResults.length > 0);
         } catch (error) {
@@ -191,35 +240,19 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
 
     const debounceTimer = setTimeout(performSearch, 150);
     return () => clearTimeout(debounceTimer);
-  }, [searchQuery, productTypeFilter, manufacturerFilter]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, entryMode, materialCategory, manufacturerFilter]);
 
   const handleSelectProduct = (product: Product) => {
     justSelectedProduct.current = true; // Set flag to prevent search
+    setSelectedProduct(product);
     setSearchQuery(product.product_name);
     setDescription(product.short_description);
     setShowResults(false);
     setSearchResults([]); // Clear search results to prevent reopening
 
-    // Try to extract type/category from product name
-    const name = product.product_name.toLowerCase();
-    if (name.includes('valve')) setType('Valve');
-    else if (name.includes('coupling')) setType('Coupling');
-    else if (name.includes('sprinkler')) setType('Sprinkler');
-    // Check for THREADED fittings BEFORE generic fittings (order matters!)
-    else if (name.includes('threaded') && (
-      name.includes('elbow') || name.includes('tee') || name.includes('fitting') ||
-      name.includes('reducer') || name.includes('cap') || name.includes('plug') ||
-      name.includes('union') || name.includes('bushing') || name.includes('nipple') ||
-      name.includes('cross') || name.includes('lateral') || name.includes('locknut') ||
-      name.includes('return bend')
-    )) {
-      setType('Threaded Fitting');
-    }
-    // Grooved fittings (original fitting category)
-    else if (name.includes('fitting')) setType('Fitting');
-    else if (name.includes('elbow')) setType('Fitting');
-    else if (name.includes('tee')) setType('Fitting');
-    else setType('Other');
+    const category = product.normalized_category || materialCategory;
+    setMaterialCategory(category);
 
     // Parse options from description
     const options = parseOptionsFromDescription(product.short_description);
@@ -235,6 +268,7 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
     setSelectedMaterialType('');
 
     // Detect reducing fittings
+    const name = product.product_name.toLowerCase();
     if (name.includes('reducing')) {
       if (name.includes('tee')) {
         setIsReducingFitting('tee');
@@ -256,41 +290,9 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
   };
 
   /**
-   * Determine product type category based on product name keywords
-   * Uses same logic as type detection in handleSelectProduct
-   */
-  const getProductType = (productName: string): string => {
-    const name = productName.toLowerCase();
-
-    if (name.includes('valve')) return 'valve';
-    if (name.includes('sprinkler')) return 'sprinkler';
-
-    // Check THREADED fittings/couplings first (order matters!)
-    if (name.includes('threaded') && (
-      name.includes('elbow') || name.includes('tee') || name.includes('fitting') ||
-      name.includes('reducer') || name.includes('cap') || name.includes('plug') ||
-      name.includes('union') || name.includes('bushing') || name.includes('nipple') ||
-      name.includes('cross') || name.includes('lateral') || name.includes('locknut') ||
-      name.includes('return bend') || name.includes('coupling')
-    )) {
-      return 'threaded-fitting';
-    }
-
-    // Check for regular couplings (after threaded check)
-    if (name.includes('coupling')) return 'coupling';
-
-    // Grooved fittings (original fitting category)
-    if (name.includes('fitting') || name.includes('elbow') || name.includes('tee')) {
-      return 'grooved-fitting';
-    }
-
-    return 'other';
-  };
-
-  /**
    * Filter search results based on manufacturer and product type
    */
-  const filterResultsByType = (results: Product[], filterType: string, filterManufacturer: string): Product[] => {
+  const filterResultsByType = (results: Product[], filterType: LooseMaterialCategory, filterManufacturer: string): Product[] => {
     let filtered = results;
 
     // Filter by manufacturer first
@@ -301,12 +303,7 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
     }
 
     // Then filter by product type
-    if (filterType !== 'all') {
-      filtered = filtered.filter(product => {
-        const productType = getProductType(product.product_name);
-        return productType === filterType;
-      });
-    }
+    filtered = filtered.filter(product => product.normalized_category === filterType);
 
     return filtered;
   };
@@ -382,6 +379,11 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
       return;
     }
 
+    const existingMetadata = extractMaterialMetadata(initialValues?.options);
+    const selectedManufacturer = manufacturerFilter === 'all'
+      ? undefined
+      : availableManufacturers.find(manufacturer => manufacturer.toLowerCase() === manufacturerFilter) || manufacturerFilter;
+
     // Build size for reducing fittings
     let finalSize = size;
     if (isReducingFitting === 'tee') {
@@ -404,14 +406,14 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
 
     // Build description with material type for threaded fittings
     let finalDescription = description || searchQuery;
-    if (type === 'Threaded Fitting' && selectedMaterialType) {
+    if (materialCategory === 'Threaded Fitting' && selectedMaterialType) {
       // Prepend material type to description
       finalDescription = `${selectedMaterialType} - ${finalDescription}`;
     }
 
     // Build options array including material type for threaded fittings
-    let finalOptions = [...selectedOptions];
-    if (type === 'Threaded Fitting' && selectedMaterialType && !finalOptions.includes(selectedMaterialType)) {
+    const finalOptions = [...selectedOptions];
+    if (materialCategory === 'Threaded Fitting' && selectedMaterialType && !finalOptions.includes(selectedMaterialType)) {
       finalOptions.push(selectedMaterialType);
     }
 
@@ -421,7 +423,10 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
       part: searchQuery,
       size: finalSize,
       description: finalDescription,
-      type: type || 'Other',
+      type: materialCategory,
+      manufacturer: entryMode === 'catalog' ? selectedProduct?.manufacturer || existingMetadata.manufacturer || selectedManufacturer : undefined,
+      productUrl: entryMode === 'catalog' ? selectedProduct?.product_url || existingMetadata.productUrl : undefined,
+      isCustom: entryMode === 'custom',
       options: finalOptions.length > 0 ? finalOptions : undefined,
       sizes: selectedSizes.length > 0 ? selectedSizes : undefined,
     };
@@ -434,7 +439,7 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
       setSearchQuery('');
       setSize('');
       setDescription('');
-      setType('');
+      setSelectedProduct(null);
       setAvailableOptions([]);
       setSelectedOptions([]);
       setAvailableSizes([]);
@@ -475,53 +480,89 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
         </div>
       )}
       <Stack spacing={3} sx={{ overflow: 'visible' }}>
-        {/* Brand Filter */}
-        <FormControl fullWidth size="small">
-          <InputLabel id="brand-filter-label">Brand</InputLabel>
-          <Select
-            labelId="brand-filter-label"
-            id="brand-filter"
-            value={manufacturerFilter}
-            onChange={(e) => setManufacturerFilter(e.target.value)}
-            label="Brand"
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            fullWidth
+            variant={entryMode === 'catalog' ? 'contained' : 'outlined'}
+            onClick={() => setEntryMode('catalog')}
           >
-            <MenuItem value="all">All Brands</MenuItem>
-            {availableManufacturers.map((manufacturer) => (
-              <MenuItem key={manufacturer} value={manufacturer.toLowerCase()}>
-                {manufacturer}
+            Catalog
+          </Button>
+          <Button
+            fullWidth
+            variant={entryMode === 'custom' ? 'contained' : 'outlined'}
+            onClick={() => {
+              setEntryMode('custom');
+              setSelectedProduct(null);
+              setShowResults(false);
+            }}
+          >
+            Custom
+          </Button>
+        </Box>
+
+        {/* Category */}
+        <FormControl fullWidth size="small">
+          <InputLabel id="material-category-label">Category</InputLabel>
+          <Select
+            labelId="material-category-label"
+            id="material-category"
+            value={materialCategory}
+            onChange={(e) => {
+              setMaterialCategory(e.target.value as LooseMaterialCategory);
+              setSelectedProduct(null);
+              setSearchResults([]);
+              setShowResults(false);
+            }}
+            label="Category"
+          >
+            {LOOSE_MATERIAL_CATEGORIES.map((category) => (
+              <MenuItem key={category} value={category}>
+                {category}
               </MenuItem>
             ))}
           </Select>
         </FormControl>
 
-        {/* Product Type Filter */}
-        <FormControl fullWidth size="small">
-          <InputLabel id="product-type-filter-label">Product Type</InputLabel>
-          <Select
-            labelId="product-type-filter-label"
-            id="product-type-filter"
-            value={productTypeFilter}
-            onChange={(e) => setProductTypeFilter(e.target.value)}
-            label="Product Type"
-          >
-            <MenuItem value="all">All Products</MenuItem>
-            <MenuItem value="grooved-fitting">Grooved Fittings</MenuItem>
-            <MenuItem value="threaded-fitting">Threaded Fittings</MenuItem>
-            <MenuItem value="valve">Valves</MenuItem>
-            <MenuItem value="coupling">Couplings</MenuItem>
-            <MenuItem value="sprinkler">Sprinklers</MenuItem>
-          </Select>
-        </FormControl>
+        {/* Brand Filter */}
+        {entryMode === 'catalog' && (
+          <FormControl fullWidth size="small">
+            <InputLabel id="brand-filter-label">Brand</InputLabel>
+            <Select
+              labelId="brand-filter-label"
+              id="brand-filter"
+              value={manufacturerFilter}
+              onChange={(e) => {
+                setManufacturerFilter(e.target.value);
+                setSelectedProduct(null);
+              }}
+              label="Brand"
+            >
+              <MenuItem value="all">All Brands</MenuItem>
+              {availableManufacturers.map((manufacturer) => (
+                <MenuItem key={manufacturer} value={manufacturer.toLowerCase()}>
+                  {manufacturer}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
 
         <div style={{ position: 'relative', overflow: 'visible' }} ref={inputRef}>
           <TextField
             fullWidth
-            label="Part Number / Product Name"
+            label={entryMode === 'custom' ? 'Material Name' : 'Part Number / Product Name'}
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setSelectedProduct(null);
+            }}
             placeholder={
+              entryMode === 'custom'
+                ? 'Enter a material, fitting, head, or accessory...'
+                :
               manufacturerFilter === 'all'
-                ? "Search all manufacturers..."
+                ? `Search ${materialCategory.toLowerCase()} products...`
                 : `Search ${manufacturerFilter.charAt(0).toUpperCase() + manufacturerFilter.slice(1)} products...`
             }
             variant="outlined"
@@ -572,6 +613,14 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
                     <div style={{ fontWeight: 500, color: '#000' }}>
                       {product.product_name || 'NO NAME'}
                     </div>
+                    <div style={{ fontSize: '0.78rem', color: '#666', marginTop: 3 }}>
+                      {[product.manufacturer, product.normalized_category].filter(Boolean).join(' - ')}
+                    </div>
+                    {product.short_description && (
+                      <div style={{ fontSize: '0.78rem', color: '#555', marginTop: 4, lineHeight: 1.3 }}>
+                        {product.short_description}
+                      </div>
+                    )}
                   </div>
                 )
               )}
@@ -775,27 +824,8 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
           </Box>
         )}
 
-        <FormControl fullWidth>
-          <InputLabel>Type</InputLabel>
-          <Select
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-            label="Type"
-          >
-            <MenuItem value="">
-              <em>Select type</em>
-            </MenuItem>
-            <MenuItem value="Valve">Valve</MenuItem>
-            <MenuItem value="Coupling">Coupling</MenuItem>
-            <MenuItem value="Fitting">Fitting (Grooved)</MenuItem>
-            <MenuItem value="Threaded Fitting">Threaded Fitting</MenuItem>
-            <MenuItem value="Sprinkler">Sprinkler</MenuItem>
-            <MenuItem value="Other">Other</MenuItem>
-          </Select>
-        </FormControl>
-
         {/* Material Type Selection - Only for Threaded Fittings */}
-        {type === 'Threaded Fitting' && (
+        {materialCategory === 'Threaded Fitting' && (
           <Box sx={{ p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
             <div style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: 12, color: '#333' }}>
               Material Type:
