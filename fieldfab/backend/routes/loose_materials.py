@@ -7,6 +7,7 @@ from auth import get_current_user
 from database import get_db
 from models import LooseMaterial, Project, User
 from schemas import LooseMaterialCreate, LooseMaterialResponse
+from access import require_mutation_access
 
 router = APIRouter(tags=["LooseMaterials"])
 
@@ -45,6 +46,7 @@ def create_loose_material(
     db: Annotated[Session, Depends(get_db)],
 ):
     _get_owned_project(project_id, current_user, db)
+    require_mutation_access(current_user)
     mat = LooseMaterial(project_id=project_id, **body.model_dump())
     db.add(mat)
     db.commit()
@@ -64,6 +66,7 @@ def update_loose_material(
     db: Annotated[Session, Depends(get_db)],
 ):
     _get_owned_project(project_id, current_user, db)
+    require_mutation_access(current_user)
     mat = db.get(LooseMaterial, mat_id)
     if not mat or mat.project_id != project_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")
@@ -85,6 +88,7 @@ def delete_loose_material(
     db: Annotated[Session, Depends(get_db)],
 ):
     _get_owned_project(project_id, current_user, db)
+    require_mutation_access(current_user)
     mat = db.get(LooseMaterial, mat_id)
     if not mat or mat.project_id != project_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Material not found")

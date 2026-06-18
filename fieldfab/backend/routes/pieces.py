@@ -7,12 +7,13 @@ from auth import get_current_user
 from database import get_db
 from models import Piece, Project, User
 from schemas import PieceCreate, PieceResponse
+from access import (
+    PRE_TRIAL_PIPE_QTY_LIMIT,
+    pre_trial_edit_allowed,
+    require_mutation_access,
+)
 
 router = APIRouter(tags=["Pieces"])
-
-FREE_PLAN_MAIN_PIPE_QTY_LIMIT = 10
-FREE_PLAN_THREADED_PIPE_QTY_LIMIT = 10
-
 
 def _get_owned_project(project_id: int, current_user: User, db: Session) -> Project:
     project = db.get(Project, project_id)
@@ -21,41 +22,41 @@ def _get_owned_project(project_id: int, current_user: User, db: Session) -> Proj
     return project
 
 
-def _is_threaded_pipe(pipe_type: str) -> bool:
-    return pipe_type.strip().lower() == "threaded pipe"
-
-
 def _qty(value: int | None) -> int:
     return max(0, int(value or 0))
 
 
-def _enforce_free_piece_limit(
-    project_id: int,
+def _account_pipe_qty(current_user: User, db: Session) -> int:
+    pieces = (
+        db.query(Piece)
+        .join(Project, Piece.project_id == Project.id)
+        .filter(Project.user_id == current_user.id)
+        .all()
+    )
+    return sum(_qty(piece.qty) for piece in pieces)
+
+
+def _enforce_pre_trial_piece_limit(
     body: PieceCreate,
     current_user: User,
     db: Session,
-    exclude_piece_id: int | None = None,
+    existing_piece: Piece | None = None,
 ) -> None:
-    if current_user.plan_type != "free":
+    if require_mutation_access(current_user) != "pre_trial":
         return
 
-    is_threaded = _is_threaded_pipe(body.pipe_type)
-    matching_pieces = db.query(Piece).filter(Piece.project_id == project_id).all()
-    current_qty = sum(
-        _qty(piece.qty)
-        for piece in matching_pieces
-        if piece.id != exclude_piece_id and _is_threaded_pipe(piece.pipe_type) == is_threaded
-    )
-    next_qty = current_qty + _qty(body.qty)
-    limit = FREE_PLAN_THREADED_PIPE_QTY_LIMIT if is_threaded else FREE_PLAN_MAIN_PIPE_QTY_LIMIT
-    label = "threaded pipe" if is_threaded else "grooved/welded main pipe"
+    current_total = _account_pipe_qty(current_user, db)
+    if existing_piece:
+        allowed = pre_trial_edit_allowed(current_total, _qty(existing_piece.qty), _qty(body.qty))
+    else:
+        allowed = current_total + _qty(body.qty) <= PRE_TRIAL_PIPE_QTY_LIMIT
 
-    if next_qty > limit:
+    if not allowed:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
-                f"Free plan is limited to {limit} pcs of {label} per project during development. "
-                "Upgrade to Pro to create unlimited pieces."
+                f"Before your first export, FieldFab is limited to {PRE_TRIAL_PIPE_QTY_LIMIT} total pipe pieces. "
+                "Export to start your 15-day full-feature trial."
             ),
         )
 
@@ -78,7 +79,7 @@ def create_piece(
     db: Annotated[Session, Depends(get_db)],
 ):
     _get_owned_project(project_id, current_user, db)
-    _enforce_free_piece_limit(project_id, body, current_user, db)
+    _enforce_pre_trial_piece_limit(body, current_user, db)
     piece = Piece(project_id=project_id, **body.model_dump())
     db.add(piece)
     db.commit()
@@ -98,7 +99,7 @@ def update_piece(
     piece = db.get(Piece, piece_id)
     if not piece or piece.project_id != project_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Piece not found")
-    _enforce_free_piece_limit(project_id, body, current_user, db, exclude_piece_id=piece_id)
+    _enforce_pre_trial_piece_limit(body, current_user, db, existing_piece=piece)
     for field, value in body.model_dump().items():
         setattr(piece, field, value)
     db.commit()
@@ -114,6 +115,7 @@ def delete_piece(
     db: Annotated[Session, Depends(get_db)],
 ):
     _get_owned_project(project_id, current_user, db)
+    require_mutation_access(current_user)
     piece = db.get(Piece, piece_id)
     if not piece or piece.project_id != project_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Piece not found")

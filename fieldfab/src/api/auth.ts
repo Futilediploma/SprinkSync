@@ -9,6 +9,12 @@ export interface AuthUser {
   marketing_opt_in_at: string | null;
   marketing_opt_in_source: string | null;
   marketing_unsubscribed_at: string | null;
+  trial_started_at: string | null;
+  trial_expires_at: string | null;
+  access_state: 'pre_trial' | 'trial_active' | 'trial_expired' | 'pro';
+  trial_days_remaining: number | null;
+  can_mutate: boolean;
+  can_export: boolean;
 }
 
 export async function login(email: string, password: string): Promise<void> {

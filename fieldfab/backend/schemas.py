@@ -33,6 +33,12 @@ class UserResponse(BaseModel):
     marketing_opt_in_at: Optional[datetime]
     marketing_opt_in_source: Optional[str]
     marketing_unsubscribed_at: Optional[datetime]
+    trial_started_at: Optional[datetime]
+    trial_expires_at: Optional[datetime]
+    access_state: str
+    trial_days_remaining: Optional[int]
+    can_mutate: bool
+    can_export: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -40,6 +46,23 @@ class UserResponse(BaseModel):
 
 class MarketingPreferencesUpdate(BaseModel):
     marketing_emails_opt_in: bool
+
+
+class BillingSessionResponse(BaseModel):
+    url: str
+
+
+class ExportAuthorizeRequest(BaseModel):
+    project_id: int
+    export_type: str = Field(pattern=r"^(fabrication_pdf|loose_csv|loose_excel|loose_pdf)$")
+
+
+class ExportAuthorizeResponse(BaseModel):
+    authorized: bool
+    trial_started_at: Optional[datetime]
+    trial_expires_at: Optional[datetime]
+    access_state: str
+    trial_days_remaining: Optional[int]
 
 
 # ── Projects ──────────────────────────────────────────────────────────────────

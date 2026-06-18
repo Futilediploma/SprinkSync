@@ -15,6 +15,11 @@ class User(Base):
     marketing_opt_in_at = Column(DateTime(timezone=True), nullable=True)
     marketing_opt_in_source = Column(String, nullable=True)
     marketing_unsubscribed_at = Column(DateTime(timezone=True), nullable=True)
+    trial_started_at = Column(DateTime(timezone=True), nullable=True)
+    stripe_customer_id = Column(String, unique=True, nullable=True, index=True)
+    stripe_subscription_id = Column(String, unique=True, nullable=True, index=True)
+    stripe_subscription_status = Column(String, nullable=True)
+    stripe_current_period_end = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     projects = relationship("Project", back_populates="owner", cascade="all, delete-orphan")

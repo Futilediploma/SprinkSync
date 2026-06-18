@@ -10,7 +10,8 @@ import models
 from auth import create_access_token, hash_password, verify_password
 from database import Base, engine, get_db
 from models import SalesLead, User
-from routes import projects, pieces, loose_materials
+from access import get_access_summary
+from routes import billing, exports, projects, pieces, loose_materials
 from schemas import (
     LoginRequest,
     MarketingPreferencesUpdate,
@@ -30,6 +31,13 @@ with engine.begin() as conn:
     conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS marketing_opt_in_at TIMESTAMP WITH TIME ZONE"))
     conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS marketing_opt_in_source VARCHAR"))
     conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS marketing_unsubscribed_at TIMESTAMP WITH TIME ZONE"))
+    conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_started_at TIMESTAMP WITH TIME ZONE"))
+    conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR"))
+    conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR"))
+    conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_status VARCHAR"))
+    conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_current_period_end TIMESTAMP WITH TIME ZONE"))
+    conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_stripe_customer_id ON users (stripe_customer_id)"))
+    conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_stripe_subscription_id ON users (stripe_subscription_id)"))
     conn.execute(text("ALTER TABLE pieces ADD COLUMN IF NOT EXISTS qty INTEGER NOT NULL DEFAULT 1"))
     conn.execute(text("ALTER TABLE pieces ADD COLUMN IF NOT EXISTS threaded_fittings JSON NOT NULL DEFAULT '[]'"))
 
@@ -50,6 +58,23 @@ app.add_middleware(
 app.include_router(projects.router)
 app.include_router(pieces.router)
 app.include_router(loose_materials.router)
+app.include_router(exports.router)
+app.include_router(billing.router)
+
+
+def user_response_payload(user: User) -> dict:
+    return {
+        "id": user.id,
+        "email": user.email,
+        "company_name": user.company_name,
+        "plan_type": user.plan_type,
+        "marketing_emails_opt_in": user.marketing_emails_opt_in,
+        "marketing_opt_in_at": user.marketing_opt_in_at,
+        "marketing_opt_in_source": user.marketing_opt_in_source,
+        "marketing_unsubscribed_at": user.marketing_unsubscribed_at,
+        "created_at": user.created_at,
+        **get_access_summary(user),
+    }
 
 
 # ── Auth endpoints ─────────────────────────────────────────────────────────────
@@ -75,7 +100,7 @@ def register(body: RegisterRequest, db: Annotated[Session, Depends(get_db)]):
     db.add(user)
     db.commit()
     db.refresh(user)
-    return user
+    return user_response_payload(user)
 
 
 @app.post("/login", response_model=TokenResponse)
@@ -97,7 +122,7 @@ def health():
 
 @app.get("/me", response_model=UserResponse)
 def me(current_user: Annotated[User, Depends(get_current_user)]):
-    return current_user
+    return user_response_payload(current_user)
 
 
 @app.patch("/me/marketing-preferences", response_model=UserResponse)
@@ -116,7 +141,7 @@ def update_marketing_preferences(
 
     db.commit()
     db.refresh(current_user)
-    return current_user
+    return user_response_payload(current_user)
 
 
 @app.post("/sales-leads", response_model=SalesLeadResponse, status_code=status.HTTP_201_CREATED)

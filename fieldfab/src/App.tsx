@@ -29,6 +29,9 @@ import {
   deleteLooseMaterial,
 } from './api/looseMaterials';
 import type { LooseMaterialPayload, ApiLooseMaterial } from './api/looseMaterials';
+import { authorizeExport } from './api/exports';
+import type { ExportType } from './api/exports';
+import { openBillingPortal, startProCheckout } from './api/billing';
 
 // ── Conversion helpers ────────────────────────────────────────────────────────
 
@@ -161,16 +164,7 @@ function isThreadedPipe(piece?: Piece): boolean {
   return piece?.pipeType?.trim().toLowerCase() === 'threaded pipe';
 }
 
-function pieceQty(piece?: Piece): number {
-  const qty = Number(piece?.qty ?? 0);
-  return Number.isFinite(qty) ? Math.max(0, qty) : 0;
-}
-
-const FREE_PLAN_PROJECT_LIMIT = 2;
-const FREE_PLAN_MAIN_PIPE_QTY_LIMIT = 10;
-const FREE_PLAN_THREADED_PIPE_QTY_LIMIT = 10;
-const STRIPE_UPGRADE_URL = import.meta.env.VITE_STRIPE_UPGRADE_URL as string | undefined;
-const BILLING_EMAIL = import.meta.env.VITE_BILLING_EMAIL ?? 'billing@fieldfab.app';
+const BILLING_EMAIL = import.meta.env.VITE_BILLING_EMAIL ?? 'cody@sprinksync.com';
 
 // ── App ───────────────────────────────────────────────────────────────────────
 
@@ -191,6 +185,7 @@ function App() {
   const [looseMaterials, setLooseMaterials] = useState<MaterialItem[]>([]);
   const [editMaterialIndex, setEditMaterialIndex] = useState<number | null>(null);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+  const [billingLoading, setBillingLoading] = useState(false);
   const [previewOutlets, setPreviewOutlets] = useState<Outlet[] | null>(null);
   const [previewPipeLength, setPreviewPipeLength] = useState<number | null>(null);
 
@@ -216,18 +211,79 @@ function App() {
     localStorage.removeItem('fieldfab:projects');
   }, []);
 
-  const handleUpgradeClick = () => {
-    if (STRIPE_UPGRADE_URL) {
-      window.open(STRIPE_UPGRADE_URL, '_blank', 'noopener,noreferrer');
-      return;
+  const handleUpgradeClick = async () => {
+    setBillingLoading(true);
+    try {
+      await startProCheckout();
+    } catch (err) {
+      if (!handleRestrictedError(err)) {
+        console.error(err);
+        window.location.href = `mailto:${BILLING_EMAIL}?subject=FieldFab Pro Upgrade`;
+      }
+    } finally {
+      setBillingLoading(false);
     }
-    window.location.href = `mailto:${BILLING_EMAIL}?subject=FieldFab Pro Upgrade`;
+  };
+
+  const handleManageBilling = async () => {
+    setBillingLoading(true);
+    try {
+      await openBillingPortal();
+    } catch (err) {
+      if (!handleRestrictedError(err)) {
+        console.error(err);
+        alert('Unable to open billing right now. Please try again.');
+      }
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
+  const refreshCurrentUser = async () => {
+    const user = await fetchMe();
+    setCurrentUser(user);
+    return user;
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const billingResult = new URLSearchParams(window.location.search).get('billing');
+    if (!billingResult) return;
+
+    refreshCurrentUser().catch(console.error);
+    window.history.replaceState({}, '', window.location.pathname + window.location.hash);
+  }, [isAuthenticated]);
+
+  const handleRestrictedError = (err: unknown): boolean => {
+    if (!(err instanceof ApiError)) return false;
+    if (err.status === 401) {
+      handleAuthExpired();
+      return true;
+    }
+    if (err.status === 403) {
+      setShowUpgradePrompt(true);
+    }
+    alert(err.message);
+    return true;
+  };
+
+  const runAuthorizedExport = async (exportType: ExportType, exportFile: () => void | Promise<void>) => {
+    if (!currentProject) return;
+    try {
+      await authorizeExport(currentProject.id, exportType);
+      await refreshCurrentUser();
+      await exportFile();
+    } catch (err) {
+      if (!handleRestrictedError(err)) {
+        console.error(err);
+      }
+    }
   };
 
   // Export all pieces to PDF (3 per page, job info header)
   const handleExportAllPdf = async () => {
     if (!currentProject || pieces.length === 0) return;
-    await exportMultiPiecePdf(currentProject, pieces);
+    await runAuthorizedExport('fabrication_pdf', () => exportMultiPiecePdf(currentProject, pieces));
   };
 
   // Load project list when authenticated
@@ -309,6 +365,10 @@ function App() {
     city: string;
     zipcode: string;
   }) => {
+    if (currentUser?.can_mutate === false) {
+      setShowUpgradePrompt(true);
+      return;
+    }
     try {
       const created = await createProject({
         name: jobName,
@@ -353,21 +413,9 @@ function App() {
 
   const handleCreatePiece = async (piece: Piece) => {
     if (!currentProject) return false;
-    if (currentUser?.plan_type === 'free') {
-      const pieceIsThreaded = isThreadedPipe(piece);
-      const limit = pieceIsThreaded ? FREE_PLAN_THREADED_PIPE_QTY_LIMIT : FREE_PLAN_MAIN_PIPE_QTY_LIMIT;
-      const currentQty = pieces.reduce((total, existingPiece, index) => {
-        if (index === editPieceIndex) return total;
-        if (isThreadedPipe(existingPiece) !== pieceIsThreaded) return total;
-        return total + pieceQty(existingPiece);
-      }, 0);
-      const nextQty = currentQty + pieceQty(piece);
-
-      if (nextQty > limit) {
-        const label = pieceIsThreaded ? 'threaded pipe' : 'grooved/welded main pipe';
-        alert(`Free development access is limited to ${limit} pcs of ${label} per project. Upgrade to Pro for unlimited pieces.`);
-        return false;
-      }
+    if (currentUser?.can_mutate === false) {
+      setShowUpgradePrompt(true);
+      return false;
     }
 
     try {
@@ -400,19 +448,17 @@ function App() {
       setEditPieceIndex(null);
       return true;
     } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 401) {
-          handleAuthExpired();
-          return false;
-        }
-        alert(err.message);
-      }
+      handleRestrictedError(err);
       return false;
     }
   };
 
   const handleDeletePiece = async (idx: number) => {
     if (!currentProject) return;
+    if (currentUser?.can_mutate === false) {
+      setShowUpgradePrompt(true);
+      return;
+    }
     const piece = pieces[idx];
     if (!piece || piece.id == null) {
       alert('Unable to delete piece: missing piece ID.');
@@ -424,13 +470,7 @@ function App() {
       setPreviewOutlets(null);
       setPreviewPipeLength(null);
     } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 401) {
-          handleAuthExpired();
-          return;
-        }
-        alert(err.message);
-      }
+      handleRestrictedError(err);
     }
   };
 
@@ -438,6 +478,10 @@ function App() {
 
   const handleOutletChange = async (newOutlets: Outlet[]) => {
     if (!currentProject || pieces.length === 0) return false;
+    if (currentUser?.can_mutate === false) {
+      setShowUpgradePrompt(true);
+      return false;
+    }
     const lastIdx = pieces.length - 1;
     const lastPiece = pieces[lastIdx];
     if (!lastPiece || lastPiece.id == null) {
@@ -452,13 +496,7 @@ function App() {
       setPreviewPipeLength(null);
       return true;
     } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 401) {
-          handleAuthExpired();
-          return false;
-        }
-        alert(err.message);
-      }
+      handleRestrictedError(err);
       setPreviewOutlets(null);
       return false;
     }
@@ -497,6 +535,11 @@ function App() {
   };
 
   const handlePipeLengthCommit = async (nextLength: number) => {
+    if (currentUser?.can_mutate === false) {
+      setPreviewPipeLength(null);
+      setShowUpgradePrompt(true);
+      return;
+    }
     if (!currentProject || pieces.length === 0) {
       setPreviewPipeLength(null);
       return;
@@ -520,13 +563,7 @@ function App() {
       setPieces((prev) => prev.map((p, i) => (i === lastIdx ? apiPieceToFrontend(updated) : p)));
       setPreviewPipeLength(null);
     } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 401) {
-          handleAuthExpired();
-          return;
-        }
-        alert(err.message);
-      }
+      handleRestrictedError(err);
       setPreviewPipeLength(null);
     }
   };
@@ -535,17 +572,25 @@ function App() {
 
   const handleAddMaterial = async (material: MaterialItem) => {
     if (!currentProject) return;
+    if (currentUser?.can_mutate === false) {
+      setShowUpgradePrompt(true);
+      return;
+    }
     try {
       const payload = materialToPayload(material, looseMaterials.length);
       const created = await createLooseMaterial(currentProject.id, payload);
       setLooseMaterials((prev) => [...prev, apiMatToMaterialItem(created)]);
     } catch (err) {
-      if (err instanceof ApiError) alert(err.message);
+      handleRestrictedError(err);
     }
   };
 
   const handleUpdateMaterial = async (material: MaterialItem) => {
     if (!currentProject || editMaterialIndex === null) return;
+    if (currentUser?.can_mutate === false) {
+      setShowUpgradePrompt(true);
+      return;
+    }
     const existing = looseMaterials[editMaterialIndex];
     try {
       const payload = materialToPayload(material, editMaterialIndex);
@@ -559,17 +604,21 @@ function App() {
       );
       setEditMaterialIndex(null);
     } catch (err) {
-      if (err instanceof ApiError) alert(err.message);
+      handleRestrictedError(err);
     }
   };
 
   const handleDeleteMaterial = async (material: MaterialItem) => {
     if (!currentProject) return;
+    if (currentUser?.can_mutate === false) {
+      setShowUpgradePrompt(true);
+      return;
+    }
     try {
       await deleteLooseMaterial(currentProject.id, parseInt(material.id, 10));
       setLooseMaterials((prev) => prev.filter((m) => m.id !== material.id));
     } catch (err) {
-      if (err instanceof ApiError) alert(err.message);
+      handleRestrictedError(err);
     }
   };
 
@@ -600,6 +649,14 @@ function App() {
   const currentOutlets = previewOutlets ?? currentPiece?.outlets ?? [];
   const currentMinPipeLength = Math.max(1, ...currentOutlets.map((outlet) => Number(outlet.location) || 0));
   const isProPlan = currentUser?.plan_type === 'pro';
+  const isReadOnly = currentUser?.access_state === 'trial_expired';
+  const accessMessage = currentUser?.access_state === 'trial_active'
+    ? `${currentUser.trial_days_remaining ?? 0} trial day${currentUser.trial_days_remaining === 1 ? '' : 's'} remaining`
+    : currentUser?.access_state === 'trial_expired'
+      ? 'Trial ended - projects are read-only'
+      : currentUser?.access_state === 'pre_trial'
+        ? '1 project and 10 pipe pieces available. Your 15-day trial starts with your first export.'
+        : 'Unlimited projects, pieces, and exports';
 
   return (
     <>
@@ -690,7 +747,7 @@ function App() {
           >
             <span
               style={{
-                background: isProPlan ? '#2e7d32' : '#f57c00',
+                background: isProPlan ? '#2e7d32' : isReadOnly ? '#b91c1c' : '#f57c00',
                 color: '#fff',
                 borderRadius: 999,
                 padding: '2px 10px',
@@ -700,14 +757,10 @@ function App() {
                 fontSize: 11,
               }}
             >
-              {isProPlan ? 'Pro Plan' : 'Beta'}
+              {isProPlan ? 'Pro Plan' : currentUser?.access_state === 'trial_active' ? 'Trial' : isReadOnly ? 'Read Only' : 'Free'}
             </span>
-            {isProPlan ? (
-              <span>Unlimited active projects</span>
-            ) : (
-              <span>{FREE_PLAN_PROJECT_LIMIT} active projects during development</span>
-            )}
-            {!isProPlan && (
+            <span>{accessMessage}</span>
+            {!isProPlan ? (
               <button
                 style={{
                   padding: '4px 12px',
@@ -719,8 +772,25 @@ function App() {
                   cursor: 'pointer',
                 }}
                 onClick={handleUpgradeClick}
+                disabled={billingLoading}
               >
-                Upgrade to Pro
+                {billingLoading ? 'Opening Checkout...' : 'Upgrade to Pro'}
+              </button>
+            ) : (
+              <button
+                style={{
+                  padding: '4px 12px',
+                  borderRadius: 6,
+                  border: 'none',
+                  background: '#1a2233',
+                  color: '#fff',
+                  fontWeight: 700,
+                  cursor: billingLoading ? 'default' : 'pointer',
+                }}
+                onClick={handleManageBilling}
+                disabled={billingLoading}
+              >
+                {billingLoading ? 'Opening Billing...' : 'Manage Billing'}
               </button>
             )}
           </div>
@@ -806,15 +876,15 @@ function App() {
             threadedFittings={currentPiece?.threadedFittings ?? []}
             outlets={currentOutlets}
             showExportButton={false}
-            editableOutlets={currentOutlets.length > 0}
-            editableLength={Boolean(currentPiece)}
+            editableOutlets={!isReadOnly && currentOutlets.length > 0}
+            editableLength={!isReadOnly && Boolean(currentPiece)}
             minLength={currentMinPipeLength}
             onOutletLocationPreview={handleOutletLocationPreview}
             onOutletLocationCommit={handleOutletLocationCommit}
             onLengthPreview={handlePipeLengthPreview}
             onLengthCommit={handlePipeLengthCommit}
           />
-          {currentPiece && (
+          {currentPiece && !isReadOnly && (
             <div
               style={{
                 marginTop: -2,
@@ -846,6 +916,7 @@ function App() {
                 transition: 'background 0.2s',
                 minHeight: '44px',
               }}
+              disabled={isReadOnly}
               onClick={() => {
                 setEditPieceIndex(null);
                 setShowPieceForm(true);
@@ -869,6 +940,7 @@ function App() {
                 transition: 'background 0.2s',
                 minHeight: '44px',
               }}
+              disabled={isReadOnly}
               onClick={() => {
                 setEditPieceIndex(null);
                 setShowThreadedPipeForm(true);
@@ -1018,6 +1090,7 @@ function App() {
               display: 'block',
               minHeight: '44px',
             }}
+            disabled={isReadOnly}
             onClick={() => {
               setEditOutletIndex(null);
               setShowOutletForm(true);
@@ -1142,7 +1215,8 @@ function App() {
                           minHeight: '28px',
                           touchAction: 'manipulation',
                         }}
-                        title="Edit outlet"
+                        disabled={isReadOnly}
+                        title={isReadOnly ? 'Upgrade to Pro to edit outlets' : 'Edit outlet'}
                         onClick={() => {
                           setEditOutletIndex(idx);
                           setShowOutletForm(true);
@@ -1163,7 +1237,8 @@ function App() {
                           minHeight: '28px',
                           touchAction: 'manipulation',
                         }}
-                        title="Delete outlet"
+                        disabled={isReadOnly}
+                        title={isReadOnly ? 'Upgrade to Pro to delete outlets' : 'Delete outlet'}
                         onClick={() => {
                           if (pieces.length === 0) return;
                           const lastPiece = pieces[pieces.length - 1];
@@ -1217,7 +1292,8 @@ function App() {
                       minHeight: '32px',
                       touchAction: 'manipulation',
                     }}
-                    title="Edit piece"
+                    disabled={isReadOnly}
+                    title={isReadOnly ? 'Upgrade to Pro to edit pieces' : 'Edit piece'}
                     onClick={() => {
                       setEditPieceIndex(idx);
                       if (isThreadedPipe(piece)) {
@@ -1243,7 +1319,8 @@ function App() {
                       minHeight: '32px',
                       touchAction: 'manipulation',
                     }}
-                    title="Delete piece"
+                    disabled={isReadOnly}
+                    title={isReadOnly ? 'Upgrade to Pro to delete pieces' : 'Delete piece'}
                     onClick={() => handleDeletePiece(idx)}
                   >
                     Delete
@@ -1271,7 +1348,7 @@ function App() {
                 maxWidth: window.innerWidth < 480 ? 'none' : '200px',
               }}
               onClick={handleExportAllPdf}
-              disabled={pieces.length === 0}
+              disabled={pieces.length === 0 || currentUser?.can_export === false}
             >
               Export PDF
             </button>
@@ -1291,6 +1368,7 @@ function App() {
                 flex: window.innerWidth < 480 ? 'none' : '1',
                 maxWidth: window.innerWidth < 480 ? 'none' : '200px',
               }}
+              disabled={isReadOnly}
               onClick={() => {
                 setEditPieceIndex(null);
                 setShowPieceForm(true);
@@ -1335,9 +1413,13 @@ function App() {
                 Add loose materials for your project using the form below. You can export the complete list to PDF, Excel, or CSV formats.
               </p>
 
-              <LooseMaterialForm
-                onAdd={handleAddMaterial}
-              />
+              {isReadOnly ? (
+                <div style={{ padding: 16, background: '#fff7ed', border: '1px solid #fdba74', borderRadius: 8, color: '#9a3412' }}>
+                  Your trial has ended. Existing loose materials remain available to view.
+                </div>
+              ) : (
+                <LooseMaterialForm onAdd={handleAddMaterial} />
+              )}
 
               {/* Material List Display */}
               <div style={{
@@ -1385,7 +1467,7 @@ function App() {
                                 : material.size || '-'}
                             </td>
                             <td style={{ padding: '12px 8px', color: '#222' }}>
-                              {material.isCustom ? 'Custom' : material.manufacturer || '-'}
+                              {material.manufacturer || (material.isCustom ? 'Custom' : '-')}
                             </td>
                             <td style={{ padding: '12px 8px', fontWeight: 500, color: '#222' }}>{material.part}</td>
                             <td style={{ padding: '12px 8px', color: '#222' }}>
@@ -1411,6 +1493,7 @@ function App() {
                                     cursor: 'pointer',
                                     width: '80px',
                                   }}
+                                  disabled={isReadOnly}
                                   onClick={() => setEditMaterialIndex(idx)}
                                 >
                                   Edit
@@ -1427,6 +1510,7 @@ function App() {
                                     cursor: 'pointer',
                                     width: '80px',
                                   }}
+                                  disabled={isReadOnly}
                                   onClick={() => handleDeleteMaterial(material)}
                                 >
                                   Delete
@@ -1464,7 +1548,8 @@ function App() {
                         maxWidth: window.innerWidth < 480 ? 'none' : '200px',
                         minHeight: '44px',
                       }}
-                      onClick={() => exportToCSV(looseMaterials, currentProject)}
+                      disabled={currentUser?.can_export === false}
+                      onClick={() => runAuthorizedExport('loose_csv', () => exportToCSV(looseMaterials, currentProject))}
                     >
                       Export CSV
                     </button>
@@ -1483,7 +1568,8 @@ function App() {
                         maxWidth: window.innerWidth < 480 ? 'none' : '200px',
                         minHeight: '44px',
                       }}
-                      onClick={() => exportToExcel(looseMaterials, currentProject)}
+                      disabled={currentUser?.can_export === false}
+                      onClick={() => runAuthorizedExport('loose_excel', () => exportToExcel(looseMaterials, currentProject))}
                     >
                       Export Excel
                     </button>
@@ -1502,7 +1588,8 @@ function App() {
                         maxWidth: window.innerWidth < 480 ? 'none' : '200px',
                         minHeight: '44px',
                       }}
-                      onClick={() => exportToPDF(looseMaterials, currentProject)}
+                      disabled={currentUser?.can_export === false}
+                      onClick={() => runAuthorizedExport('loose_pdf', () => exportToPDF(looseMaterials, currentProject))}
                     >
                       Export PDF
                     </button>
@@ -1607,7 +1694,7 @@ function App() {
             <ProjectsMenu
               projects={projectList}
               onSelect={handleSelectProject}
-              onAddProject={() => { setShowProjectsMenu(false); setShowPicker(true); }}
+              onAddProject={isReadOnly ? undefined : () => { setShowProjectsMenu(false); setShowPicker(true); }}
             />
           </div>
         </div>
@@ -1636,9 +1723,13 @@ function App() {
               padding: 20,
             }}
           >
-            <h3 style={{ margin: '0 0 8px', color: '#1a2233' }}>Free plan limit reached</h3>
+            <h3 style={{ margin: '0 0 8px', color: '#1a2233' }}>
+              {isReadOnly ? 'Your FieldFab trial has ended' : 'Free access limit reached'}
+            </h3>
             <p style={{ margin: '0 0 14px', color: '#445', fontSize: 14, lineHeight: 1.5 }}>
-              You have reached {FREE_PLAN_PROJECT_LIMIT} active projects. Upgrade to Pro for unlimited projects.
+              {isReadOnly
+                ? 'Your projects are safely stored and remain available to view. Upgrade to Pro to edit, add, delete, or export.'
+                : 'Before your first export, free access includes one project and 10 total pipe pieces. Export your current project to start the 15-day full-feature trial.'}
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
               <button
@@ -1667,7 +1758,7 @@ function App() {
                 }}
                 onClick={() => {
                   setShowUpgradePrompt(false);
-                  handleUpgradeClick();
+                  void handleUpgradeClick();
                 }}
               >
                 Upgrade to Pro
