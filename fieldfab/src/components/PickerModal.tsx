@@ -77,6 +77,8 @@ const PickerModal = ({ isOpen, onClose, onSubmit, projects = [], onSelectProject
 
   return (
     <div
+      className="fieldfab-dialog-backdrop"
+      role="presentation"
       style={{
         position: 'fixed',
         top: 0,
@@ -93,6 +95,10 @@ const PickerModal = ({ isOpen, onClose, onSubmit, projects = [], onSelectProject
       }}
     >
       <div
+        className="fieldfab-dialog-panel fieldfab-picker-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="fieldfab-project-form-title"
         style={{
           background: '#fff',
           borderRadius: 12,
@@ -104,6 +110,7 @@ const PickerModal = ({ isOpen, onClose, onSubmit, projects = [], onSelectProject
         }}
       >
         <button
+          className="fieldfab-dialog-close"
           style={{
             position: 'absolute',
             top: 8,
@@ -129,7 +136,7 @@ const PickerModal = ({ isOpen, onClose, onSubmit, projects = [], onSelectProject
             alt="FieldFab logo"
             style={{ height: 58, width: 58, borderRadius: 8, boxShadow: '0 2px 12px #0001' }}
           />
-          <h1 style={{ fontWeight: 800, fontSize: isCompact ? '1.6rem' : '1.75rem', margin: '4px 0 0', color: '#1a2233', letterSpacing: 1 }}>
+          <h1 id="fieldfab-project-form-title" style={{ fontWeight: 800, fontSize: isCompact ? '1.6rem' : '1.75rem', margin: '4px 0 0', color: '#1a2233', letterSpacing: 1 }}>
             FieldFab
           </h1>
           <div style={{ marginTop: 2, fontWeight: 500, fontSize: 13, color: '#222' }}>Please Fill Out Form.</div>
@@ -218,39 +225,39 @@ const PickerModal = ({ isOpen, onClose, onSubmit, projects = [], onSelectProject
           style={{ width: '100%' }}
         >
           <div style={{ marginBottom: 8 }}>
-            <label style={fieldLabelStyle}>Company Name</label>
-            <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} style={inputStyle(companyName)} />
-            {errors.companyName && <div style={{ color: 'red', fontSize: 12, marginTop: 2 }}>{errors.companyName}</div>}
+            <label htmlFor="project-company" style={fieldLabelStyle}>Company Name</label>
+            <input id="project-company" type="text" autoComplete="organization" value={companyName} onChange={(e) => setCompanyName(e.target.value)} style={inputStyle(companyName)} aria-invalid={Boolean(errors.companyName)} />
+            {errors.companyName && <div role="alert" style={{ color: '#b91c1c', fontSize: 12, marginTop: 2 }}>{errors.companyName}</div>}
           </div>
 
           <div style={{ marginBottom: 8 }}>
-            <label style={fieldLabelStyle}>Job Name</label>
-            <input type="text" value={jobName} onChange={(e) => setJobName(e.target.value)} style={inputStyle(jobName)} />
-            {errors.jobName && <div style={{ color: 'red', fontSize: 12, marginTop: 2 }}>{errors.jobName}</div>}
+            <label htmlFor="project-job" style={fieldLabelStyle}>Job Name</label>
+            <input id="project-job" type="text" value={jobName} onChange={(e) => setJobName(e.target.value)} style={inputStyle(jobName)} aria-invalid={Boolean(errors.jobName)} />
+            {errors.jobName && <div role="alert" style={{ color: '#b91c1c', fontSize: 12, marginTop: 2 }}>{errors.jobName}</div>}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: isCompact ? '1fr 1fr' : '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
             <div>
-              <label style={fieldLabelStyle}>Street Number</label>
-              <input type="text" value={streetNumber} onChange={(e) => setStreetNumber(e.target.value)} style={inputStyle(streetNumber)} />
+              <label htmlFor="project-street-number" style={fieldLabelStyle}>Street Number</label>
+              <input id="project-street-number" type="text" inputMode="numeric" autoComplete="address-line1" value={streetNumber} onChange={(e) => setStreetNumber(e.target.value)} style={inputStyle(streetNumber)} aria-invalid={Boolean(errors.streetNumber)} />
               {errors.streetNumber && <div style={{ color: 'red', fontSize: 12, marginTop: 2 }}>{errors.streetNumber}</div>}
             </div>
             <div style={{ gridColumn: isCompact ? '2 / 3' : '2 / 4' }}>
-              <label style={fieldLabelStyle}>Street Name</label>
-              <input type="text" value={streetName} onChange={(e) => setStreetName(e.target.value)} style={inputStyle(streetName)} />
+              <label htmlFor="project-street-name" style={fieldLabelStyle}>Street Name</label>
+              <input id="project-street-name" type="text" autoComplete="address-line2" value={streetName} onChange={(e) => setStreetName(e.target.value)} style={inputStyle(streetName)} aria-invalid={Boolean(errors.streetName)} />
               {errors.streetName && <div style={{ color: 'red', fontSize: 12, marginTop: 2 }}>{errors.streetName}</div>}
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 8, marginBottom: 10 }}>
             <div>
-              <label style={fieldLabelStyle}>City</label>
-              <input type="text" value={city} onChange={(e) => setCity(e.target.value)} style={inputStyle(city)} />
+              <label htmlFor="project-city" style={fieldLabelStyle}>City</label>
+              <input id="project-city" type="text" autoComplete="address-level2" value={city} onChange={(e) => setCity(e.target.value)} style={inputStyle(city)} aria-invalid={Boolean(errors.city)} />
               {errors.city && <div style={{ color: 'red', fontSize: 12, marginTop: 2 }}>{errors.city}</div>}
             </div>
             <div>
-              <label style={fieldLabelStyle}>Zipcode</label>
-              <input type="text" value={zipcode} onChange={(e) => setZipcode(e.target.value)} style={inputStyle(zipcode)} />
+              <label htmlFor="project-zipcode" style={fieldLabelStyle}>Zipcode</label>
+              <input id="project-zipcode" type="text" inputMode="numeric" autoComplete="postal-code" value={zipcode} onChange={(e) => setZipcode(e.target.value)} style={inputStyle(zipcode)} aria-invalid={Boolean(errors.zipcode)} />
               {errors.zipcode && <div style={{ color: 'red', fontSize: 12, marginTop: 2 }}>{errors.zipcode}</div>}
             </div>
           </div>

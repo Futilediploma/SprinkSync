@@ -67,7 +67,7 @@ const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 10
 
 
   return (
-    <Box component="form" onSubmit={handleSubmit} p={2} borderRadius={2} bgcolor="#f5f5f5" mb={2}>
+    <Box component="form" onSubmit={handleSubmit} p={{ xs: 1, sm: 2 }} borderRadius={2} bgcolor="#f5f5f5" mb={2}>
       <Typography variant="h6" mb={2}>{isEditing ? 'Edit Welded Outlet' : 'Add Welded Outlet'}</Typography>
       <Typography variant="body2" mb={1} color="text.secondary">
   Location: {feet}' {formatInches(inches, fraction)}"
@@ -188,6 +188,7 @@ const WeldedOutletForm: React.FC<WeldedOutletFormProps> = ({ onAdd, maxFeet = 10
     variant="contained"
     color="primary"
     disabled={isSaving || feet > maxSelectableFeet || isPastPipeEnd || !size || !type || !direction}
+    sx={{ minHeight: 48, width: { xs: '100%', sm: 'auto' } }}
   >
     {isSaving ? 'Saving...' : isEditing ? 'Update Outlet' : 'Add Outlet'}
   </Button>

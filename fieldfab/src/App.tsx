@@ -796,7 +796,7 @@ function App() {
           </div>
 
           {/* Tab selector */}
-          <div className="fieldfab-tabs" style={{
+          <div className="fieldfab-tabs" role="tablist" aria-label="Project workspace" style={{
             marginTop: 16,
             display: 'flex',
             gap: 8,
@@ -804,6 +804,8 @@ function App() {
             paddingBottom: 0
           }}>
             <button
+              role="tab"
+              aria-selected={activeTab === 'fabrication'}
               style={{
                 padding: '10px 24px',
                 border: 'none',
@@ -820,6 +822,8 @@ function App() {
               Fabrication
             </button>
             <button
+              role="tab"
+              aria-selected={activeTab === 'loosematerial'}
               style={{
                 padding: '10px 24px',
                 border: 'none',
@@ -950,7 +954,7 @@ function App() {
             </button>
           </div>
           {showPieceForm && (
-            <div style={{
+            <div className="fieldfab-dialog-backdrop" role="presentation" style={{
               position: 'fixed',
               top: 0,
               left: 0,
@@ -966,7 +970,7 @@ function App() {
               overflow: 'auto',
               WebkitOverflowScrolling: 'touch',
             } as React.CSSProperties}>
-              <div style={{
+              <div className="fieldfab-dialog-panel" role="dialog" aria-modal="true" aria-label={editPieceIndex !== null ? 'Edit grooved or welded pipe' : 'Add grooved or welded pipe'} style={{
                 background: 'linear-gradient(180deg, #ffffff 0%, #f7fbff 100%)',
                 border: '1px solid #d8e5f7',
                 borderRadius: 16,
@@ -980,6 +984,7 @@ function App() {
                 marginBottom: '40px',
               }}>
                 <button
+                  className="fieldfab-dialog-close"
                   onClick={() => { setShowPieceForm(false); setEditPieceIndex(null); }}
                   style={{
                     position: 'absolute',
@@ -1012,7 +1017,7 @@ function App() {
             </div>
           )}
           {showThreadedPipeForm && (
-            <div style={{
+            <div className="fieldfab-dialog-backdrop" role="presentation" style={{
               position: 'fixed',
               top: 0,
               left: 0,
@@ -1028,7 +1033,7 @@ function App() {
               overflow: 'auto',
               WebkitOverflowScrolling: 'touch',
             } as React.CSSProperties}>
-              <div style={{
+              <div className="fieldfab-dialog-panel" role="dialog" aria-modal="true" aria-label={editPieceIndex !== null ? 'Edit threaded pipe' : 'Add threaded pipe'} style={{
                 background: 'linear-gradient(180deg, #ffffff 0%, #f7fbff 100%)',
                 border: '1px solid #d8e5f7',
                 borderRadius: 16,
@@ -1042,6 +1047,7 @@ function App() {
                 marginBottom: '40px',
               }}>
                 <button
+                  className="fieldfab-dialog-close"
                   onClick={() => { setShowThreadedPipeForm(false); setEditPieceIndex(null); }}
                   style={{
                     position: 'absolute',
@@ -1099,7 +1105,7 @@ function App() {
             Add Welded Outlet
           </button>
           {showOutletForm && (
-            <div style={{
+            <div className="fieldfab-dialog-backdrop" role="presentation" style={{
               position: 'fixed',
               top: 0,
               left: 0,
@@ -1115,7 +1121,7 @@ function App() {
               overflow: 'auto',
               WebkitOverflowScrolling: 'touch',
             } as React.CSSProperties}>
-              <div style={{
+              <div className="fieldfab-dialog-panel" role="dialog" aria-modal="true" aria-label={editOutletIndex !== null ? 'Edit welded outlet' : 'Add welded outlet'} style={{
                 background: '#fff',
                 borderRadius: 12,
                 padding: '20px',
@@ -1128,6 +1134,7 @@ function App() {
                 marginBottom: '40px',
               }}>
                 <button
+                  className="fieldfab-dialog-close"
                   onClick={() => { setShowOutletForm(false); setEditOutletIndex(null); }}
                   style={{
                     position: 'absolute',
@@ -1330,7 +1337,7 @@ function App() {
             </ul>
           )}
           {/* Export PDF and Create New Piece button group */}
-          <div style={{ width: '100%', margin: '10px 0 0 0', display: 'flex', flexDirection: window.innerWidth < 480 ? 'column' : 'row', justifyContent: 'center', gap: 12 }}>
+          <div className="fieldfab-action-group">
             <button
               style={{
                 background: '#1976d2',
@@ -1344,8 +1351,8 @@ function App() {
                 boxShadow: '0 1px 4px #0001',
                 transition: 'background 0.2s',
                 minHeight: '44px',
-                flex: window.innerWidth < 480 ? 'none' : '1',
-                maxWidth: window.innerWidth < 480 ? 'none' : '200px',
+                flex: '1',
+                maxWidth: '200px',
               }}
               onClick={handleExportAllPdf}
               disabled={pieces.length === 0 || currentUser?.can_export === false}
@@ -1365,8 +1372,8 @@ function App() {
                 boxShadow: '0 1px 4px #0001',
                 transition: 'background 0.2s',
                 minHeight: '44px',
-                flex: window.innerWidth < 480 ? 'none' : '1',
-                maxWidth: window.innerWidth < 480 ? 'none' : '200px',
+                flex: '1',
+                maxWidth: '200px',
               }}
               disabled={isReadOnly}
               onClick={() => {
@@ -1407,7 +1414,7 @@ function App() {
               </span>
             </div>
 
-            <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
+            <div className="fieldfab-materials-shell">
               <h2 style={{ color: '#1a2233', textAlign: 'center' }}>Loose Material List</h2>
               <p style={{ color: '#666', textAlign: 'center', marginBottom: 24 }}>
                 Add loose materials for your project using the form below. You can export the complete list to PDF, Excel, or CSV formats.
@@ -1422,7 +1429,7 @@ function App() {
               )}
 
               {/* Material List Display */}
-              <div style={{
+              <div className="fieldfab-materials-card" style={{
                 marginTop: 24,
                 background: '#fff',
                 borderRadius: 8,
@@ -1438,8 +1445,8 @@ function App() {
                     No materials added yet. Use the form above to add materials.
                   </p>
                 ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{
+                  <div className="fieldfab-materials-table-wrap">
+                    <table className="fieldfab-materials-table" style={{
                       width: '100%',
                       borderCollapse: 'collapse',
                       fontSize: '0.9rem',
@@ -1459,18 +1466,18 @@ function App() {
                       <tbody>
                         {looseMaterials.map((material, idx) => (
                           <tr key={material.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                            <td style={{ padding: '12px 8px', textAlign: 'center', color: '#222' }}>{idx + 1}</td>
-                            <td style={{ padding: '12px 8px', textAlign: 'center', color: '#222' }}>{material.qty}</td>
-                            <td style={{ padding: '12px 8px', whiteSpace: 'nowrap', color: '#222' }}>
+                            <td data-label="Item" style={{ padding: '12px 8px', textAlign: 'center', color: '#222' }}>{idx + 1}</td>
+                            <td data-label="Quantity" style={{ padding: '12px 8px', textAlign: 'center', color: '#222' }}>{material.qty}</td>
+                            <td data-label="Size" style={{ padding: '12px 8px', whiteSpace: 'nowrap', color: '#222' }}>
                               {material.sizes && material.sizes.length > 0
                                 ? material.sizes.join(', ')
                                 : material.size || '-'}
                             </td>
-                            <td style={{ padding: '12px 8px', color: '#222' }}>
+                            <td data-label="Manufacturer" style={{ padding: '12px 8px', color: '#222' }}>
                               {material.manufacturer || (material.isCustom ? 'Custom' : '-')}
                             </td>
-                            <td style={{ padding: '12px 8px', fontWeight: 500, color: '#222' }}>{material.part}</td>
-                            <td style={{ padding: '12px 8px', color: '#222' }}>
+                            <td data-label="Product" style={{ padding: '12px 8px', fontWeight: 500, color: '#222' }}>{material.part}</td>
+                            <td data-label="Description" style={{ padding: '12px 8px', color: '#222' }}>
                               {material.description}
                               {material.options && material.options.length > 0 && (
                                 <div style={{ marginTop: 4, fontSize: '0.8rem', color: '#1976d2' }}>
@@ -1478,9 +1485,9 @@ function App() {
                                 </div>
                               )}
                             </td>
-                            <td style={{ padding: '12px 8px', color: '#222' }}>{material.type}</td>
-                            <td style={{ padding: '12px 8px', textAlign: 'center' }}>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+                            <td data-label="Type" style={{ padding: '12px 8px', color: '#222' }}>{material.type}</td>
+                            <td data-label="Actions" style={{ padding: '12px 8px', textAlign: 'center' }}>
+                              <div className="fieldfab-material-actions">
                                 <button
                                   style={{
                                     background: '#ffa726',
@@ -1525,13 +1532,8 @@ function App() {
                 )}
 
                 {looseMaterials.length > 0 && (
-                  <div style={{
+                  <div className="fieldfab-action-group" style={{
                     marginTop: 16,
-                    display: 'flex',
-                    flexDirection: window.innerWidth < 480 ? 'column' : 'row',
-                    justifyContent: 'center',
-                    gap: 12,
-                    flexWrap: 'wrap'
                   }}>
                     <button
                       style={{
@@ -1544,8 +1546,8 @@ function App() {
                         fontSize: '1rem',
                         cursor: 'pointer',
                         boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
-                        flex: window.innerWidth < 480 ? 'none' : '1',
-                        maxWidth: window.innerWidth < 480 ? 'none' : '200px',
+                        flex: '1',
+                        maxWidth: '200px',
                         minHeight: '44px',
                       }}
                       disabled={currentUser?.can_export === false}
@@ -1564,8 +1566,8 @@ function App() {
                         fontSize: '1rem',
                         cursor: 'pointer',
                         boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
-                        flex: window.innerWidth < 480 ? 'none' : '1',
-                        maxWidth: window.innerWidth < 480 ? 'none' : '200px',
+                        flex: '1',
+                        maxWidth: '200px',
                         minHeight: '44px',
                       }}
                       disabled={currentUser?.can_export === false}
@@ -1584,8 +1586,8 @@ function App() {
                         fontSize: '1rem',
                         cursor: 'pointer',
                         boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
-                        flex: window.innerWidth < 480 ? 'none' : '1',
-                        maxWidth: window.innerWidth < 480 ? 'none' : '200px',
+                        flex: '1',
+                        maxWidth: '200px',
                         minHeight: '44px',
                       }}
                       disabled={currentUser?.can_export === false}
@@ -1599,7 +1601,7 @@ function App() {
 
               {/* Edit Material Modal */}
               {editMaterialIndex !== null && (
-                <div style={{
+                <div className="fieldfab-dialog-backdrop" role="presentation" style={{
                   position: 'fixed',
                   top: 0,
                   left: 0,
@@ -1615,7 +1617,7 @@ function App() {
                   overflow: 'auto',
                   WebkitOverflowScrolling: 'touch',
                 } as React.CSSProperties}>
-                  <div style={{
+                  <div className="fieldfab-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="edit-material-title" style={{
                     background: '#fff',
                     borderRadius: 12,
                     padding: '20px',
@@ -1628,6 +1630,7 @@ function App() {
                     marginBottom: '40px',
                   }}>
                     <button
+                      className="fieldfab-dialog-close"
                       onClick={() => setEditMaterialIndex(null)}
                       style={{
                         position: 'absolute',
@@ -1644,7 +1647,7 @@ function App() {
                     >
                       ×
                     </button>
-                    <h3 style={{ marginTop: 0, marginBottom: 20, color: '#1a2233' }}>Edit Material</h3>
+                    <h3 id="edit-material-title" style={{ marginTop: 0, marginBottom: 20, color: '#1a2233' }}>Edit Material</h3>
                     <LooseMaterialForm
                       onAdd={handleUpdateMaterial}
                       initialValues={looseMaterials[editMaterialIndex]}
@@ -1671,7 +1674,7 @@ function App() {
 
       {/* Projects menu modal */}
       {showProjectsMenu && (
-        <div className="fieldfab-modal-backdrop" style={{
+        <div className="fieldfab-modal-backdrop" role="presentation" style={{
           position: 'fixed',
           top: 0,
           left: 0,
@@ -1683,9 +1686,10 @@ function App() {
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-          <div className="fieldfab-projects-modal" style={{ background: '#fff', borderRadius: 12, minWidth: 340, boxShadow: '0 4px 32px #0003', position: 'relative' }}>
+          <div className="fieldfab-projects-modal" role="dialog" aria-modal="true" aria-label="Select a project" style={{ background: '#fff', borderRadius: 12, minWidth: 340, boxShadow: '0 4px 32px #0003', position: 'relative' }}>
             <button
               className="fieldfab-modal-close"
+              aria-label="Close project list"
               style={{ position: 'absolute', top: 12, right: 12, background: '#222', color: '#fff', border: 'none', borderRadius: 6, width: 28, height: 28, fontSize: 18, cursor: 'pointer' }}
               onClick={() => setShowProjectsMenu(false)}
             >

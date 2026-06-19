@@ -26,6 +26,15 @@ type LooseMaterialFormProps = {
   isEditing?: boolean;
 };
 
+type MaterialTemplate = {
+  label: string;
+  category: LooseMaterialCategory;
+  part: string;
+  size?: string;
+  description?: string;
+  reducingType?: 'tee' | 'elbow' | 'cone';
+};
+
 export type MaterialItem = {
   id: string;
   qty: number;
@@ -41,6 +50,25 @@ export type MaterialItem = {
 };
 
 const MATERIAL_META_PREFIX = '__fieldfab_meta__:';
+
+const QUICK_TEMPLATES: MaterialTemplate[] = [
+  { label: '90 Ell', category: 'Grooved Fitting', part: '90 Elbow' },
+  { label: '45 Ell', category: 'Grooved Fitting', part: '45 Elbow' },
+  { label: 'Tee', category: 'Grooved Fitting', part: 'Tee' },
+  { label: 'Reducing Tee', category: 'Grooved Fitting', part: 'Reducing Tee', reducingType: 'tee' },
+  { label: 'Coupling', category: 'Coupling', part: 'Coupling' },
+  { label: 'Reducing Coupling', category: 'Coupling', part: 'Reducing Coupling', reducingType: 'cone' },
+  { label: 'Cap', category: 'Grooved Fitting', part: 'Cap' },
+  { label: 'Pendent Head', category: 'Sprinkler Head', part: 'Pendent Sprinkler Head', size: '1/2"', description: 'Pendent sprinkler head' },
+  { label: 'Upright Head', category: 'Sprinkler Head', part: 'Upright Sprinkler Head', size: '1/2"', description: 'Upright sprinkler head' },
+  { label: 'Sidewall Head', category: 'Sprinkler Head', part: 'Sidewall Sprinkler Head', size: '1/2"', description: 'Sidewall sprinkler head' },
+  { label: 'Head Guard', category: 'Accessory', part: 'Head Guard' },
+  { label: 'Escutcheon', category: 'Accessory', part: 'Escutcheon' },
+  { label: 'Hanger Ring', category: 'Hanger/Support', part: 'Hanger Ring' },
+  { label: 'Beam Clamp', category: 'Hanger/Support', part: 'Beam Clamp' },
+  { label: 'Valve', category: 'Valve', part: 'Valve' },
+  { label: 'Custom', category: 'Other', part: '' },
+];
 
 export function packMaterialOptions(material: MaterialItem): string[] {
   const visibleOptions = (material.options ?? []).filter(option => !option.startsWith(MATERIAL_META_PREFIX));
@@ -79,6 +107,7 @@ export function extractMaterialMetadata(options: string[] | undefined) {
 }
 
 export default function LooseMaterialForm({ onAdd, initialValues, isEditing = false }: LooseMaterialFormProps) {
+  const showLegacyCatalogSearch = false;
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [showResults, setShowResults] = useState(false);
@@ -86,9 +115,11 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
   const [dbInitialized, setDbInitialized] = useState(false);
   const [dbLoading, setDbLoading] = useState(true);
   const [productCount, setProductCount] = useState(0);
-  const [entryMode, setEntryMode] = useState<'catalog' | 'custom'>('catalog');
+  const [entryMode, setEntryMode] = useState<'catalog' | 'custom'>('custom');
+  const [showCatalogLookup, setShowCatalogLookup] = useState(false);
   const [materialCategory, setMaterialCategory] = useState<LooseMaterialCategory>('Grooved Fitting');
   const [manufacturerFilter, setManufacturerFilter] = useState<string>('all');
+  const [customManufacturer, setCustomManufacturer] = useState<string>('');
   const [availableManufacturers, setAvailableManufacturers] = useState<string[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
@@ -173,6 +204,8 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
         : 'Other');
       setManufacturerFilter(metadata.manufacturer?.toLowerCase() || 'all');
       setEntryMode(metadata.isCustom ? 'custom' : 'catalog');
+      setShowCatalogLookup(!metadata.isCustom);
+      setCustomManufacturer(metadata.isCustom ? metadata.manufacturer || '' : '');
       setSelectedOptions(metadata.options);
       setSelectedSizes(initialValues.sizes || []);
 
@@ -218,7 +251,7 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
         return;
       }
       
-      if (entryMode === 'catalog' && searchQuery.length >= 2) {
+      if (entryMode === 'catalog' && dbInitialized && searchQuery.length >= 2) {
         setIsSearching(true);
         try {
           const results = await searchProducts(searchQuery, 10);
@@ -241,7 +274,7 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
     const debounceTimer = setTimeout(performSearch, 150);
     return () => clearTimeout(debounceTimer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, entryMode, materialCategory, manufacturerFilter]);
+  }, [searchQuery, entryMode, dbInitialized, materialCategory, manufacturerFilter]);
 
   const handleSelectProduct = (product: Product) => {
     justSelectedProduct.current = true; // Set flag to prevent search
@@ -373,6 +406,28 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
     });
   };
 
+  const handleTemplateSelect = (template: MaterialTemplate) => {
+    setEntryMode('custom');
+    setShowCatalogLookup(false);
+    setSelectedProduct(null);
+    setShowResults(false);
+    setSearchResults([]);
+    setMaterialCategory(template.category);
+    setSearchQuery(template.part);
+    setSize(template.size || '');
+    setDescription(template.description || '');
+    setAvailableOptions([]);
+    setSelectedOptions([]);
+    setAvailableSizes([]);
+    setSelectedSizes([]);
+    setCustomSize('');
+    setSelectedMaterialType('');
+    setIsReducingFitting(template.reducingType || null);
+    setReducingSize1('');
+    setReducingSize2('');
+    setReducingSize3('');
+  };
+
   const handleAddMaterial = () => {
     if (!searchQuery || qty <= 0) {
       alert('Please fill in all required fields');
@@ -426,6 +481,7 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
       type: materialCategory,
       manufacturer: entryMode === 'catalog' ? selectedProduct?.manufacturer || existingMetadata.manufacturer || selectedManufacturer : undefined,
       productUrl: entryMode === 'catalog' ? selectedProduct?.product_url || existingMetadata.productUrl : undefined,
+      ...(entryMode === 'custom' ? { manufacturer: customManufacturer.trim() || undefined } : {}),
       isCustom: entryMode === 'custom',
       options: finalOptions.length > 0 ? finalOptions : undefined,
       sizes: selectedSizes.length > 0 ? selectedSizes : undefined,
@@ -440,6 +496,7 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
       setSize('');
       setDescription('');
       setSelectedProduct(null);
+      setCustomManufacturer('');
       setAvailableOptions([]);
       setSelectedOptions([]);
       setAvailableSizes([]);
@@ -455,50 +512,34 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
 
   const commonSizes = ['3/4"', '1"', '1 1/4"', '1 1/2"', '2"', '2 1/2"', '3"', '4"', '6"', '8"', '10"', '12"'];
 
-  if (dbLoading) {
-    return (
-      <Box sx={{ p: 4, backgroundColor: '#fff', borderRadius: 2, boxShadow: 2, textAlign: 'center' }}>
-        <CircularProgress />
-        <div style={{ marginTop: 16, color: '#666' }}>Loading product database...</div>
-      </Box>
-    );
-  }
-
-  if (!dbInitialized) {
-    return (
-      <Box sx={{ p: 4, backgroundColor: '#fff', borderRadius: 2, boxShadow: 2, textAlign: 'center' }}>
-        <div style={{ color: '#d32f2f' }}>Failed to load product database</div>
-      </Box>
-    );
-  }
-
   return (
-    <Box sx={{ p: 2, backgroundColor: '#fff', borderRadius: 2, boxShadow: 2, overflow: 'visible' }}>
-      {productCount > 0 && (
-        <div style={{ marginBottom: 12, color: '#666', fontSize: '0.875rem' }}>
-          {productCount} products available
-        </div>
-      )}
+    <Box sx={{ p: { xs: 1.25, sm: 2 }, backgroundColor: '#fff', borderRadius: 2, boxShadow: 2, overflow: 'visible' }}>
       <Stack spacing={3} sx={{ overflow: 'visible' }}>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            fullWidth
-            variant={entryMode === 'catalog' ? 'contained' : 'outlined'}
-            onClick={() => setEntryMode('catalog')}
-          >
-            Catalog
-          </Button>
-          <Button
-            fullWidth
-            variant={entryMode === 'custom' ? 'contained' : 'outlined'}
-            onClick={() => {
-              setEntryMode('custom');
-              setSelectedProduct(null);
-              setShowResults(false);
-            }}
-          >
-            Custom
-          </Button>
+        <Box>
+          <div style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: 10, color: '#1a2233' }}>
+            Common Materials
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(118px, 1fr))', gap: 8 }}>
+            {QUICK_TEMPLATES.map((template) => (
+              <Button
+                key={`${template.category}-${template.label}`}
+                variant="outlined"
+                size="small"
+                onClick={() => handleTemplateSelect(template)}
+                sx={{
+                  minHeight: 38,
+                  justifyContent: 'center',
+                  color: '#1a2233',
+                  borderColor: '#b8c9df',
+                  backgroundColor: searchQuery === template.part && materialCategory === template.category ? '#e8f2ff' : '#fff',
+                  textTransform: 'none',
+                  fontWeight: 700,
+                }}
+              >
+                {template.label}
+              </Button>
+            ))}
+          </div>
         </Box>
 
         {/* Category */}
@@ -524,30 +565,213 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
           </Select>
         </FormControl>
 
-        {/* Brand Filter */}
-        {entryMode === 'catalog' && (
-          <FormControl fullWidth size="small">
-            <InputLabel id="brand-filter-label">Brand</InputLabel>
-            <Select
-              labelId="brand-filter-label"
-              id="brand-filter"
-              value={manufacturerFilter}
-              onChange={(e) => {
-                setManufacturerFilter(e.target.value);
-                setSelectedProduct(null);
-              }}
-              label="Brand"
-            >
-              <MenuItem value="all">All Brands</MenuItem>
-              {availableManufacturers.map((manufacturer) => (
-                <MenuItem key={manufacturer} value={manufacturer.toLowerCase()}>
-                  {manufacturer}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        )}
+        <TextField
+          fullWidth
+          label="Material Name"
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setSelectedProduct(null);
+            if (entryMode === 'catalog') {
+              setShowCatalogLookup(true);
+            }
+          }}
+          placeholder='e.g., 2" 90 elbow, pendent head, beam clamp...'
+          variant="outlined"
+          required
+        />
 
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '110px 1fr' }, gap: 2 }}>
+          <TextField
+            fullWidth
+            type="number"
+            label="Qty"
+            value={qty}
+            onChange={(e) => {
+              const value = e.target.value;
+              setQty(value === '' ? 0 : parseInt(value));
+            }}
+            inputProps={{ min: 1 }}
+            required
+            sx={{
+              '& input[type=number]': {
+                MozAppearance: 'textfield',
+              },
+              '& input[type=number]::-webkit-outer-spin-button': {
+                WebkitAppearance: 'none',
+                margin: 0,
+              },
+              '& input[type=number]::-webkit-inner-spin-button': {
+                WebkitAppearance: 'none',
+                margin: 0,
+              },
+            }}
+          />
+          <TextField
+            fullWidth
+            label="Manufacturer (optional)"
+            value={customManufacturer}
+            onChange={(e) => setCustomManufacturer(e.target.value)}
+            placeholder="Any approved brand, or leave blank"
+            disabled={entryMode === 'catalog' && Boolean(selectedProduct)}
+          />
+        </Box>
+
+        <Box sx={{ border: '1px solid #d8e2ef', borderRadius: 1, backgroundColor: '#f8fbff', overflow: 'visible' }}>
+          <button
+            type="button"
+            onClick={() => {
+              const next = !showCatalogLookup;
+              setShowCatalogLookup(next);
+              setEntryMode(next ? 'catalog' : 'custom');
+              if (!next) {
+                setSelectedProduct(null);
+                setShowResults(false);
+                setSearchResults([]);
+              }
+            }}
+            style={{
+              width: '100%',
+              border: 'none',
+              background: 'transparent',
+              padding: '12px 14px',
+              textAlign: 'left',
+              color: '#1a2233',
+              fontWeight: 800,
+              cursor: 'pointer',
+            }}
+          >
+            {showCatalogLookup ? 'Hide Vendor Catalog Lookup' : 'Attach Vendor Catalog Reference'}
+          </button>
+
+          {showCatalogLookup && (
+            <Box sx={{ p: 2, pt: 0, overflow: 'visible' }}>
+              {dbLoading && (
+                <div style={{ marginBottom: 12, color: '#666', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <CircularProgress size={16} /> Loading catalog...
+                </div>
+              )}
+              {!dbLoading && !dbInitialized && (
+                <div style={{ marginBottom: 12, color: '#b45309', fontSize: '0.85rem' }}>
+                  Vendor catalog unavailable. Manual entry still works.
+                </div>
+              )}
+              {productCount > 0 && (
+                <div style={{ marginBottom: 12, color: '#666', fontSize: '0.85rem' }}>
+                  Optional lookup: {productCount} vendor products available
+                </div>
+              )}
+
+              {/* Brand Filter */}
+              <Stack spacing={2}>
+                <FormControl fullWidth size="small" disabled={!dbInitialized}>
+                  <InputLabel id="brand-filter-label">Brand</InputLabel>
+                  <Select
+                    labelId="brand-filter-label"
+                    id="brand-filter"
+                    value={manufacturerFilter}
+                    onChange={(e) => {
+                      setManufacturerFilter(e.target.value);
+                      setSelectedProduct(null);
+                    }}
+                    label="Brand"
+                  >
+                    <MenuItem value="all">All Brands</MenuItem>
+                    {availableManufacturers.map((manufacturer) => (
+                      <MenuItem key={manufacturer} value={manufacturer.toLowerCase()}>
+                        {manufacturer}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <div style={{ position: 'relative', overflow: 'visible' }} ref={inputRef}>
+                  <TextField
+                    fullWidth
+                    label="Search Vendor Catalog"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setSelectedProduct(null);
+                    }}
+                    placeholder={
+                      manufacturerFilter === 'all'
+                        ? `Search ${materialCategory.toLowerCase()} products...`
+                        : `Search ${manufacturerFilter.charAt(0).toUpperCase() + manufacturerFilter.slice(1)} products...`
+                    }
+                    variant="outlined"
+                    disabled={!dbInitialized}
+                    InputProps={{
+                      endAdornment: isSearching ? <CircularProgress size={20} /> : null,
+                    }}
+                  />
+                  {showResults && searchResults.length > 0 && (
+                    <div
+                      ref={dropdownRef}
+                      onMouseDown={(e) => e.preventDefault()}
+                      style={{
+                        position: 'absolute',
+                        top: 'calc(100% + 4px)',
+                        left: 0,
+                        right: 0,
+                        maxHeight: 300,
+                        overflowY: 'auto',
+                        backgroundColor: '#fff',
+                        border: '1px solid #ccc',
+                        borderRadius: 4,
+                        zIndex: 9999,
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                      }}
+                    >
+                      {searchResults.map((product, idx) => (
+                        <div
+                          key={`${product.id || idx}-${product.product_name}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectProduct(product);
+                          }}
+                          style={{
+                            padding: '12px 16px',
+                            cursor: 'pointer',
+                            borderBottom: '1px solid #eee',
+                            transition: 'background 0.15s',
+                            backgroundColor: '#fff',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#f5f5f5';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = '#fff';
+                          }}
+                        >
+                          <div style={{ fontWeight: 500, color: '#000' }}>
+                            {product.product_name || 'NO NAME'}
+                          </div>
+                          <div style={{ fontSize: '0.78rem', color: '#666', marginTop: 3 }}>
+                            {[product.manufacturer, product.normalized_category].filter(Boolean).join(' - ')}
+                          </div>
+                          {product.short_description && (
+                            <div style={{ fontSize: '0.78rem', color: '#555', marginTop: 4, lineHeight: 1.3 }}>
+                              {product.short_description}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {selectedProduct && (
+                  <div style={{ color: '#1a5f2b', fontSize: '0.85rem', fontWeight: 700 }}>
+                    Attached: {selectedProduct.manufacturer} - {selectedProduct.product_name}
+                  </div>
+                )}
+              </Stack>
+            </Box>
+          )}
+        </Box>
+
+        {showLegacyCatalogSearch && (
         <div style={{ position: 'relative', overflow: 'visible' }} ref={inputRef}>
           <TextField
             fullWidth
@@ -627,32 +851,7 @@ export default function LooseMaterialForm({ onAdd, initialValues, isEditing = fa
             </div>
           )}
         </div>
-
-        <TextField
-          fullWidth
-          type="number"
-          label="Quantity"
-          value={qty}
-          onChange={(e) => {
-            const value = e.target.value;
-            setQty(value === '' ? 0 : parseInt(value));
-          }}
-          inputProps={{ min: 1 }}
-          required
-          sx={{
-            '& input[type=number]': {
-              MozAppearance: 'textfield',
-            },
-            '& input[type=number]::-webkit-outer-spin-button': {
-              WebkitAppearance: 'none',
-              margin: 0,
-            },
-            '& input[type=number]::-webkit-inner-spin-button': {
-              WebkitAppearance: 'none',
-              margin: 0,
-            },
-          }}
-        />
+        )}
 
         {isReducingFitting ? (
           <Box sx={{ p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
