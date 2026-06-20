@@ -36,7 +36,7 @@ export default function MarketingLanding({ onAuth }: MarketingLandingProps) {
       window.open(stripeUpgradeUrl, '_blank', 'noopener,noreferrer');
       return;
     }
-    handleContactSales();
+    setShowAuth(true);
   };
 
   const updateSalesField = (field: keyof typeof salesForm, value: string) => {
@@ -162,8 +162,7 @@ export default function MarketingLanding({ onAuth }: MarketingLandingProps) {
           <button className="marketing-secondary-button" onClick={() => setShowAuth(true)}>Create Free Account</button>
         </article>
 
-        <article className="marketing-price-card marketing-price-card-featured marketing-price-card-disabled">
-          <div className="marketing-coming-soon-watermark">Coming Soon</div>
+        <article className="marketing-price-card marketing-price-card-featured">
           <div className="marketing-price-eyebrow">Pro</div>
           <h3>For growing fabrication operations</h3>
           <p>Keep production moving without project limits.</p>
@@ -173,7 +172,7 @@ export default function MarketingLanding({ onAuth }: MarketingLandingProps) {
             <li>Team-ready growth path</li>
             <li>Expanded project and material list capacity</li>
           </ul>
-          <button className="marketing-primary-button" onClick={handleUpgrade} disabled>Upgrade to Pro</button>
+          <button className="marketing-primary-button" onClick={handleUpgrade}>Upgrade to Pro</button>
         </article>
       </section>
 
