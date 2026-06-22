@@ -98,11 +98,11 @@ export default function MarketingLanding({ onAuth }: MarketingLandingProps) {
 
       <main className="marketing-main">
         <section className="marketing-hero">
-          <p className="marketing-kicker">Built for shop floor speed</p>
-          <h1>From takeoff to truck load, keep fabrication moving.</h1>
+          <p className="marketing-kicker">Built for organized field operations</p>
+          <h1>Keep every project organized, accessible, and moving.</h1>
           <p className="marketing-copy">
-            FieldFab gives foremen and fab crews one clean system for pipe pieces, welded outlets,
-            and loose material. Faster handoffs. Fewer misses. Clearer exports.
+            FieldFab gives field teams and fabrication crews one place to organize pipe pieces,
+            welded outlets, and loose material—accessible from the office, shop, or jobsite.
           </p>
           <div className="marketing-cta-row">
             <button className="marketing-primary-button" onClick={() => setShowAuth(true)}>
@@ -112,38 +112,38 @@ export default function MarketingLanding({ onAuth }: MarketingLandingProps) {
               Contact FieldFab Team
             </button>
           </div>
-          <div className="marketing-plan-note">Built for contractor workflows: job setup, pipe specs, outlet tracking, and export-ready sheets.</div>
+          <div className="marketing-plan-note">Keep project details clear, field information easy to reach, and every handoff organized.</div>
         </section>
 
         <section className="marketing-panel marketing-panel-steps">
-          <div className="marketing-panel-title">Daily Job Flow</div>
+          <div className="marketing-panel-title">Organized Project Flow</div>
           <div className="marketing-step">
             <span>01</span>
-            <div>Create project and enter job details.</div>
+            <div>Create each project and keep job details in one place.</div>
           </div>
           <div className="marketing-step">
             <span>02</span>
-            <div>Add pipe specs and welded outlets.</div>
+            <div>Organize pipe specs, welded outlets, and loose material.</div>
           </div>
           <div className="marketing-step">
             <span>03</span>
-            <div>Export fabrication sheets and loose material lists.</div>
+            <div>Access and export clear fabrication information from anywhere.</div>
           </div>
         </section>
       </main>
 
       <section className="marketing-metrics">
         <div className="marketing-metric-card">
-          <div className="marketing-metric-value">1 App</div>
-          <div className="marketing-metric-label">Shop + field handoff</div>
+          <div className="marketing-metric-value">One Workspace</div>
+          <div className="marketing-metric-label">Projects and materials organized</div>
         </div>
         <div className="marketing-metric-card">
-          <div className="marketing-metric-value">PDF + CSV</div>
-          <div className="marketing-metric-label">Export-ready formats</div>
+          <div className="marketing-metric-value">Field Access</div>
+          <div className="marketing-metric-label">Job information wherever you work</div>
         </div>
         <div className="marketing-metric-card">
-          <div className="marketing-metric-value">Mobile Ready</div>
-          <div className="marketing-metric-label">Works on jobsite devices</div>
+          <div className="marketing-metric-value">Clear Handoffs</div>
+          <div className="marketing-metric-label">Export-ready records for every team</div>
         </div>
       </section>
 
@@ -171,6 +171,7 @@ export default function MarketingLanding({ onAuth }: MarketingLandingProps) {
             <li>Priority support</li>
             <li>Team-ready growth path</li>
             <li>Expanded project and material list capacity</li>
+            <li>Early access to material ordering and tracking tools as they launch</li>
           </ul>
           <button className="marketing-primary-button" onClick={handleUpgrade}>Upgrade to Pro</button>
         </article>
